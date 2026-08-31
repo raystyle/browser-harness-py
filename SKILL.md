@@ -157,11 +157,17 @@ Two pieces: `x_supervisor.py` (self-healing loop) plus `x_worker.py` (the captur
 worker it spawns into a rmux pane). Agent-operated, no autostart.
 
 Run as rmux background sessions (reuse one shell; poll on demand — no blocking
-command):
+command). The worker runs against an **isolated agent Chrome** — never the
+user's own Chrome — via `BU_CDP_URL`.
 
-- Start (non-blocking — ensures the supervisor in a rmux pane and returns):
-  `browser-harness x-monitor`
-  -> creates rmux sessions `x-supervisor` (supervisor) and `x-monitor` (worker).
+- Start (non-blocking; launches the isolated Chrome if needed and the supervisor
+  in a rmux pane, then returns):
+  `agent-workspace/start-x-monitor.ps1`
+  -> isolated Chrome on `agent-chrome-profile` + port `9223`; rmux sessions
+     `x-supervisor` (supervisor) and `x-monitor` (worker).
+  Windows only; on macOS use `open -na "Google Chrome" --args --user-data-dir=...`
+  for the isolated profile, then `BU_CDP_URL=http://127.0.0.1:9223 browser-harness
+  x-monitor`.
 - Poll status/data anytime:
   `browser-harness rmux status`              # are both sessions alive?
   heartbeat freshness at `agent-workspace/x_worker.heartbeat`

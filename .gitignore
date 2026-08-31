@@ -13,3 +13,4 @@ build/
 dist/
 .idea/
 .claude/
+agent-chrome-profile/
