@@ -68,11 +68,22 @@ browser-harness mac-approve
 Continue browser work when it returns `ready`; otherwise follow its printed
 instruction.
 
-Chrome 144+ shows a per-connection "Allow remote debugging?" prompt. Before
-triggering a connection, tell the user to expect the prompt and to click Allow
-(authorize); wait for their confirmation before retrying, and never poll in a
-tight loop while the prompt is unanswered. Keep these steps non-blocking and
-wizard-style: announce → user authorizes → confirm → continue.
+Chrome 144+ shows a per-connection "Allow remote debugging?" prompt. Keep these
+steps non-blocking and wizard-style: announce → user authorizes → confirm →
+continue. When command output contains a blocking signal, stop and tell the user
+exactly what to click — never retry in a loop or leave them staring at a dialog:
+
+| Signal in output | Tell the user to... |
+| --- | --- |
+| `Chrome is asking "Allow remote debugging?"` | click the Chrome popup's Allow button |
+| `permission-blocked: ... not been accepted` | the previous attempt timed out; the popup is asking again — click Allow now, then retry once |
+| `handshake-wait: ... popup, click Allow` | click Allow in the Chrome popup |
+| `remote debugging is turned off ... chrome://inspect/#remote-debugging` | open chrome://inspect/#remote-debugging and tick "Allow remote debugging" |
+| macOS `mac-approve` / popup | run `browser-harness mac-approve` or click Allow |
+
+Approval is per-connection: each new daemon handshake can show the popup again.
+After the user clicks Allow, verify with `browser-harness --doctor` that
+`active browser connections` is `1` before continuing.
 
 ## Remote Browsers
 
