@@ -7,6 +7,7 @@ Usage:
     uv run python agent-workspace/x_search.py --recent [--limit N]
     uv run python agent-workspace/x_search.py --since 1h [--limit N]
     uv run python agent-workspace/x_search.py --since 2d --group-by day
+    uv run python agent-workspace/x_search.py --stats
     uv run python agent-workspace/x_search.py <keyword> --csv [--csv-out path.csv]
 
 Options:
@@ -15,6 +16,7 @@ Options:
     --recent             newest first (no keyword required)
     --since 30s|10m|1h|2d|1w   only tweets captured in the last duration
     --group-by day|hour  group output by capture time
+    --stats              print store totals / ranges / top authors
     --csv                print CSV to stdout
     --csv-out path       write CSV to a file
 """
@@ -56,6 +58,7 @@ def _parse(argv):
     group_by = None
     csv_mode = False
     csv_path = None
+    stats = False
     i = 0
     while i < len(argv):
         a = argv[i]
@@ -73,10 +76,12 @@ def _parse(argv):
             csv_mode = True; i += 1; continue
         if a == "--csv-out":
             csv_path = argv[i + 1]; csv_mode = True; i += 2; continue
+        if a == "--stats":
+            stats = True; i += 1; continue
         if not a.startswith("--"):
             kw = a
         i += 1
-    return kw, limit, author, recent, since, group_by, csv_mode, csv_path
+    return kw, limit, author, recent, since, group_by, csv_mode, csv_path, stats
 
 
 def _query(kw, limit, author, since):
@@ -143,10 +148,37 @@ def _write_csv(rows, path):
         print(f"wrote {len(rows)} rows to {path}", file=sys.stderr)
 
 
+def _stats():
+    con = sqlite3.connect(DB)
+    con.row_factory = sqlite3.Row
+    total = con.execute("SELECT COUNT(*) n FROM tweets").fetchone()["n"]
+    handles = con.execute("SELECT COUNT(DISTINCT handle) n FROM tweets WHERE handle != ''").fetchone()["n"]
+    posted = con.execute(
+        "SELECT MIN(posted_at) mn, MAX(posted_at) mx FROM tweets WHERE posted_at != ''"
+    ).fetchone()
+    seen = con.execute("SELECT MIN(first_seen_at) mn, MAX(first_seen_at) mx FROM tweets").fetchone()
+    top = con.execute(
+        "SELECT handle, COUNT(*) n FROM tweets WHERE handle != '' "
+        "GROUP BY handle ORDER BY n DESC, MAX(first_seen_at) DESC LIMIT 10"
+    ).fetchall()
+    con.close()
+    print("total_tweets:", total)
+    print("distinct_authors:", handles)
+    print("posted_range:", (posted["mn"] or "-"), "->", (posted["mx"] or "-"))
+    print("seen_range:", (seen["mn"] or "-"), "->", (seen["mx"] or "-"))
+    if top:
+        print("top_authors:")
+        for r in top:
+            print(f"  @{r['handle']}: {r['n']}")
+
+
 def main():
-    kw, limit, author, recent, since, group_by, csv_mode, csv_path = _parse(sys.argv[1:])
+    kw, limit, author, recent, since, group_by, csv_mode, csv_path, stats = _parse(sys.argv[1:])
+    if stats:
+        _stats()
+        return
     if not kw and not recent and since is None:
-        print("usage: uv run python agent-workspace/x_search.py <keyword>|--recent|--since <dur> [options]")
+        print("usage: uv run python agent-workspace/x_search.py <keyword>|--recent|--since <dur>|--stats [options]")
         sys.exit(2)
     rows = _query(kw, limit, author, since)
     if csv_mode:

@@ -148,6 +148,8 @@ When the user asks to analyze:
 - "存的推 / 搜推 / 关键词 / 谁发的" → query the store without the browser:
   `uv run python agent-workspace/x_search.py <keyword>` (`--author X`, `--limit N`,
   `--group-by day|hour`, `--csv [--csv-out path.csv]`)
+- "存了多少 / 统计 / 谁发得多" → `uv run python agent-workspace/x_search.py --stats`
+  (totals, distinct authors, posted/seen range, top authors)
 
 ## Search (Google / Bing)
 
