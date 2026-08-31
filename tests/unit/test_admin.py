@@ -1,4 +1,6 @@
+import os
 import signal
+import sys
 from pathlib import Path
 
 import pytest
@@ -36,6 +38,7 @@ class FakeProcess:
         self.terminated = True
 
 
+@pytest.mark.skipif(not hasattr(os, "killpg"), reason="os.killpg is POSIX-only")
 def test_cleanup_unattached_browser_launch_stops_posix_process_group(monkeypatch):
     process = FakeProcess()
     killed = []
@@ -48,6 +51,7 @@ def test_cleanup_unattached_browser_launch_stops_posix_process_group(monkeypatch
     assert killed == [(123, signal.SIGTERM)]
 
 
+@pytest.mark.skipif(not hasattr(os, "killpg"), reason="os.killpg is POSIX-only")
 def test_cleanup_unattached_browser_launch_keeps_cdp_browser(monkeypatch):
     process = FakeProcess()
     monkeypatch.setattr("browser_harness.daemon._devtools_port_live", lambda _profile: True)
@@ -66,6 +70,7 @@ def test_cleanup_unattached_browser_launch_ignores_unowned_launch(monkeypatch):
 
 
 @pytest.mark.parametrize("env_key", ["BH_CHROME_PATH", "CHROME_PATH"])
+@pytest.mark.skipif(not hasattr(os, "killpg"), reason="os.killpg is POSIX-only")
 def test_explicit_chrome_path_retains_matching_profile_on_linux(monkeypatch, tmp_path, env_key):
     binary = tmp_path / "google-chrome-stable"
     binary.touch()
@@ -94,6 +99,7 @@ def test_explicit_chrome_path_retains_matching_profile_on_linux(monkeypatch, tmp
 
 
 @pytest.mark.parametrize("system", ["Darwin", "Windows"])
+@pytest.mark.skipif(not hasattr(os, "killpg"), reason="os.killpg is POSIX-only")
 def test_explicit_chrome_path_remains_unowned_without_platform_cleanup(monkeypatch, tmp_path, system):
     binary = tmp_path / ("chrome.exe" if system == "Windows" else "Google Chrome")
     binary.touch()
@@ -373,6 +379,7 @@ def test_is_snap_browser(path, expected):
     assert admin._is_snap_browser(path) == expected
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="symlink creation requires Developer Mode on Windows")
 def test_doctor_probe_preserves_snap_bin_env_symlink(monkeypatch, tmp_path):
     target = tmp_path / "usr" / "bin" / "snap"
     target.parent.mkdir(parents=True)
@@ -392,6 +399,7 @@ def test_doctor_probe_preserves_snap_bin_env_symlink(monkeypatch, tmp_path):
     assert admin._is_snap_browser(path)
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="symlink creation requires Developer Mode on Windows")
 def test_doctor_probe_preserves_snap_bin_path_symlink(monkeypatch, tmp_path):
     target = tmp_path / "usr" / "bin" / "snap"
     target.parent.mkdir(parents=True)
