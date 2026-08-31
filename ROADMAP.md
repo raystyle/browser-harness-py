@@ -7,17 +7,22 @@
 | 阶段 | 目标 | 状态 |
 | --- | --- | --- |
 | 0 | 基础设施：个人 fork 分支维护 + 项目结构对齐 | 已完成 |
-| 1 | 与上游保持干净同步 + 本地开发验证 | 进行中 |
-| 2 | 按需扩展：agent-workspace 领域技能 / examples / 工具脚本 | 未开始 |
+| 1 | Windows 测试：doctor + 冒烟 + 单元 190/190 | 进行中 |
+| 2 | macOS 接管：mac-approve + 冒烟 + 单元/集成 | 未开始 |
+| 3 | Linux（可选）+ 按需扩展 | 未开始 |
 
 ## 阶段 0：基础设施
 
 个人 fork 远程（origin/mine）、`dev/work` 分支、三原语与总索引、docs 六目录。
 
-## 阶段 1：同步与验证
+## 阶段 1：Windows 测试
 
-用 `git switch main && git pull --ff-only origin main && git switch dev/work && git merge main` 保持与上游同步；用 `./browser-harness --doctor` 与 `uv run --with pytest python -m pytest tests/unit -q` 做本地验证。
+`./browser-harness --doctor` + 真实 Chrome 冒烟（`print(page_info())` 复用会话）+ 单元测试 190/190（修 9 个 Windows 环境用例）。
 
-## 阶段 2：扩展
+## 阶段 2：macOS 接管
 
-按需扩充 `agent-workspace\domain-skills\`、`examples\`、`.tools\` 脚本。
+`./browser-harness mac-approve`（Accessibility 授权）+ doctor + 冒烟 + 单元/集成全绿。
+
+## 阶段 3：扩展
+
+Linux 冒烟（Snap CDP 阻断见 `docs\snap-linux-headless.md`）+ 按需扩充 `agent-workspace\` / `examples\` / `.tools\`。

@@ -4,17 +4,20 @@
 
 ## 当前目标
 
-项目结构对齐 ohmyagents（对应 `GOAL.md`，登记日 2026-08-31）。
+browser-harness 测试（Windows 收尾 + macOS 接管），对应 `GOAL.md`，登记日 2026-08-31。
 
 ## 任务进度清单
 
 | 任务项 | 进度 | 说明 | 日期 |
 | --- | --- | --- | --- |
-| fork 分支维护 | 已完成 | `mine` 远程、`dev/work` 分支、AGENTS.md LOCAL-FORK-WORKFLOW 段 | 2026-08-31 |
-| 三原语与总索引 | 已完成 | GOAL / PLAN / TODO / INDEX | 2026-08-31 |
-| ROADMAP / CHANGELOG | 已完成 | 阶段路线与版本成果 | 2026-08-31 |
-| docs 六目录 + guide 模板 | 已完成 | proven / diary / research / references / guide / mistakes | 2026-08-31 |
-| 上游同步演练 | 待办 | `git switch main && git pull --ff-only origin main && git switch dev/work && git merge main` | — |
+| Windows doctor | 已完成 | chrome running / daemon alive / 1 连接 | 2026-08-31 |
+| Windows 真实 Chrome 冒烟 | 已完成 | page_info 返回真实标签页（会话复用） | 2026-08-31 |
+| Windows 单元测试 | 进行中 | 181/190，9 个 Windows 环境失败待修 | 2026-08-31 |
+| Windows 只读冒烟扩展 | 待办 | list_tabs / js / 截图 | — |
+| 集成测试 test_js.py | 待办 | mock，无需 CDP | — |
+| 修 9 个 Windows 用例 | 待办 | killpg / symlink / SKILL.md 软链 → skipif(win32) | — |
+| macOS 接管 | 待办 | 环境 + mac-approve + 冒烟 + 单元/集成 | — |
+| Linux（可选） | 待办 | 冒烟 + 单元（Snap CDP 阻断） | — |
 
 ## 队列目标
 

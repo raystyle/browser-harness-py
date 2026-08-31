@@ -21,14 +21,14 @@
 
 ## 进程
 
-- 当前目标（进行中）：项目结构对齐 ohmyagents；fork 分支维护已就绪。
+- 当前目标（进行中）：browser-harness 测试（Windows 收尾 + macOS 接管）；fork 分支维护与项目结构已就绪。
 
 ## 历史
 
 | 日期 | 目标 | 结果 |
 | --- | --- | --- |
 | 2026-08-31 | 个人 fork 分支维护（deepseek-harness 模式） | 达成：mine 远程 + dev/work 分支 + fork 工作流文档 |
-| 2026-08-31 | 项目结构对齐 ohmyagents | 进行中 |
+| 2026-08-31 | 项目结构对齐 ohmyagents | 达成：三原语 + INDEX + docs 六目录 |
 
 ## 维护规则
 
