@@ -95,18 +95,58 @@ def _tid(target):
 
 
 def _foreground(target):
-    """Bring the X tab's window to the foreground so throttled JS resumes."""
+    """Bring the X tab to a small taskbar-docked window so throttled JS resumes."""
     tid = _tid(target)
     if not tid:
         return
     try:
         r = helpers.cdp("Browser.getWindowForTarget", targetId=tid)
         wid = r.get("windowId")
-        if wid is not None:
+        if wid is None:
+            return
+        docked = _dock_bounds()
+        if docked:
+            # Chrome applies windowState and bounds as separate steps.
+            helpers.cdp("Browser.setWindowBounds", windowId=wid, bounds={"windowState": "normal"})
+            x, y, w, h = docked
+            helpers.cdp("Browser.setWindowBounds", windowId=wid, bounds={
+                "left": x, "top": y, "width": w, "height": h,
+            })
+        else:
             helpers.cdp("Browser.setWindowBounds", windowId=wid, bounds={"windowState": "normal"})
         helpers.cdp("Target.activateTarget", targetId=tid)
     except Exception:
         pass
+
+
+def _dock_bounds():
+    """Small window bounds docked next to the taskbar, off the desktop center."""
+    try:
+        import json
+
+        raw = helpers.js(
+            "JSON.stringify({w: screen.availWidth, h: screen.availHeight, "
+            "l: screen.availLeft, t: screen.availTop, sw: screen.width, sh: screen.height})"
+        )
+        s = json.loads(raw or "{}")
+        aw = int(s.get("w") or 0)
+        ah = int(s.get("h") or 0)
+        al = int(s.get("l") or 0)
+        at = int(s.get("t") or 0)
+        sw = int(s.get("sw") or aw or 0)
+        if not aw or not ah:
+            return None
+        w = min(520, aw)
+        h = min(380, ah)
+        x = al + aw - w
+        y = at + ah - h
+        if at > 0:
+            y = at  # taskbar on top
+        elif al > 0:
+            x = al  # taskbar on left
+        return max(0, x), max(0, y), w, h
+    except Exception:
+        return None
 
 
 def _restore_window(target, state):

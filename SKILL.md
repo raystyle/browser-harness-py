@@ -140,9 +140,10 @@ boot autostart.
 - Stop: `browser-harness rmux kill x-monitor`
 
 The worker refreshes every `X_INTERVAL` seconds (default 45). When the X page is
-hidden (minimized / background tab), it briefly brings the window to the
-foreground to defeat Chrome's intensive throttling, captures, then minimizes the
-window again — so capture keeps flowing without the browser staying in front.
+hidden (minimized / background tab), it shrinks the window to a small pane docked
+next to the taskbar, activates the tab to defeat Chrome's intensive throttling,
+captures, then minimizes the window again — so capture keeps flowing without
+taking over the desktop.
 
 Tweets are stored in `agent-workspace/x_tweets.db` (deduped, WAL, searchable).
 When the user asks to analyze:
