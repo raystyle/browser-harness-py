@@ -49,12 +49,12 @@ The agent-built apps live in `agent-workspace/`. Route by intent:
 
 | User intent | App / command |
 | --- | --- |
-| X 持续抓推 / 监控新推（自愈） | `uv run python agent-workspace/x_supervisor.py` |
-| X 已存推的查询 / 搜索 / 统计 | `uv run python agent-workspace/x_search.py ...` |
+| X 持续抓推 / 监控新推（自愈） | `browser-harness x monitor` |
+| X 已存推的查询 / 搜索 / 统计 | `browser-harness x search ...` |
 | Google 搜索 | `google_search()` in a browser script |
 | Bing 搜索 | `bing_search()` in a browser script |
-| 网页正文提取 | `uv run python agent-workspace/page_text.py <url>` |
-| rmux 会话管理 | `browser-harness rmux list\|new\|ensure\|send\|keys\|capture\|kill\|version` |
+| 网页正文提取 | `browser-harness x page-text <url>` |
+| rmux 会话管理 | `browser-harness rmux list\|new\|ensure\|...` |
 
 ## Local Chrome
 
@@ -157,7 +157,7 @@ Two pieces: `x_supervisor.py` (self-healing loop) plus `x_worker.py` (the captur
 worker it spawns into a rmux pane). Agent-operated, no autostart.
 
 - Start the self-healing monitor (run it in the background or a rmux pane):
-  `uv run python agent-workspace/x_supervisor.py`
+  `browser-harness x monitor`
 - Or start just the worker without the supervisor (idempotent, fixed
   `-L browser-harness` label):
   `browser-harness rmux ensure x-monitor --command "<py> agent-workspace/x_worker.py"`
@@ -184,12 +184,12 @@ Tweets are stored in `agent-workspace/x_tweets.db` (deduped, WAL, searchable).
 When the user asks to analyze:
 
 - "新推 / 最新推 / 刚抓到的 / 最近 1 小时" → report recent captures without the browser:
-  `uv run python agent-workspace/x_search.py --recent --limit N` or `--since 1h`
+  `browser-harness x search --recent --limit N` or `--since 1h`
   or read the live timeline through the browser when "right now" matters.
 - "存的推 / 搜推 / 关键词 / 谁发的" → query the store without the browser:
-  `uv run python agent-workspace/x_search.py <keyword>` (`--author X`, `--limit N`,
+  `browser-harness x search <keyword>` (`--author X`, `--limit N`,
   `--group-by day|hour`, `--csv [--csv-out path.csv]`)
-- "存了多少 / 统计 / 谁发得多" → `uv run python agent-workspace/x_search.py --stats`
+- "存了多少 / 统计 / 谁发得多" → `browser-harness x search --stats`
   (totals, distinct authors, posted/seen range, top authors)
 
 ## Search (Google / Bing)
@@ -224,11 +224,11 @@ language, site, word_count, markdown, text, content_html, engine}`.
 Or from the shell (no browser needed for public pages):
 
 ```bash
-uv run python agent-workspace/page_text.py "https://example.com/article"          # markdown
-uv run python agent-workspace/page_text.py "https://example.com/article" --text   # plain text
-uv run python agent-workspace/page_text.py "https://example.com/article" --json    # full metadata
-uv run python agent-workspace/page_text.py "https://x.com/home" --browser          # reuse session
-uv run python agent-workspace/page_text.py --current                                # current tab
+browser-harness x page-text "https://example.com/article"          # markdown
+browser-harness x page-text "https://example.com/article" --text   # plain text
+browser-harness x page-text "https://example.com/article" --json    # full metadata
+browser-harness x page-text "https://x.com/home" --browser          # reuse session
+browser-harness x page-text --current                                # current tab
 ```
 
 Engine order: `pydefuddle` (Python, install with `pip install browser-harness[content]`),

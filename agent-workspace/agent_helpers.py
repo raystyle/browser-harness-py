@@ -62,29 +62,33 @@ def setup_browser_apps():
 
 def google_search(query, limit=10):
     """Search Google in its own tab (reused) and return ``[{title, url}, ...]``."""
-    from browser_harness.helpers import goto_url, wait_for_load, wait_for_element
+    from browser_harness.helpers import goto_url, wait_for_load, wait_for_element, switch_tab
 
-    ensure_app_tab("google.com", "https://www.google.com")
+    tid = ensure_app_tab("google.com", "https://www.google.com")
+    switch_tab(tid, activate=False)  # re-attach in case the X worker moved it
     goto_url("https://www.google.com/search?q=" + urllib.parse.quote(query))
     wait_for_load(timeout=20)
     try:
         wait_for_element('a[href^="http"]', timeout=10)
     except Exception:
         pass
+    switch_tab(tid, activate=False)  # re-attach before extracting
     return _extract_links(limit, "google.")
 
 
 def bing_search(query, limit=10):
     """Search Bing in its own tab (reused) and return ``[{title, url}, ...]``."""
-    from browser_harness.helpers import goto_url, wait_for_load, wait_for_element
+    from browser_harness.helpers import goto_url, wait_for_load, wait_for_element, switch_tab
 
-    ensure_app_tab("bing.com", "https://www.bing.com")
+    tid = ensure_app_tab("bing.com", "https://www.bing.com")
+    switch_tab(tid, activate=False)  # re-attach in case the X worker moved it
     goto_url("https://www.bing.com/search?q=" + urllib.parse.quote(query))
     wait_for_load(timeout=20)
     try:
         wait_for_element('a[href^="http"]', timeout=10)
     except Exception:
         pass
+    switch_tab(tid, activate=False)  # re-attach before extracting
     return _extract_links(limit, "bing.")
 
 
