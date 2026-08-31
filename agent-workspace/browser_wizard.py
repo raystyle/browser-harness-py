@@ -86,33 +86,47 @@ def main():
     print("== browser-harness setup wizard ==", flush=True)
 
     if not _chrome_running():
-        print("[1/4] Chrome not running -> auto-opening...", flush=True)
+        print("[1/5] Chrome not running -> auto-opening...", flush=True)
         _auto_open()
         if not _wait(_chrome_running, 20):
             print("  [REMIND] Chrome didn't open. Open it manually, then rerun.", flush=True)
             return 1
-    print("[1/4] Chrome running: ok", flush=True)
+    print("[1/5] Chrome running: ok", flush=True)
 
     if not _remote_debugging_enabled():
-        print("[2/4] Remote debugging not enabled.", flush=True)
+        print("[2/5] Remote debugging not enabled.", flush=True)
         print("  [REMIND] Enable chrome://inspect/#remote-debugging -> 'Allow remote debugging'.", flush=True)
         webbrowser.open("chrome://inspect/#remote-debugging")
         if not _wait(_remote_debugging_enabled, 60, 2):
             print("  [REMIND] Still not enabled. Tick the toggle, then rerun.", flush=True)
             return 1
-    print("[2/4] Remote debugging enabled: ok", flush=True)
+    print("[2/5] Remote debugging enabled: ok", flush=True)
 
     if not _browser_ready():
-        print("[3/4] Connecting daemon (click 'Allow remote debugging?' if Chrome asks).", flush=True)
+        print("[3/5] Connecting daemon (click 'Allow remote debugging?' if Chrome asks).", flush=True)
         _run_browser("print(page_info())")
         if not _wait(_browser_ready, 30, 1):
             print("  [REMIND] Click 'Allow remote debugging?' in Chrome, then rerun.", flush=True)
             return 1
-    print("[3/4] Daemon connected: ok", flush=True)
+    print("[3/5] Daemon connected: ok", flush=True)
 
-    print("[4/4] Setting up app tabs (X / Google / Bing)...", flush=True)
+    print("[4/5] Setting up app tabs (X / Google / Bing)...", flush=True)
     out = _run_browser("print(setup_browser_apps())")
     print("  tabs: " + " ".join(out.strip().split())[:240], flush=True)
+
+    print("[5/5] Scanning tabs for Cloudflare / anti-bot blocks...", flush=True)
+    out = _run_browser("import json; print(json.dumps(scan_tabs_for_blocks(), ensure_ascii=False))")
+    try:
+        blocks = json.loads(out.strip().splitlines()[-1])
+    except Exception:
+        blocks = {}
+    if blocks:
+        print("  [ALERT] blocked tabs detected:", flush=True)
+        for url, sigs in blocks.items():
+            print(f"    {url[:90]} -> {sigs}", flush=True)
+    else:
+        print("  no blocks detected", flush=True)
+
     print("DONE — browser operable, one tab per app.", flush=True)
     return 0
 

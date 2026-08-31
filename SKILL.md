@@ -160,6 +160,38 @@ google_search("rust web framework", limit=5)
 bing_search("rust web framework", limit=5)
 ```
 
+## Page content extraction (defuddle)
+
+To read the clean text of a web page (article / docs / any URL), use defuddle.
+It strips nav, ads, and boilerplate and returns the main content as Markdown +
+metadata. Prefer a plain fetch for public pages; use the browser only for
+logged-in or JS-only pages.
+
+In a browser script:
+
+```python
+extract_url_content("https://example.com/article", markdown=True)             # plain HTTP
+extract_url_content("https://x.com/home", markdown=True, use_browser=True)    # reuse session
+extract_page_content(markdown=True)                                           # current tab
+```
+
+Returns `{title, url, domain, author, published, description, image, favicon,
+language, site, word_count, markdown, text, content_html, engine}`.
+
+Or from the shell (no browser needed for public pages):
+
+```bash
+uv run python agent-workspace/page_text.py "https://example.com/article"          # markdown
+uv run python agent-workspace/page_text.py "https://example.com/article" --text   # plain text
+uv run python agent-workspace/page_text.py "https://example.com/article" --json    # full metadata
+uv run python agent-workspace/page_text.py "https://x.com/home" --browser          # reuse session
+uv run python agent-workspace/page_text.py --current                                # current tab
+```
+
+Engine order: `pydefuddle` (Python, install with `pip install browser-harness[content]`),
+then `npx defuddle` (Node CLI), then a stdlib/bs4 fallback. The `engine` field says
+which one was used.
+
 ## Browser availability
 
 To know whether there is an operable browser (Chrome running + remote debugging

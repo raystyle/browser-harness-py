@@ -45,7 +45,7 @@
 
 ## 五、研究 / 参考 / 元规范 / 错误
 
-- 研究（S）：`S001-patchright与CDP-Patches集成研究.md`、`S002-rmux集成研究.md`
+- 研究（S）：`S001-patchright与CDP-Patches集成研究.md`、`S002-rmux集成研究.md`、`S003-defuddle网页正文提取研究.md`
 - 参考（R）：`docs\references\`（暂无）
 - 元规范（G）：`G001-文档标准细则-命名写作规范.md`、`template.md`
 - 错误（M）：`docs\mistakes\`（暂无）

@@ -30,6 +30,7 @@ dependencies = [
 
 [project.optional-dependencies]
 mcp = ["mcp>=2.0.0,<3"]
+content = ["pydefuddle>=0.1.0"]
 
 [project.scripts]
 browser-harness = "browser_harness.run:main"
