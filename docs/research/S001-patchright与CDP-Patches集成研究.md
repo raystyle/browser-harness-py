@@ -7,8 +7,9 @@
 
 - **patchright** = Playwright 的免检测 fork，只支持 Chromium/Chrome，Apache-2.0。Python 包叫 `patchright`，Node 包叫 `patchright-nodejs`，两者共用同一个 patched driver（`patchright install chromium|chrome` 下载）。
 - **browser-harness** 是「薄 CDP 层」：用 `cdp-use` 附着到用户**真实 Chrome**（远程调试 / 本机 / Browser Use Cloud），agent 通过 `cdp(method, ...)` 原语写 helper。真实浏览器天然无 `navigator.webdriver`、指纹真实、登录态真实——这部分 stealth 优势已经具备。
-- 源码确认 browser-harness 只发送极少的 CDP 方法，**不发送 `Runtime.enable` / `Console.enable`**（patchright 最大的两个补丁），因此这两处不适用。真正适用的缺口只有 **`Input.dispatchMouseEvent/KeyEvent`（输入域 page==screen 坐标、缺 CoalescedEvent）**，由 `cdp-patches`（OS 级输入）修复。
-- **推荐**：主集成 = 移植 stealth 补丁（输入改 OS 级 + 审计 Runtime/Console）；可选 = 把 patchright 作为「一次性隐身浏览器」后端。
+- 源码确认 browser-harness 只发送极少的 CDP 方法，**不发送 `Runtime.enable` / `Console.enable`**（patchright 最大的两个补丁），因此这两处不适用。
+- **POC 实证（Chrome Dev 154.0.8025.0，125% DPI）**：CDP `Input.dispatchMouseEvent` 与 OS 级 `WM_LBUTTONDOWN/UP` 两种方式下 `screenX != pageX`、`is_bot` 均为 false——输入域 page==screen 泄漏在 Chrome 142+ 已修复，本机同样不存在。
+- **结论：不建议集成**。browser-harness 附着真实浏览器，patchright 解决的两大问题（Runtime.enable、command flags）本就不存在，输入域泄漏又被新版 Chrome 修掉了；OS 级输入「只能作用于活动标签页」的局限反而更差，不构成收益。
 
 ## 组件一览
 
@@ -33,8 +34,21 @@
 | `Runtime.enable` | 用 isolated ExecutionContext，不发 Runtime.enable | 不发送（只用 `Runtime.evaluate`） | 不适用 |
 | `Console.enable` | 整体禁用 Console API | 不发送 | 不适用 |
 | command flags（`--enable-automation` 等） | 改默认 args | 不注入自动化旗标 | 不适用（已干净） |
-| `Input.dispatch*`（page==screen、无 CoalescedEvent） | 不处理（Playwright 本身用 CDP Input） | 用 CDP Input | **适用**，用 `cdp-patches` 修 |
+| `Input.dispatch*`（page==screen、无 CoalescedEvent） | 不处理（Playwright 本身用 CDP Input） | 用 CDP Input | 不适用（Chrome 142+ 已修复；实测 154 无泄漏） |
 | Closed Shadow Root | 支持交互与 XPath | 未覆盖 | 可选移植 |
+
+## POC 实证（2026-08-31）
+
+探针 `examples\poc-os-input.py`（纯 ctypes，无 GPL 依赖）起一个临时 Chrome Dev 154.0.8025.0（125% DPI，临时 profile），在按钮点击事件里记录 `pageX/pageY/screenX/screenY`，用两种方式各点一次并对比：
+
+| 输入方式 | pageX/pageY | screenX/screenY | `is_bot`（page==screen） |
+| --- | --- | --- | --- |
+| CDP `Input.dispatchMouseEvent` | 200 / 125 | 218 / 222 | **false**（无泄漏） |
+| OS 级 `WM_LBUTTONDOWN/UP` | 200 / 125 | 218 / 222 | **false**（无泄漏） |
+
+滚动：OS 级 `WM_MOUSEWHEEL` 使 `window.scrollY` 从 0 → 100，生效。
+
+结论：本机 Chrome 上 CDP 输入域已正确产出 `screenX != pageX`，`cdp-patches` 要修的那个泄漏已被 Chrome 上游修复（crbug#1477537，Chrome 142+），因此无集成价值。
 
 ## 集成方案
 
@@ -68,10 +82,11 @@
 
 - `patchright`（driver + python + nodejs）Apache-2.0，与 browser-harness 的 MIT 兼容。
 - `cdp-patches` 是 **GPL**，copyleft；作为 Python 依赖引入有许可证传播风险，需评估后决定是否内置或替换为自己实现的 OS 级输入。
+- `cdp-patches` 的 Windows 实现只是「按 PID 找 `Chrome_RenderWidgetHostHWND` + `PostMessage` WM_LBUTTONDOWN/UP、WM_MOUSEWHEEL」，用 ctypes 自写约 50 行即可绕开 GPL（见 `examples\poc-os-input.py`）。
 - patchright 只支持 Chromium；Console API 被禁用（功能取舍）；输入域泄漏在 Chrome v142+ 已修复（`cdp-patches` 自身 README 标注）。
 
 ## 下一步
 
 1. ~~核实 `Runtime.enable` / `Console.enable`~~ 已确认不发送：`cdp-use` 的 `CDPClient.start()` 仅连 WebSocket，`send_raw` 只发目标方法，无自动 enable；browser-harness 源码也未见 `Runtime.enable` / `Console.enable`。
-2. 原型验证 `cdp-patches` 在真实 Chrome 上的输入效果与 GPL 风险。
-3. 若走方案 B，在 `pyproject.toml` 增加可选依赖 `stealth = ["patchright"]`。
+2. ~~原型验证输入域泄漏~~ POC 已实证：Chrome 154 上 CDP 输入与 OS 输入 `screenX != pageX`，泄漏已修复（`examples\poc-os-input.py`）。
+3. 结论：**不建议集成 patchright / cdp-patches**。如未来确需「一次性隐身浏览器」再单独评估方案 B。

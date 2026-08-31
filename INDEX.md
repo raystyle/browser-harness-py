@@ -17,6 +17,7 @@
 | 配置 | `pyproject.toml` | 依赖与打包（uv / setuptools，`requires-python >=3.11`） |
 | 测试 | `tests\` | `unit`（无浏览器）+ `integration`（需 CDP） |
 | 技能 | `skills\` / `interaction-skills\` / `agent-workspace\` | skill 与 agent 可写区 |
+| 示例 | `examples\` | 研究/验证用 POC 探针（不参与打包） |
 | 入口 | `browser-harness` / `mcp_server.py` | 本地启动器与 MCP 服务 |
 
 **代码文件位置**：
@@ -30,6 +31,7 @@
 | `src\browser_harness\_ipc.py` / `auth.py` / `paths.py` / `macos.py` / `recorder.py` / `telemetry.py` / `video.py` / `video_render.py` | 支撑模块 |
 | `mcp_server.py` | MCP stdio 工具暴露 |
 | `tests\unit\` / `tests\integration\` | 分层测试 |
+| `examples\poc-os-input.py` | OS 级输入 vs CDP 输入域泄漏实证（S001 依据，Windows） |
 
 ## 三、方案归档
 
