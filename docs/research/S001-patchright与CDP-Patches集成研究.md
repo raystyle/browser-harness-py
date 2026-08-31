@@ -50,6 +50,16 @@
 
 结论：本机 Chrome 上 CDP 输入域已正确产出 `screenX != pageX`，`cdp-patches` 要修的那个泄漏已被 Chrome 上游修复（crbug#1477537，Chrome 142+），因此无集成价值。
 
+## 跨平台结论（Linux / macOS）
+
+结论与 Windows 一致：**三处泄漏都不构成集成理由**，因为它们是 Chromium/协议层，而非 OS 层。
+
+- `Runtime.enable` / `Console.enable` / command flags：browser-harness 的 `src\browser_harness\` 与启动逻辑三端共用，同样不发送 / 不注入自动化旗标。
+- 输入域 page==screen 泄漏：crbug#1477537 的修复在 Chromium 主线（Chrome 142+），Windows / Linux / macOS 的 Chrome 同样受益。
+- `cdp-patches` 平台现状：**macOS 不支持**（`__init__` 发 RuntimeWarning，`SyncInput` 直接 SystemError）；**Linux 用 Xlib/XTEST**（依赖 X11，Wayland 原生不可靠）；且包导入时自带 DeprecationWarning「no reason to use this package anymore」。
+
+唯一例外：`cdp-patches` 自述仅对「原生 `<select>` 下拉」仍有价值（crbug#40943840，功能问题而非反检测），与 stealth 无关。
+
 ## 集成方案
 
 ### 方案 A：移植 stealth 补丁（推荐主集成）
