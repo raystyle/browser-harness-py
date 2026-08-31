@@ -43,6 +43,21 @@ PY
   invent a `Runtime.evaluate` scroll replacement or a cross-frame JS walker.
 - The normal local flow attaches to the running Chrome/Chromium CDP endpoint. No browser ids or local profile selection.
 
+## Apps routing
+
+The agent-built apps live in `agent-workspace/`. Route by intent:
+
+| User intent | App / command |
+| --- | --- |
+| 持续抓 X / 监控新推（自愈） | `uv run python agent-workspace/x_supervisor.py` |
+| 查 / 搜 / 统计已存推 | `uv run python agent-workspace/x_search.py ...` |
+| 读网页正文 | `uv run python agent-workspace/page_text.py <url>` |
+| 浏览器可用性向导 | `uv run python agent-workspace/browser_wizard.py` |
+| 持续监测浏览器 / 自动打开 | `uv run python agent-workspace/browser_watch.py` |
+| Google / Bing 搜索 | `google_search()` / `bing_search()` in a browser script |
+| 反爬 / 阻塞检测 | `detect_page_blocks()` / `scan_tabs_for_blocks()` |
+| rmux 会话管理 | `browser-harness rmux list\|new\|ensure\|send\|keys\|capture\|kill\|version` |
+
 ## Local Chrome
 
 If the daemon cannot connect, run diagnostics:
@@ -140,27 +155,32 @@ Cloud profile cookie sync reference: https://github.com/browser-use/browser-harn
 
 ## X (Twitter) Monitoring via rmux
 
-For continuous X home-timeline capture, drive `rmux` to run a self-healing worker
-in a multiplexed pane. The agent operates it directly — no background service or
-boot autostart.
+Two pieces: `x_supervisor.py` (self-healing loop) plus `x_worker.py` (the capture
+worker it spawns into a rmux pane). Agent-operated, no autostart.
 
-- Start (idempotent, fixed `-L browser-harness` label):
+- Start the self-healing monitor (run it in the background or a rmux pane):
+  `uv run python agent-workspace/x_supervisor.py`
+- Or start just the worker without the supervisor (idempotent, fixed
+  `-L browser-harness` label):
   `browser-harness rmux ensure x-monitor --command "<py> agent-workspace/x_worker.py"`
-  where `<py>` is the interpreter that has browser_harness installed
-  (the agent's `sys.executable`, or `uv run python`).
-- Status / anomaly detection:
-  `browser-harness rmux status` (session alive?) plus heartbeat freshness at
-  `agent-workspace/x_worker.heartbeat`.
-- Recover on anomaly (the agent decides, no auto-loop):
-  `browser-harness rmux kill x-monitor` then `ensure` again.
+  where `<py>` is the interpreter that has browser_harness installed.
+- Status / anomaly detection: `browser-harness rmux status` plus heartbeat
+  freshness at `agent-workspace/x_worker.heartbeat`.
 - Worker output: `browser-harness rmux capture x-monitor`
-- Stop: `browser-harness rmux kill x-monitor`
+- Recover / stop: `browser-harness rmux kill x-monitor` (the supervisor respawns
+  on anomaly; without a supervisor, re-run `ensure`).
 
-The worker refreshes every `X_INTERVAL` seconds (default 45). When the X page is
-hidden (minimized / background tab), it shrinks the window to a small pane docked
-next to the taskbar, activates the tab to defeat Chrome's intensive throttling,
-captures, then minimizes the window again — so capture keeps flowing without
-taking over the desktop.
+Worker env vars:
+
+- `X_INTERVAL` (default 45) seconds between rounds.
+- `X_IDLE_THRESHOLD` (default 10) seconds of no keyboard/mouse before it will
+  foreground-refresh, so it never steals focus while you are typing.
+- `X_FOREGROUND=0` disables foreground refresh entirely (pure background).
+- `X_DOCK_W` / `X_DOCK_H` (default 300x120) the small taskbar-docked window size.
+
+When the X page is hidden (minimized / background tab) and the user is idle, the
+worker shrinks the window to that docked pane, activates the tab to defeat
+Chrome's intensive throttling, captures, then minimizes it again.
 
 Tweets are stored in `agent-workspace/x_tweets.db` (deduped, WAL, searchable).
 When the user asks to analyze:
@@ -216,6 +236,13 @@ uv run python agent-workspace/page_text.py --current                            
 Engine order: `pydefuddle` (Python, install with `pip install browser-harness[content]`),
 then `npx defuddle` (Node CLI), then a stdlib/bs4 fallback. The `engine` field says
 which one was used.
+
+## Anti-bot / block detection
+
+In a browser script, `detect_page_blocks()` reports Cloudflare/captcha/block
+signals on the current page, and `scan_tabs_for_blocks()` checks every tab. Use
+them when a navigation looks like a challenge or an "access denied" page. The
+setup wizard runs this as its final step and alerts on blocked tabs.
 
 ## Browser availability
 
