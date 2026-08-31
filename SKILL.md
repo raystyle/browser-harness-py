@@ -142,11 +142,23 @@ boot autostart.
 Tweets are stored in `agent-workspace/x_tweets.db` (deduped, WAL, searchable).
 When the user asks to analyze:
 
-- "新推 / 最新推 / 刚抓到的" → report recent captures without the browser:
-  `uv run python agent-workspace/x_search.py --recent --limit N`
+- "新推 / 最新推 / 刚抓到的 / 最近 1 小时" → report recent captures without the browser:
+  `uv run python agent-workspace/x_search.py --recent --limit N` or `--since 1h`
   or read the live timeline through the browser when "right now" matters.
 - "存的推 / 搜推 / 关键词 / 谁发的" → query the store without the browser:
-  `uv run python agent-workspace/x_search.py <keyword>` (`--author X`, `--limit N`)
+  `uv run python agent-workspace/x_search.py <keyword>` (`--author X`, `--limit N`,
+  `--group-by day|hour`, `--csv [--csv-out path.csv]`)
+
+## Search (Google / Bing)
+
+Agent helpers `google_search(query, limit)` and `bing_search(query, limit)` open a
+background tab, extract `[{title, url}, ...]`, and return them. Use them when the
+user asks to search Google or Bing (runs in the real, logged-in browser):
+
+```python
+google_search("rust web framework", limit=5)
+bing_search("rust web framework", limit=5)
+```
 
 ## Recordings and Videos
 
