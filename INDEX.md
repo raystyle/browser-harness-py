@@ -1,0 +1,54 @@
+# INDEX：项目总索引
+
+> 角色：全仓**唯一索引**——只做定位：编号表、目录结构、代码文件位置。规则权威源见 `AGENTS.md`；命名与编号见 `docs\guide\G001-文档标准细则-命名写作规范.md`。
+
+## 一、编号体系
+
+**前缀定位**：`P`（proven，已完成方案归档，4 位）；`S`（research，研究原型过程，3 位）；`R`（references，开发测试参考，3 位）；`G`（guide，元规范，3 位）；`M`（mistakes，分类文件 M1xx、行级 M0xx）。根目录三原语：`GOAL`（目标轨迹）/ `PLAN`（当前目标方案）/ `TODO`（进度清单）。
+
+**目录职能**：`proven` 已完成方案归档；`diary` 一天一篇总结自省；`research` 研究原型过程（为什么）；`references` 开发测试参考（要做什么、怎么做）；`guide` 元规范（含 `template.md`）；`mistakes` 出错怎么纠。
+
+## 二、目录结构与代码文件位置
+
+| 类别 | 目录 | 说明 |
+| --- | --- | --- |
+| 文档 | `docs\`（proven / diary / research / references / guide / mistakes）+ 根目录 GOAL / PLAN / TODO / INDEX / AGENTS / README / CONTRIBUTING / CHANGELOG / ROADMAP | 见上节 |
+| 代码 | `src\browser_harness\` | Python 包（admin / daemon / helpers / run 等） |
+| 配置 | `pyproject.toml` | 依赖与打包（uv / setuptools，`requires-python >=3.11`） |
+| 测试 | `tests\` | `unit`（无浏览器）+ `integration`（需 CDP） |
+| 技能 | `skills\` / `interaction-skills\` / `agent-workspace\` | skill 与 agent 可写区 |
+| 入口 | `browser-harness` / `mcp_server.py` | 本地启动器与 MCP 服务 |
+
+**代码文件位置**：
+
+| 文件 | 职责 |
+| --- | --- |
+| `src\browser_harness\run.py` | `browser-harness` CLI 入口 |
+| `src\browser_harness\admin.py` | daemon 生命周期、诊断、更新、profile |
+| `src\browser_harness\daemon.py` | 浏览器与 agent 之间的长驻中间进程 |
+| `src\browser_harness\helpers.py` | CDP 封装与浏览器原语 |
+| `src\browser_harness\_ipc.py` / `auth.py` / `paths.py` / `macos.py` / `recorder.py` / `telemetry.py` / `video.py` / `video_render.py` | 支撑模块 |
+| `mcp_server.py` | MCP stdio 工具暴露 |
+| `tests\unit\` / `tests\integration\` | 分层测试 |
+
+## 三、方案归档
+
+| 编号 | 文件 | 主题 |
+| --- | --- | --- |
+| P0001 | `P0001-个人fork与分支维护.md` | origin/mine、dev/work、fork 工作流 |
+
+## 四、项目日记
+
+- `2026-08-31-建立fork工作流与项目结构.md`
+
+## 五、研究 / 参考 / 元规范 / 错误
+
+- 研究（S）：`docs\research\`（暂无）
+- 参考（R）：`docs\references\`（暂无）
+- 元规范（G）：`G001-文档标准细则-命名写作规范.md`、`template.md`
+- 错误（M）：`docs\mistakes\`（暂无）
+
+## 六、阶段与版本
+
+- `ROADMAP.md`：阶段路线
+- `CHANGELOG.md`：版本里程碑

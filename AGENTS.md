@@ -22,6 +22,19 @@ This working copy is a personal fork of `browser-use/browser-harness` for local 
 
 <!-- LOCAL-FORK-WORKFLOW:END -->
 
+<!-- PROJECT-STRUCTURE:START -->
+
+## Project structure
+
+Planning and docs follow the `ohmyagents` conventions (Chinese content):
+
+- Root planning docs: `GOAL.md` (goal), `PLAN.md` (how), `TODO.md` (status), `INDEX.md` (unique index), plus `ROADMAP.md` (phases) and `CHANGELOG.md` (milestones).
+- `docs/` is split into `proven/` (P), `diary/`, `research/` (S), `references/` (R), `guide/` (G, with `template.md`), `mistakes/` (M).
+- Source stays in `src/browser_harness/`; tests in `tests/`; skills in `skills/`, `interaction-skills/`, and `agent-workspace/`.
+- `INDEX.md` is the canonical map. Do not move `src/`, `tests/`, `install.md`, `SKILL.md`, or skill directories without updating every reference.
+
+<!-- PROJECT-STRUCTURE:END -->
+
 browser-harness is a thin layer that connects agents to browsers via an editable CDP harness.
 
 # Code priorities
