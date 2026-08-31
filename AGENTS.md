@@ -1,3 +1,27 @@
+<!-- LOCAL-FORK-WORKFLOW:START -->
+
+## Local project definition
+
+This working copy is a personal fork of `browser-use/browser-harness` for local development and testing. Upstream is read-only here; personal work is pushed to the fork `raystyle/browser-harness`.
+
+## Context: remotes and branches
+
+- `origin`: `https://github.com/browser-use/browser-harness.git` (upstream; fetch/pull only)
+- `mine`: `https://github.com/raystyle/browser-harness.git` (personal fork; push target)
+- `main`: mirrors `origin/main`; never edited directly
+- `dev/work`: active local development branch
+
+## Rules
+
+1. Never push to `origin`; pull upstream only with `git pull --ff-only origin main`.
+2. Develop on `dev/work`, not `main`; keep `main` a clean fast-forward mirror.
+3. Push personal branches to `mine` with `git push -u mine dev/work`.
+4. Before merging upstream, commit or stash `dev/work` changes, then run `git switch main && git pull --ff-only origin main && git switch dev/work && git merge main`.
+5. Reinstall dependencies only when `pyproject.toml` changed after a merge (uv resolves from it).
+6. Local verify loop: `./browser-harness --doctor`; `uv run --with pytest python -m pytest tests/unit -q` for unit tests.
+
+<!-- LOCAL-FORK-WORKFLOW:END -->
+
 browser-harness is a thin layer that connects agents to browsers via an editable CDP harness.
 
 # Code priorities

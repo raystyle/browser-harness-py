@@ -1,3 +1,8 @@
+> **raystyle fork** — 本仓库是 [browser-use/browser-harness](https://github.com/browser-use/browser-harness) 的个人 fork，用于本地开发与测试。个人分支推送到 [raystyle/browser-harness](https://github.com/raystyle/browser-harness)。
+>
+> - `origin`：上游（只拉取）；`mine`：本 fork（推送目标）
+> - `main`：镜像 `origin/main`；`dev/work`：本地开发分支
+
 <img src="https://raw.githubusercontent.com/browser-use/media/main/browser-harness/banner-ink.svg" alt="Browser Harness" width="100%" />
 
 # Browser Harness ♞
