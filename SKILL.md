@@ -49,11 +49,11 @@ The agent-built apps live in `agent-workspace/`. Route by intent:
 
 | User intent | App / command |
 | --- | --- |
-| X 持续抓推 / 监控新推（自愈） | `browser-harness x monitor` |
-| X 已存推的查询 / 搜索 / 统计 | `browser-harness x search ...` |
-| Google 搜索 | `google_search()` in a browser script |
-| Bing 搜索 | `bing_search()` in a browser script |
-| 网页正文提取 | `browser-harness x page-text <url>` |
+| X 持续抓推 / 监控新推（自愈） | `browser-harness x-monitor` |
+| X 已存推的查询 / 搜索 / 统计 | `browser-harness x-search ...` |
+| Google 搜索 | `browser-harness google-search <query>` |
+| Bing 搜索 | `browser-harness bing-search <query>` |
+| 网页正文提取 | `browser-harness page-text <url>` |
 | rmux 会话管理 | `browser-harness rmux list\|new\|ensure\|...` |
 
 ## Local Chrome
@@ -156,17 +156,19 @@ Cloud profile cookie sync reference: https://github.com/browser-use/browser-harn
 Two pieces: `x_supervisor.py` (self-healing loop) plus `x_worker.py` (the capture
 worker it spawns into a rmux pane). Agent-operated, no autostart.
 
-- Start the self-healing monitor (run it in the background or a rmux pane):
-  `browser-harness x monitor`
-- Or start just the worker without the supervisor (idempotent, fixed
-  `-L browser-harness` label):
-  `browser-harness rmux ensure x-monitor --command "<py> agent-workspace/x_worker.py"`
-  where `<py>` is the interpreter that has browser_harness installed.
-- Status / anomaly detection: `browser-harness rmux status` plus heartbeat
-  freshness at `agent-workspace/x_worker.heartbeat`.
-- Worker output: `browser-harness rmux capture x-monitor`
+Run as rmux background sessions (reuse one shell; poll on demand — no blocking
+command):
+
+- Start (non-blocking — ensures the supervisor in a rmux pane and returns):
+  `browser-harness x-monitor`
+  -> creates rmux sessions `x-supervisor` (supervisor) and `x-monitor` (worker).
+- Poll status/data anytime:
+  `browser-harness rmux status`              # are both sessions alive?
+  heartbeat freshness at `agent-workspace/x_worker.heartbeat`
+  `browser-harness rmux capture x-monitor`   # worker stdout
+  `browser-harness x-search --stats`         # how many tweets are stored
 - Recover / stop: `browser-harness rmux kill x-monitor` (the supervisor respawns
-  on anomaly; without a supervisor, re-run `ensure`).
+  on anomaly); stop the supervisor with `browser-harness rmux kill x-supervisor`.
 
 Worker env vars:
 
@@ -184,12 +186,12 @@ Tweets are stored in `agent-workspace/x_tweets.db` (deduped, WAL, searchable).
 When the user asks to analyze:
 
 - "新推 / 最新推 / 刚抓到的 / 最近 1 小时" → report recent captures without the browser:
-  `browser-harness x search --recent --limit N` or `--since 1h`
+  `browser-harness x-search --recent --limit N` or `--since 1h`
   or read the live timeline through the browser when "right now" matters.
 - "存的推 / 搜推 / 关键词 / 谁发的" → query the store without the browser:
-  `browser-harness x search <keyword>` (`--author X`, `--limit N`,
+  `browser-harness x-search <keyword>` (`--author X`, `--limit N`,
   `--group-by day|hour`, `--csv [--csv-out path.csv]`)
-- "存了多少 / 统计 / 谁发得多" → `browser-harness x search --stats`
+- "存了多少 / 统计 / 谁发得多" → `browser-harness x-search --stats`
   (totals, distinct authors, posted/seen range, top authors)
 
 ## Search (Google / Bing)
@@ -224,11 +226,11 @@ language, site, word_count, markdown, text, content_html, engine}`.
 Or from the shell (no browser needed for public pages):
 
 ```bash
-browser-harness x page-text "https://example.com/article"          # markdown
-browser-harness x page-text "https://example.com/article" --text   # plain text
-browser-harness x page-text "https://example.com/article" --json    # full metadata
-browser-harness x page-text "https://x.com/home" --browser          # reuse session
-browser-harness x page-text --current                                # current tab
+browser-harness page-text "https://example.com/article"          # markdown
+browser-harness page-text "https://example.com/article" --text   # plain text
+browser-harness page-text "https://example.com/article" --json    # full metadata
+browser-harness page-text "https://x.com/home" --browser          # reuse session
+browser-harness page-text --current                                # current tab
 ```
 
 Engine order: `pydefuddle` (Python, install with `pip install browser-harness[content]`),

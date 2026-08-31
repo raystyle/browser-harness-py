@@ -19,7 +19,6 @@ Apps:
 """
 
 _SCRIPTS = {
-    "x-monitor": "x_supervisor.py",
     "x-search": "x_search.py",
     "page-text": "page_text.py",
 }
@@ -38,6 +37,28 @@ def _run_script(cmd: str, rest: list[str]) -> int:
         print(f"app script not found: {script}", file=sys.stderr)
         return 1
     return subprocess.call([sys.executable, str(script), *rest])
+
+
+def _run_monitor(rest: list[str]) -> int:
+    """Ensure the self-healing supervisor runs in a rmux pane (non-blocking)."""
+    from browser_harness.rmux import Rmux
+
+    supervisor = _workspace() / "x_supervisor.py"
+    if not supervisor.exists():
+        print(f"supervisor not found: {supervisor}", file=sys.stderr)
+        return 1
+    try:
+        Rmux().ensure_session(
+            "x-supervisor",
+            command=f'"{sys.executable}" "{supervisor}"',
+            ready_timeout=20,
+        )
+    except Exception as e:
+        print(f"failed to start x-monitor: {e}", file=sys.stderr)
+        return 1
+    print("x-monitor supervisor running in rmux session 'x-supervisor'")
+    print("poll with: browser-harness rmux status / rmux capture x-supervisor")
+    return 0
 
 
 def _run_search(engine: str, rest: list[str]) -> int:
@@ -74,6 +95,8 @@ def run_cli(args: list[str]) -> int:
         print(_USAGE)
         return 0 if args else 2
     cmd, rest = args[0], args[1:]
+    if cmd == "x-monitor":
+        return _run_monitor(rest)
     if cmd in _SCRIPTS:
         return _run_script(cmd, rest)
     if cmd in ("google-search", "bing-search"):
