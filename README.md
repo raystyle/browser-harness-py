@@ -1,68 +1,87 @@
-> **raystyle fork** — 本仓库是 [browser-use/browser-harness](https://github.com/browser-use/browser-harness) 的个人 fork，用于本地开发与测试。个人分支推送到 [raystyle/browser-harness](https://github.com/raystyle/browser-harness)。
->
-> - `origin`：上游（只拉取）；`mine`：本 fork（推送目标）
-> - `main`：镜像 `origin/main`；`dev/work`：本地开发分支
+# browser-harness（raystyle fork）
 
-<img src="https://raw.githubusercontent.com/browser-use/media/main/browser-harness/banner-ink.svg" alt="Browser Harness" width="100%" />
+本仓库是 [browser-use/browser-harness](https://github.com/browser-use/browser-harness) 的个人 fork，用于本地开发与测试，个人分支推送到 [raystyle/browser-harness](https://github.com/raystyle/browser-harness)。
 
-# Browser Harness ♞
+本 README 只讲**本项目的部署方法与命令使用**。开发/交互规范见 [AGENTS.md](AGENTS.md)，agent 操作路由见 [SKILL.md](SKILL.md)，方案与研究沉淀见 [INDEX.md](INDEX.md) 及 `docs/`。
 
-Connect an LLM directly to your real browser through one editable CDP websocket. The agent writes missing helpers as it works, so the harness improves with every task.
+## 环境要求
 
-Try browser-harness in [Browser Use Cloud](https://cloud.browser-use.com/v4?utm_campaign=browser-harness-use-in-cloud&utm_source=github) or paste the setup prompt into your coding agent.
+- Windows 11（当前开发环境）；macOS / Linux 部分能力可用。
+- `uv` + Python 3.12。
+- Chrome（本机 Chrome Dev 154 已验证）。
+- Node（`page-text` 的 `npx defuddle` 回退路径用，可选）。
+- rmux 0.10.0（X 监控的多路复用）。
 
-```
-  ● agent: wants to upload a file
-  │
-  ● agent-workspace/agent_helpers.py → helper missing
-  │
-  ● agent writes it                         agent_helpers.py
-  │                                                       + custom helper
-  ✓ file uploaded
-```
+## 部署方法
 
-**You will never use the browser again.**
+### 1. 安装依赖
 
-## See it work
-
-**Task:** "Open my X profile, find my latest 20 video posts, and download them."
-
-[![Download my latest 20 X videos](docs/download-latest-20-x-videos.gif)](https://browser-use.com/showcase/videos/download-latest-20-x-videos.mp4)
-
-## Setup prompt
-
-Paste into Claude Code or Codex:
-
-```text
-Install or upgrade browser-harness to the latest stable version with uv using Python 3.12, register the skill from `browser-harness skill`, and connect it to my browser. Ask whether I want local browser recordings enabled; default to no and preserve my existing preference on upgrades. Follow https://github.com/browser-use/browser-harness/blob/main/install.md if setup or connection fails.
+```powershell
+uv sync
 ```
 
-The agent will open `chrome://inspect/#remote-debugging`. On first setup, tick
-the checkbox so the agent can connect to your browser:
+### 2. 启动 agent 专属 Chrome + X 监控
 
-<img src="docs/setup-remote-debugging.png" alt="Remote debugging setup" width="520" style="border-radius: 12px;" />
+```powershell
+agent-workspace\start-x-monitor.ps1
+```
 
-## How it works
+该脚本会：
 
-- [`install.md`](install.md) connects the agent to your browser.
-- [`SKILL.md`](SKILL.md) teaches it the browser workflow.
-- [`src/browser_harness/`](src/browser_harness/) stays protected while the agent writes reusable helpers in its local workspace.
+- 启动**独立的 agent Chrome**（`agent-chrome-profile` + 端口 `9223` + anti-throttle flags），不影响你日常用的 Chrome（`Profile 3`）。
+- 用 `BU_CDP_URL` 让监控 worker 只连这个独立 Chrome。
+- 在 rmux 里以 `x-supervisor`（自愈监督）+ `x-monitor`（抓取 worker）两个会话后台运行。
 
-## Scale with Browser Use Cloud
+首次使用需要在弹出的独立 Chrome 窗口里登录一次 X（登录写在独立 profile，不影响你的 Profile 3）。
 
-Use your local browser for logged-in, personal work. When you want many browsers in parallel—with live previews, proxies, stealth, CAPTCHA solving, and more—scale with [Browser Use Cloud](https://cloud.browser-use.com/new-api-key).
+### 3. 查看状态
 
-## MCP server
+```powershell
+browser-harness --doctor          # Chrome / daemon / 连接状态
+browser-harness rmux status       # 两个 rmux 会话是否存活
+```
 
-`mcp_server.py` exposes the browser control helpers as MCP tools over stdio,
-so any MCP client (Claude Code, Devin, Cursor, etc.) can drive the browser
-without writing a second CDP layer. See [docs/MCP.md](docs/MCP.md) for setup and
-client configuration.
+## 命令使用
 
-## Contributing
+### X 监控
 
-Bug fixes, documentation improvements, and agent-generated domain skills are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
+```powershell
+browser-harness x-monitor                    # 启动自愈监控（非阻塞）
+browser-harness x-search --stats             # 统计已存推
+browser-harness x-search --recent --limit 10 # 最近推
+browser-harness x-search <关键词> --limit 10  # 关键词搜索
+browser-harness x-search --since 1h --group-by hour
+browser-harness rmux capture x-monitor       # 看 worker 输出
+browser-harness rmux kill x-monitor          # 停 worker（supervisor 会自愈重拉）
+```
 
----
+### 网页正文提取
 
-[The Bitter Lesson of Agent Harnesses](https://browser-use.com/posts/bitter-lesson-agent-harnesses) · [Web Agents That Actually Learn](https://browser-use.com/posts/web-agents-that-actually-learn)
+```powershell
+browser-harness page-text <url>          # markdown
+browser-harness page-text <url> --text   # 纯文本
+browser-harness page-text <url> --json   # 完整元数据
+browser-harness page-text --current      # 当前标签
+```
+
+### 搜索引擎搜索（搜索后自动接正文提取）
+
+```powershell
+browser-harness google-search <query>
+browser-harness bing-search <query>
+```
+
+### rmux 会话管理
+
+```powershell
+browser-harness rmux list|new|ensure|send|keys|capture|kill|kill-server|version
+```
+
+`kill-server` 只销毁本项目 `browser-harness` label 的 daemon，不碰其他程序的 rmux 服务。
+
+## 文档
+
+- [AGENTS.md](AGENTS.md)：开发 / 交互 / 安全规范。
+- [SKILL.md](SKILL.md)：agent 操作路由。
+- [INDEX.md](INDEX.md)：项目唯一索引。
+- `docs/proven/`、`docs/research/`、`docs/mistakes/`：方案、研究、错误沉淀。

@@ -38,6 +38,7 @@
 | 编号 | 文件 | 主题 |
 | --- | --- | --- |
 | P0001 | `P0001-个人fork与分支维护.md` | origin/mine、dev/work、fork 工作流 |
+| P0002 | `P0002-独立agent浏览器与rmux原子隔离.md` | 独立 Chrome + BU_CDP_URL + rmux label 隔离 |
 
 ## 四、项目日记
 
@@ -45,10 +46,10 @@
 
 ## 五、研究 / 参考 / 元规范 / 错误
 
-- 研究（S）：`S001-patchright与CDP-Patches集成研究.md`、`S002-rmux集成研究.md`、`S003-defuddle网页正文提取研究.md`
+- 研究（S）：`S001-patchright与CDP-Patches集成研究.md`、`S002-rmux集成研究.md`、`S003-defuddle网页正文提取研究.md`、`S004-用户浏览器与agent浏览器隔离研究.md`
 - 参考（R）：`docs\references\`（暂无）
 - 元规范（G）：`G001-文档标准细则-命名写作规范.md`、`template.md`
-- 错误（M）：`docs\mistakes\`（暂无）
+- 错误（M）：`M101-Chrome的user-data-dir引号导致profile污染.md`
 
 ## 六、阶段与版本
 
