@@ -65,6 +65,8 @@ Commands:
   browser-harness video review <recording>    compile and review the video
   browser-harness video export <recording> --reviewed   export a verified MP4
   browser-harness telemetry status    show anonymous telemetry opt-out state
+  browser-harness rmux list|new|ensure|send|keys|capture|kill|version
+                                    drive rmux sessions/panes for multiplexed browser scripts
   browser-harness --update [-y]    pull the latest version (agents: pass -y)
   browser-harness --reload         stop the daemon so next call picks up code changes
 """
@@ -361,6 +363,10 @@ def _run(args):
         from . import video
 
         sys.exit(video.run_cli(args[1:]))
+    if args and args[0] == "rmux":
+        from . import rmux
+
+        sys.exit(rmux.run_cli(args[1:]))
     if args and args[0] == "--update":
         yes = any(a in {"-y", "--yes"} for a in args[1:])
         sys.exit(run_update(yes=yes))
