@@ -34,6 +34,7 @@ Commands:
   keys <name> <key...>        send raw keys
   capture <name>              print pane content
   kill <name>                 kill a session
+  kill-server                 kill this label's daemon only
   version                     print rmux version
 """
 
@@ -58,21 +59,29 @@ def _parse_session_args(args):
 
 
 def rmux_binary():
-    """Return ``(path, version)`` for the installed rmux, or ``None``."""
-    path = shutil.which("rmux")
-    if not path:
-        win = Path.home() / "AppData" / "Local" / "rmux" / "bin" / "rmux.exe"
-        if win.exists():
-            path = str(win)
-    if not path:
-        return None
-    version = None
-    try:
-        r = subprocess.run([path, "-V"], capture_output=True, text=True, timeout=10)
-        version = (r.stdout or r.stderr).strip()
-    except Exception:
-        pass
-    return path, version
+    """Return ``(path, version)`` for OUR rmux, or ``None``.
+
+    Prefers the per-user ``AppData\\Local\\rmux`` install so another app's rmux
+    on PATH is never picked up. Only the first candidate that answers ``-V`` is
+    used, keeping our sessions bound to a single deterministic binary.
+    """
+    candidates: list[str] = []
+    own = Path.home() / "AppData" / "Local" / "rmux" / "bin" / "rmux.exe"
+    if own.exists():
+        candidates.append(str(own))
+    if path := shutil.which("rmux"):
+        if path not in candidates:
+            candidates.append(path)
+    for path in candidates:
+        version = None
+        try:
+            r = subprocess.run([path, "-V"], capture_output=True, text=True, timeout=10)
+            version = (r.stdout or r.stderr).strip()
+        except Exception:
+            continue
+        if version:
+            return path, version
+    return None
 
 
 class Rmux:
@@ -165,6 +174,10 @@ class Rmux:
     def kill_session(self, name):
         return self._run("kill-session", "-t", name)
 
+    def kill_server(self):
+        """Kill only this label's daemon. Other labels/servers are untouched."""
+        return self._run("kill-server")
+
 
 def run_cli(args):
     if not args or args[0] in ("-h", "--help", "help"):
@@ -226,6 +239,9 @@ def run_cli(args):
                 print("usage: browser-harness rmux kill <name>", file=sys.stderr)
                 return 2
             r.kill_session(rest[0])
+            return 0
+        if cmd == "kill-server":
+            r.kill_server()
             return 0
         print(f"unknown rmux command: {cmd}", file=sys.stderr)
         return 2
