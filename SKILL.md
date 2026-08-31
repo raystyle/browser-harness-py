@@ -121,6 +121,33 @@ Cloud profile cookie sync reference: https://github.com/browser-use/browser-harn
 - Login walls: stop and ask. Exception: use available SSO automatically when Chrome is already signed in; still stop for passwords, MFA, consent, or ambiguous account choice.
 - Raw CDP is available with `cdp("Domain.method", ...)`.
 
+## X (Twitter) Monitoring via rmux
+
+For continuous X home-timeline capture, drive `rmux` to run a self-healing worker
+in a multiplexed pane. The agent operates it directly — no background service or
+boot autostart.
+
+- Start (idempotent, fixed `-L browser-harness` label):
+  `browser-harness rmux ensure x-monitor --command "<py> agent-workspace/x_worker.py"`
+  where `<py>` is the interpreter that has browser_harness installed
+  (the agent's `sys.executable`, or `uv run python`).
+- Status / anomaly detection:
+  `browser-harness rmux status` (session alive?) plus heartbeat freshness at
+  `agent-workspace/x_worker.heartbeat`.
+- Recover on anomaly (the agent decides, no auto-loop):
+  `browser-harness rmux kill x-monitor` then `ensure` again.
+- Worker output: `browser-harness rmux capture x-monitor`
+- Stop: `browser-harness rmux kill x-monitor`
+
+Tweets are stored in `agent-workspace/x_tweets.db` (deduped, WAL, searchable).
+When the user asks to analyze:
+
+- "新推 / 最新推 / 刚抓到的" → report recent captures without the browser:
+  `uv run python agent-workspace/x_search.py --recent --limit N`
+  or read the live timeline through the browser when "right now" matters.
+- "存的推 / 搜推 / 关键词 / 谁发的" → query the store without the browser:
+  `uv run python agent-workspace/x_search.py <keyword>` (`--author X`, `--limit N`)
+
 ## Recordings and Videos
 
 Fresh installs do not record. Users can enable local background traces:
