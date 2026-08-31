@@ -68,6 +68,12 @@ browser-harness mac-approve
 Continue browser work when it returns `ready`; otherwise follow its printed
 instruction.
 
+Chrome 144+ shows a per-connection "Allow remote debugging?" prompt. Before
+triggering a connection, tell the user to expect the prompt and to click Allow
+(authorize); wait for their confirmation before retrying, and never poll in a
+tight loop while the prompt is unanswered. Keep these steps non-blocking and
+wizard-style: announce → user authorizes → confirm → continue.
+
 ## Remote Browsers
 
 Use Browser Use cloud for headless servers, parallel sub-agents, or isolated work.

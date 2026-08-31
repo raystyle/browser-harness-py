@@ -43,6 +43,24 @@ browser-harness is a thin layer that connects agents to browsers via an editable
 - Low verbosity
 - Versatility
 
+# Interaction principles
+
+Every step that touches the user's desktop, browser, or requires a user action
+must be **non-blocking, progressive, and wizard-style**:
+
+- **Announce before acting.** Tell the user the next step and what to expect
+  (e.g. "Chrome will now ask 'Allow remote debugging?' — click Allow").
+- **Non-blocking.** Never silently stall on a dialog or focus change; surface
+  the exact action needed and how to continue, then wait for confirmation
+  instead of retrying in a tight loop.
+- **Progressive.** One clear step at a time: detect → remind → act → confirm.
+- **Wizard-style.** Guide authorization, remote-debugging toggles, Chrome
+  restarts, and window/focus changes with an explicit before/after message.
+
+Chrome 144+ shows a per-connection "Allow remote debugging?" prompt. Before any
+connection that may trigger it, warn the user to expect the prompt and to click
+Allow; resume only after they confirm. Do not retry while a prompt is unanswered.
+
 # Overview
 Core code lives in `src/browser_harness/`:
 - `admin.py` — daemon lifecycle, diagnostics, updates, profile management
