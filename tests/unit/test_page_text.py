@@ -30,7 +30,6 @@ def test_fallback_parse_extracts_title_and_domain():
 
 def test_defuddle_html_falls_back_when_engines_missing(monkeypatch):
     monkeypatch.setattr(agent_helpers, "_pydefuddle_parse", lambda html, url="": None)
-    monkeypatch.setattr(agent_helpers, "_npx_defuddle_parse", lambda html: None)
     out = agent_helpers._defuddle_html(HTML, "https://example.com/a")
     assert out["engine"] == "bs4-fallback"
     assert out["title"] == "Example"

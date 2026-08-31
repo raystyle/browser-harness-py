@@ -240,8 +240,8 @@ browser-harness page-text --current                                # current tab
 ```
 
 Engine order: `pydefuddle` (Python, install with `pip install browser-harness[content]`),
-then `npx defuddle` (Node CLI), then a stdlib/bs4 fallback. The `engine` field says
-which one was used.
+then a stdlib/bs4 fallback. The `engine` field says which one was used. No Node/npx
+dependency.
 
 ## Browser availability
 

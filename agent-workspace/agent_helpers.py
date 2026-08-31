@@ -8,8 +8,6 @@ repo's default agent-workspace exists.
 import gzip
 import json
 import re
-import shutil
-import subprocess
 import urllib.parse
 import urllib.request
 
@@ -205,46 +203,8 @@ def _pydefuddle_parse(html, url=""):
     }
 
 
-def _npx_defuddle_parse(html):
-    """Parse HTML with ``npx defuddle parse - --json``, or return ``None``."""
-    npx = shutil.which("npx") or shutil.which("npx.cmd")
-    if not npx:
-        return None
-    try:
-        proc = subprocess.run(
-            [npx, "-y", "defuddle", "parse", "-", "--json"],
-            input=html.encode("utf-8"),
-            capture_output=True,
-            timeout=90,
-        )
-    except Exception:
-        return None
-    if proc.returncode != 0:
-        return None
-    try:
-        data = json.loads(proc.stdout.decode("utf-8", "replace"))
-    except Exception:
-        return None
-    return {
-        "title": data.get("title") or "",
-        "url": "",
-        "domain": data.get("domain") or "",
-        "author": data.get("author") or "",
-        "published": data.get("published") or "",
-        "description": data.get("description") or "",
-        "image": data.get("image") or "",
-        "favicon": data.get("favicon") or "",
-        "language": data.get("language") or "",
-        "site": data.get("site") or "",
-        "word_count": int(data.get("wordCount") or 0),
-        "content_html": data.get("content") or "",
-        "markdown": data.get("contentMarkdown") or "",
-        "engine": "defuddle-cli",
-    }
-
-
 def _fallback_parse(html, url=""):
-    """Minimal extraction when neither pydefuddle nor npx defuddle is available."""
+    """Minimal extraction when pydefuddle is not available."""
     title = ""
     content_html = html or ""
     try:
@@ -281,10 +241,8 @@ def _fallback_parse(html, url=""):
 
 
 def _defuddle_html(html, url=""):
-    """Normalize page extraction across pydefuddle -> npx defuddle -> fallback."""
+    """Normalize page extraction across pydefuddle -> fallback."""
     out = _pydefuddle_parse(html, url)
-    if out is None:
-        out = _npx_defuddle_parse(html)
     if out is None:
         out = _fallback_parse(html, url)
     if not out.get("url") and url:
