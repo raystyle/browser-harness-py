@@ -4,6 +4,7 @@ __pycache__/
 *.db
 *.db-wal
 *.db-shm
+*.heartbeat
 .env
 uv.lock
 *.egg-info/
