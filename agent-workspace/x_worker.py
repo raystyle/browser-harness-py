@@ -26,7 +26,7 @@ def _clean(s):
 _HERE = os.path.dirname(os.path.abspath(__file__))
 DB = os.environ.get("X_DB") or os.path.join(_HERE, "x_tweets.db")
 HEARTBEAT = os.environ.get("X_HEARTBEAT") or os.path.join(_HERE, "x_worker.heartbeat")
-INTERVAL = float(os.environ.get("X_INTERVAL") or "8")
+INTERVAL = float(os.environ.get("X_INTERVAL") or "45")
 
 
 EXTRACT = r"""Array.from(document.querySelectorAll('article[data-testid="tweet"]')).map(t => ({name:(t.querySelector('[data-testid="User-Name"]')?.innerText||'').trim(), text:(t.querySelector('[data-testid="tweetText"]')?.innerText||'').trim(), time:(t.querySelector('time')?.getAttribute('datetime')||''), link:(t.querySelector('a[href*="/status/"]')?.getAttribute('href')||'')}))"""
@@ -88,6 +88,41 @@ def _tick():
         f.write(str(time.time()))
 
 
+def _tid(target):
+    if isinstance(target, dict):
+        return target.get("targetId") or target.get("target_id")
+    return target
+
+
+def _foreground(target):
+    """Bring the X tab's window to the foreground so throttled JS resumes."""
+    tid = _tid(target)
+    if not tid:
+        return
+    try:
+        r = helpers.cdp("Browser.getWindowForTarget", targetId=tid)
+        wid = r.get("windowId")
+        if wid is not None:
+            helpers.cdp("Browser.setWindowBounds", windowId=wid, bounds={"windowState": "normal"})
+        helpers.cdp("Target.activateTarget", targetId=tid)
+    except Exception:
+        pass
+
+
+def _restore_window(target, state):
+    """Restore the window to ``state`` (e.g. 'minimized') after a round."""
+    tid = _tid(target)
+    if not tid or not state:
+        return
+    try:
+        r = helpers.cdp("Browser.getWindowForTarget", targetId=tid)
+        wid = r.get("windowId")
+        if wid is not None:
+            helpers.cdp("Browser.setWindowBounds", windowId=wid, bounds={"windowState": state})
+    except Exception:
+        pass
+
+
 def _round(con):
     ensure_daemon()
     tabs = helpers.list_tabs(include_chrome=False)
@@ -95,9 +130,12 @@ def _round(con):
     if x:
         helpers.switch_tab(x, activate=False)
     else:
-        helpers.new_tab("https://x.com/home")
+        x = helpers.new_tab("https://x.com/home")
     helpers.wait_for_load(timeout=20)
-    time.sleep(2.0)
+    hidden = helpers.js("document.visibilityState") == "hidden"
+    if hidden:
+        _foreground(x)
+        time.sleep(1.5)
     prev = None
     for _ in range(6):
         _store(con, helpers.js(EXTRACT) or [])
@@ -120,6 +158,8 @@ def _round(con):
         helpers.js(CLICK)
         time.sleep(2.5)
         _store(con, helpers.js(EXTRACT) or [])
+    if hidden:
+        _restore_window(x, "minimized")
     _tick()
     return con.execute("SELECT COUNT(*) FROM tweets").fetchone()[0]
 
