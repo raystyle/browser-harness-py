@@ -14,6 +14,7 @@ import re
 import sqlite3
 import time
 import datetime
+import platform
 
 from browser_harness.admin import ensure_daemon
 from browser_harness import helpers
@@ -27,6 +28,10 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 DB = os.environ.get("X_DB") or os.path.join(_HERE, "x_tweets.db")
 HEARTBEAT = os.environ.get("X_HEARTBEAT") or os.path.join(_HERE, "x_worker.heartbeat")
 INTERVAL = float(os.environ.get("X_INTERVAL") or "45")
+DOCK_W = int(os.environ.get("X_DOCK_W") or "300")
+DOCK_H = int(os.environ.get("X_DOCK_H") or "120")
+FOREGROUND = (os.environ.get("X_FOREGROUND") or "1").strip().lower() in ("1", "true", "yes", "on")
+IDLE_THRESHOLD = float(os.environ.get("X_IDLE_THRESHOLD") or "10")
 
 
 EXTRACT = r"""Array.from(document.querySelectorAll('article[data-testid="tweet"]')).map(t => ({name:(t.querySelector('[data-testid="User-Name"]')?.innerText||'').trim(), text:(t.querySelector('[data-testid="tweetText"]')?.innerText||'').trim(), time:(t.querySelector('time')?.getAttribute('datetime')||''), link:(t.querySelector('a[href*="/status/"]')?.getAttribute('href')||'')}))"""
@@ -94,50 +99,133 @@ def _tid(target):
     return target
 
 
+def _is_windows():
+    return platform.system() == "Windows"
+
+
+def _idle_seconds():
+    """Seconds since the user's last keyboard/mouse input (0 = idle/unknown)."""
+    if platform.system() != "Windows":
+        return 0.0
+    import ctypes
+
+    class LASTINPUTINFO(ctypes.Structure):
+        _fields_ = [("cbSize", ctypes.c_uint), ("dwTime", ctypes.c_uint)]
+
+    try:
+        lii = LASTINPUTINFO(cbSize=ctypes.sizeof(LASTINPUTINFO))
+        if not ctypes.windll.user32.GetLastInputInfo(ctypes.byref(lii)):
+            return 0.0
+        gtc = ctypes.windll.kernel32.GetTickCount
+        gtc.restype = ctypes.c_uint32
+        diff = (gtc() - lii.dwTime) & 0xFFFFFFFF
+        return diff / 1000.0
+    except Exception:
+        return 0.0
+
+
+def _chrome_main_hwnd():
+    """Return the HWND of the Chrome main window (largest Chrome_WidgetWin_0)."""
+    import ctypes
+    import ctypes.wintypes as wt
+    import subprocess
+
+    user32 = ctypes.windll.user32
+    pids = set()
+    try:
+        out = subprocess.check_output(
+            ["tasklist", "/FI", "IMAGENAME eq chrome.exe", "/FO", "CSV"],
+            text=True, errors="replace",
+        )
+        for line in out.splitlines()[1:]:
+            p = line.split('","')
+            if len(p) >= 2:
+                try:
+                    pids.add(int(p[1].strip('"')))
+                except ValueError:
+                    pass
+    except Exception:
+        return None
+    best = [None, 0]
+    CB = ctypes.WINFUNCTYPE(wt.BOOL, wt.HWND, wt.LPARAM)
+    def _cb(hwnd, _lp):
+        pid = wt.DWORD()
+        user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+        if pid.value in pids:
+            cls = ctypes.create_unicode_buffer(256)
+            user32.GetClassNameW(hwnd, cls, 256)
+            r = wt.RECT()
+            user32.GetWindowRect(hwnd, ctypes.byref(r))
+            if cls.value == "Chrome_WidgetWin_0":
+                area = (r.right - r.left) * (r.bottom - r.top)
+                if area > best[1]:
+                    best[0], best[1] = hwnd, area
+        return True
+    user32.EnumWindows(CB(_cb), 0)
+    return best[0]
+
+
+def _win_show(hwnd, restore=False):
+    import ctypes
+
+    ctypes.windll.user32.ShowWindow(hwnd, 9 if restore else 6)  # SW_RESTORE / SW_MINIMIZE
+
+
+def _win_move(hwnd, x, y, w, h):
+    import ctypes
+
+    SWP_NOZORDER = 0x0004
+    SWP_NOACTIVATE = 0x0010
+    ctypes.windll.user32.SetWindowPos(hwnd, 0, x, y, w, h, SWP_NOZORDER | SWP_NOACTIVATE)
+
+
 def _foreground(target):
-    """Bring the X tab to a small taskbar-docked window so throttled JS resumes."""
+    """Bring the X tab to a tiny taskbar-docked window so throttled JS resumes."""
     tid = _tid(target)
     if not tid:
         return
     try:
-        r = helpers.cdp("Browser.getWindowForTarget", targetId=tid)
-        wid = r.get("windowId")
-        if wid is None:
-            return
         docked = _dock_bounds()
-        if docked:
-            # Chrome applies windowState and bounds as separate steps.
-            helpers.cdp("Browser.setWindowBounds", windowId=wid, bounds={"windowState": "normal"})
-            x, y, w, h = docked
-            helpers.cdp("Browser.setWindowBounds", windowId=wid, bounds={
-                "left": x, "top": y, "width": w, "height": h,
-            })
+        if _is_windows():
+            hwnd = _chrome_main_hwnd()
+            if hwnd:
+                _win_show(hwnd, restore=True)
+                if docked:
+                    x, y, w, h = docked
+                    _win_move(hwnd, x, y, w, h)
         else:
-            helpers.cdp("Browser.setWindowBounds", windowId=wid, bounds={"windowState": "normal"})
+            r = helpers.cdp("Browser.getWindowForTarget", targetId=tid)
+            wid = r.get("windowId")
+            if wid is not None:
+                helpers.cdp("Browser.setWindowBounds", windowId=wid, bounds={"windowState": "normal"})
+                if docked:
+                    x, y, w, h = docked
+                    helpers.cdp("Browser.setWindowBounds", windowId=wid, bounds={
+                        "left": x, "top": y, "width": w, "height": h,
+                    })
         helpers.cdp("Target.activateTarget", targetId=tid)
     except Exception:
         pass
 
 
 def _dock_bounds():
-    """Small window bounds docked next to the taskbar, off the desktop center."""
+    """Tiny window bounds docked next to the taskbar, off the desktop center."""
     try:
         import json
 
         raw = helpers.js(
             "JSON.stringify({w: screen.availWidth, h: screen.availHeight, "
-            "l: screen.availLeft, t: screen.availTop, sw: screen.width, sh: screen.height})"
+            "l: screen.availLeft, t: screen.availTop})"
         )
         s = json.loads(raw or "{}")
         aw = int(s.get("w") or 0)
         ah = int(s.get("h") or 0)
         al = int(s.get("l") or 0)
         at = int(s.get("t") or 0)
-        sw = int(s.get("sw") or aw or 0)
         if not aw or not ah:
             return None
-        w = min(520, aw)
-        h = min(380, ah)
+        w = min(DOCK_W, aw)
+        h = min(DOCK_H, ah)
         x = al + aw - w
         y = at + ah - h
         if at > 0:
@@ -151,8 +239,15 @@ def _dock_bounds():
 
 def _restore_window(target, state):
     """Restore the window to ``state`` (e.g. 'minimized') after a round."""
+    if state != "minimized":
+        return
+    if _is_windows():
+        hwnd = _chrome_main_hwnd()
+        if hwnd:
+            _win_show(hwnd, restore=False)
+        return
     tid = _tid(target)
-    if not tid or not state:
+    if not tid:
         return
     try:
         r = helpers.cdp("Browser.getWindowForTarget", targetId=tid)
@@ -173,7 +268,8 @@ def _round(con):
         x = helpers.new_tab("https://x.com/home")
     helpers.wait_for_load(timeout=20)
     hidden = helpers.js("document.visibilityState") == "hidden"
-    if hidden:
+    do_foreground = FOREGROUND and hidden and (_idle_seconds() >= IDLE_THRESHOLD)
+    if do_foreground:
         _foreground(x)
         time.sleep(1.5)
     prev = None
@@ -198,7 +294,7 @@ def _round(con):
         helpers.js(CLICK)
         time.sleep(2.5)
         _store(con, helpers.js(EXTRACT) or [])
-    if hidden:
+    if do_foreground:
         _restore_window(x, "minimized")
     _tick()
     return con.execute("SELECT COUNT(*) FROM tweets").fetchone()[0]
