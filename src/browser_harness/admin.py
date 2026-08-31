@@ -1169,6 +1169,12 @@ def run_doctor():
             print(f"        {conn['name']} — active page: {title} — {url}")
         else:
             print(f"        {conn['name']} — active page: (no real page)")
+    try:
+        from .rmux import rmux_binary
+        rmux_det = rmux_binary()
+    except Exception:
+        rmux_det = None
+    row("rmux", bool(rmux_det), f"{rmux_det[1]} ({rmux_det[0]})" if rmux_det else "not installed (needed by x-monitor)")
     row("Browser Use cloud auth", cloud_auth, auth_state.get("source") or auth_state.get("reason") or "optional: browser-harness auth login")
     # Core health = chrome + daemon. Cloud auth is optional.
     return 0 if (chrome and daemon) else 1
@@ -1186,6 +1192,11 @@ def run_doctor_json(require_existing_daemon=False):
     browser_ready = daemon_browser_ready(NAME)
     daemon = browser_ready or daemon_alive(NAME)
     healthy = (daemon and browser_ready) if strict else (browser_ready or (chrome and daemon))
+    try:
+        from .rmux import rmux_binary
+        rmux_det = rmux_binary()
+    except Exception:
+        rmux_det = None
     report = {
         "schema_version": 1,
         "healthy": healthy,
@@ -1197,6 +1208,11 @@ def run_doctor_json(require_existing_daemon=False):
             "name": NAME,
             "alive": daemon,
             "browser_ready": browser_ready,
+        },
+        "rmux": {
+            "installed": bool(rmux_det),
+            "version": rmux_det[1] if rmux_det else None,
+            "path": rmux_det[0] if rmux_det else None,
         },
     }
     print(json.dumps(report, sort_keys=True))
