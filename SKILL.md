@@ -49,13 +49,11 @@ The agent-built apps live in `agent-workspace/`. Route by intent:
 
 | User intent | App / command |
 | --- | --- |
-| 持续抓 X / 监控新推（自愈） | `uv run python agent-workspace/x_supervisor.py` |
-| 查 / 搜 / 统计已存推 | `uv run python agent-workspace/x_search.py ...` |
-| 读网页正文 | `uv run python agent-workspace/page_text.py <url>` |
-| 浏览器可用性向导 | `uv run python agent-workspace/browser_wizard.py` |
-| 持续监测浏览器 / 自动打开 | `uv run python agent-workspace/browser_watch.py` |
-| Google / Bing 搜索 | `google_search()` / `bing_search()` in a browser script |
-| 反爬 / 阻塞检测 | `detect_page_blocks()` / `scan_tabs_for_blocks()` |
+| X 持续抓推 / 监控新推（自愈） | `uv run python agent-workspace/x_supervisor.py` |
+| X 已存推的查询 / 搜索 / 统计 | `uv run python agent-workspace/x_search.py ...` |
+| Google 搜索 | `google_search()` in a browser script |
+| Bing 搜索 | `bing_search()` in a browser script |
+| 网页正文提取 | `uv run python agent-workspace/page_text.py <url>` |
 | rmux 会话管理 | `browser-harness rmux list\|new\|ensure\|send\|keys\|capture\|kill\|version` |
 
 ## Local Chrome
@@ -236,13 +234,6 @@ uv run python agent-workspace/page_text.py --current                            
 Engine order: `pydefuddle` (Python, install with `pip install browser-harness[content]`),
 then `npx defuddle` (Node CLI), then a stdlib/bs4 fallback. The `engine` field says
 which one was used.
-
-## Anti-bot / block detection
-
-In a browser script, `detect_page_blocks()` reports Cloudflare/captcha/block
-signals on the current page, and `scan_tabs_for_blocks()` checks every tab. Use
-them when a navigation looks like a challenge or an "access denied" page. The
-setup wizard runs this as its final step and alerts on blocked tabs.
 
 ## Browser availability
 
