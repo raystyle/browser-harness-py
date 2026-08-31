@@ -894,3 +894,41 @@ def test_process_start_time_returns_none_for_invalid_pid():
         )
     # 2**31 - 1 is the largest pid_t; in practice no live process at that PID.
     assert admin._process_start_time((1 << 31) - 1) is None
+
+
+def test_extra_chrome_flags_empty_by_default(monkeypatch):
+    monkeypatch.delenv("BH_NO_THROTTLE", raising=False)
+    monkeypatch.delenv("BH_CHROME_EXTRA_FLAGS", raising=False)
+    assert admin._extra_chrome_flags() == []
+
+
+def test_extra_chrome_flags_no_throttle_and_custom(monkeypatch):
+    monkeypatch.setenv("BH_NO_THROTTLE", "1")
+    monkeypatch.setenv("BH_CHROME_EXTRA_FLAGS", "--foo=1 --bar")
+    assert admin._extra_chrome_flags() == ["--foo=1", "--bar"] + list(admin._NO_THROTTLE_FLAGS)
+
+
+def test_launch_browser_appends_extra_flags(monkeypatch, tmp_path):
+    binary = tmp_path / "chrome.exe"
+    binary.touch()
+    process = FakeProcess()
+    seen = {}
+    monkeypatch.setenv("BH_NO_THROTTLE", "1")
+    monkeypatch.setenv("BH_CHROME_PATH", str(binary))
+    monkeypatch.delenv("CHROME_PATH", raising=False)
+    monkeypatch.setattr("browser_harness.daemon.PROFILES", [])
+    monkeypatch.setattr("browser_harness.daemon.remote_debugging_toggle_profiles", lambda: [])
+    monkeypatch.setattr("platform.system", lambda: "Linux")
+    monkeypatch.setattr(admin.ipc, "IS_WINDOWS", False)
+
+    def fake_popen(cmd, **kwargs):
+        seen["cmd"] = cmd
+        return process
+
+    monkeypatch.setattr("subprocess.Popen", fake_popen)
+    admin._launch_browser()
+
+    assert seen["cmd"][0] == str(binary)
+    assert "--disable-background-timer-throttling" in seen["cmd"]
+    assert "--disable-backgrounding-occluded-windows" in seen["cmd"]
+    assert "--disable-features=IntensiveWakeUpThrottling,CalculateNativeWinOcclusion" in seen["cmd"]

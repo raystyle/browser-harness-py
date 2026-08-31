@@ -83,6 +83,7 @@ Notes:
 - `./browser-harness` = local tree launcher. Agents/docs outside this repo use the installed `browser-harness` command.
 - Integration tests under `tests/integration/` may need a live browser/CDP — prefer unit + doctor for routine PR gates.
 - First-time install / blocked Chrome: follow `install.md` (`chrome://inspect/#remote-debugging`).
+- Launch flags: set `BH_NO_THROTTLE=1` (or `BH_CHROME_EXTRA_FLAGS="..."`) so a harness-launched Chrome disables background/occlusion throttling (e.g. X's live "new posts" counter while minimized). Flags only apply when the harness launches Chrome; an already-running Chrome is attached as-is.
 
 # Security
 - Do not commit secrets, Browser Use Cloud tokens, or session cookies.

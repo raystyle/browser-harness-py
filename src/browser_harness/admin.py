@@ -967,6 +967,26 @@ def _profile_directory_args(base):
     return [f"--profile-directory={last}"]
 
 
+_NO_THROTTLE_FLAGS = (
+    "--disable-background-timer-throttling",
+    "--disable-renderer-backgrounding",
+    "--disable-backgrounding-occluded-windows",
+    "--disable-features=IntensiveWakeUpThrottling,CalculateNativeWinOcclusion",
+)
+
+
+def _extra_chrome_flags():
+    """Flags appended only when harness itself launches Chrome.
+
+    An already-running Chrome (with an existing session) is attached as-is;
+    flags cannot be applied to a process that was not started with them.
+    """
+    flags = [f for f in (os.environ.get("BH_CHROME_EXTRA_FLAGS") or "").split() if f]
+    if (os.environ.get("BH_NO_THROTTLE") or "").strip().lower() in ("1", "true", "yes", "on"):
+        flags.extend(_NO_THROTTLE_FLAGS)
+    return flags
+
+
 def _launch_browser():
     """Prefers the browser whose profile already has perm box checked.
 
@@ -983,13 +1003,14 @@ def _launch_browser():
         base for base in PROFILES if base not in enabled and (base / "Local State").exists()
     ]
     system = platform.system()
+    extra = _extra_chrome_flags()
     for key in ("BH_CHROME_PATH", "CHROME_PATH"):
         raw = (os.environ.get(key) or "").strip()
         if raw and Path(raw).expanduser().is_file():
             try:
                 binary = Path(raw).expanduser()
                 process = subprocess.Popen(
-                    [str(binary)],
+                    [str(binary)] + extra,
                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, **ipc.spawn_kwargs(),
                 )
                 profile = next(
@@ -1007,21 +1028,22 @@ def _launch_browser():
     profile_args = _profile_directory_args(base)
     try:
         if system == "Darwin":
-            cmd = ["open", "-a", mac_app] + (["--args"] + profile_args if profile_args else [])
+            tail = profile_args + extra
+            cmd = ["open", "-a", mac_app] + (["--args"] + tail if tail else [])
             r = subprocess.run(cmd, timeout=10, check=False, capture_output=True)
             if r.returncode != 0 and mac_app != "Google Chrome":
                 # Different app → its profile dir may not match; launch plain
-                r = subprocess.run(["open", "-a", "Google Chrome"], timeout=10, check=False, capture_output=True)
+                r = subprocess.run(["open", "-a", "Google Chrome"] + (["--args"] + tail if tail else []), timeout=10, check=False, capture_output=True)
             return (None, base) if r.returncode == 0 else None
         if system == "Windows":
             # `start <name>` resolves browsers via App Paths without knowing the install dir
-            subprocess.Popen(["cmd", "/c", "start", "", win_target or "chrome"] + profile_args, **ipc.spawn_kwargs())
+            subprocess.Popen(["cmd", "/c", "start", "", win_target or "chrome"] + profile_args + extra, **ipc.spawn_kwargs())
             return None, base
         for cmd in posix_cmds or _DEFAULT_LAUNCH[1]:
             w = shutil.which(cmd)
             if w:
                 process = subprocess.Popen(
-                    [w] + profile_args,
+                    [w] + profile_args + extra,
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                     **ipc.spawn_kwargs(),
