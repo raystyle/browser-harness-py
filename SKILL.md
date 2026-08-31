@@ -151,14 +151,41 @@ When the user asks to analyze:
 
 ## Search (Google / Bing)
 
-Agent helpers `google_search(query, limit)` and `bing_search(query, limit)` open a
-background tab, extract `[{title, url}, ...]`, and return them. Use them when the
-user asks to search Google or Bing (runs in the real, logged-in browser):
+Agent helpers `google_search(query, limit)` and `bing_search(query, limit)` each
+reuse their own tab, extract `[{title, url}, ...]`, and return them. Use them when
+the user asks to search Google or Bing (runs in the real, logged-in browser):
 
 ```python
 google_search("rust web framework", limit=5)
 bing_search("rust web framework", limit=5)
 ```
+
+## Browser availability
+
+To know whether there is an operable browser (Chrome running + remote debugging
+enabled + daemon connected), poll:
+
+```bash
+browser-harness doctor --json   # parse daemon.browser_ready / chrome_running
+```
+
+or run the setup wizard — a guided, step-by-step flow that auto-opens Chrome,
+reminds for remote-debugging / Allow, and creates one tab per app (X, Google,
+Bing):
+
+```bash
+uv run python agent-workspace/browser_wizard.py
+```
+
+or watch it continuously — this also auto-opens Chrome when none is running,
+then reports when the daemon becomes connected:
+
+```bash
+uv run python agent-workspace/browser_watch.py
+```
+
+In a browser script, `setup_browser_apps()` ensures X / Google / Bing each have
+their own tab and returns the target ids.
 
 ## Recordings and Videos
 

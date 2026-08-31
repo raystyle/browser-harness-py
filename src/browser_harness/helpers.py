@@ -13,7 +13,10 @@ from . import paths
 
 CORE_DIR = Path(__file__).resolve().parent
 REPO_ROOT = CORE_DIR.parent.parent
-AGENT_WORKSPACE = paths.workspace_dir()
+# In a repo checkout, prefer the repo's agent-workspace/ (AGENTS.md contract);
+# otherwise fall back to the per-user workspace dir.
+_repo_ws = REPO_ROOT / "agent-workspace"
+AGENT_WORKSPACE = _repo_ws if _repo_ws.is_dir() else paths.workspace_dir()
 
 
 def _load_env():
