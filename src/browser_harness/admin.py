@@ -1147,7 +1147,7 @@ def _relayed_tool_upgrade(had_x_monitor):
         "for ($i = 0; $i -lt 150; $i++) {"
         f" if (-not (Get-Process -Id {parent} -ErrorAction SilentlyContinue)) {{ break }};"
         " Start-Sleep -Milliseconds 200 }; "
-        f"uv tool install --upgrade --force git+{GITHUB_REPO_URL}@main; "
+        f"uv tool install --force git+{GITHUB_REPO_URL}; "
         f"if ($LASTEXITCODE -eq 0) {{ {tail} }} "
         "else { Write-Host 'browser-harness upgrade failed; restore the stack with: browser-harness x-monitor' }"
     )
@@ -1166,7 +1166,7 @@ def run_update(yes=False):
     """Upgrade to the latest release and realign the machine with the repo.
 
     Installed mode is seamless: stop the running stack (rmux + daemons, so the
-    venv is replaceable — M102), `uv tool install` the @main head, re-provision
+    venv is replaceable — M102), `uv tool install` the default-branch head (main), re-provision
     skills + workspace apps, and bring the x-monitor stack back if it was
     running. Exit 0 on success, non-zero on failure."""
     import subprocess, sys
@@ -1216,8 +1216,8 @@ def run_update(yes=False):
         if sys.platform == "win32":
             print("relay unavailable; trying in-place upgrade (the venv may be locked, M102)…", file=sys.stderr)
         tool_upgrade = subprocess.run([
-            "uv", "tool", "install", "--upgrade", "--force",
-            f"git+{GITHUB_REPO_URL}@main",
+            "uv", "tool", "install", "--force",
+            f"git+{GITHUB_REPO_URL}",
         ])
         if tool_upgrade.returncode != 0:
             print("hint: a running browser-harness process can lock the venv on Windows (M102); close it and retry.",

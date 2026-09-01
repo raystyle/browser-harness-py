@@ -34,7 +34,7 @@ uv sync
 ### 1b. 全局安装成命令行（可选）
 
 ```powershell
-uv tool install git+https://github.com/raystyle/browser-harness@main
+uv tool install git+https://github.com/raystyle/browser-harness
 browser-harness --version     # 验证
 browser-harness --doctor      # 依赖/连接自检
 ```
@@ -76,13 +76,13 @@ browser-harness --update -y
 | 步骤 | 做什么 |
 | --- | --- |
 | 1 停栈 | `rmux kill-server` + 停 default/x-monitor 两个 daemon（解除 Windows venv 文件锁） |
-| 2 升级 | `uv tool install --upgrade --force` @main（单 venv 原地替换，不累积旧版本） |
+| 2 升级 | `uv tool install --force`（默认分支即 main，单 venv 原地替换，不累积旧版本） |
 | 3 铺装 | `skills sync`：Claude/Codex 技能 + workspace apps/domain-skills（增量；并清扫本项目退役的旧文件名，自加内容永不删除） |
 | 4 恢复 | 升级前 x-monitor 在跑则自动重拉；尾部输出落地版本 |
 
 - **Windows 细节**：升级命令自身跑在 venv 里无法原地替换自己，实际安装由脱离 venv 的 pwsh 接力进程在本命令退出后执行（同控制台可见输出）。
 - **版本相同也会铺装**：`--update` 在 up-to-date 时仍执行第 3 步，修复"版本没变但 workspace 漂移"的机器。
-- **手动路线**（备选）：`uv tool install --upgrade --force git+...@main` —— 前置要求先停栈（rmux + daemon，见 M102），且需另跑 `skills sync`。
+- **手动路线**（备选）：`uv tool install --force git+https://github.com/raystyle/browser-harness` —— `--force` 单独即可升级（git 源每次解析到默认分支头）；前置要求先停栈（rmux + daemon，见 M102），且需另跑 `skills sync`。
 - **动过 uv 工具层（装/卸/升级）前后**各跑一次 `browser-harness --version` 确认链路完整（M103：清理 uv 注册残留曾连带删掉 shim 目录）。
 
 升级后验证：`browser-harness --version`（新版本号）+ `--doctor` 全绿 + `rmux list` 两会话。

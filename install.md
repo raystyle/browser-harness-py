@@ -12,7 +12,7 @@ Use once. For browser work, read `SKILL.md`.
 This fork installs from GitHub, not PyPI:
 
 ```powershell
-uv tool install --python 3.12 --upgrade --force git+https://github.com/raystyle/browser-harness@main
+uv tool install --python 3.12 --force git+https://github.com/raystyle/browser-harness
 ```
 
 Register the Codex skill:

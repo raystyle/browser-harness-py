@@ -2,6 +2,10 @@
 
 版本里程碑：本项目版本记录（v0.2.2 起独立维护；v0.1.x 为 browser-use 上游基线历史）。
 
+## v0.6.5 — 2026-09-01
+
+- **安装/升级命令统一简化**：默认分支已是 `main`，`@main` 后缀冗余；`--force` 单独即可升级（git 源每次解析到默认分支头）。新标准形：全新安装 `uv tool install git+https://github.com/raystyle/browser-harness`，升级 `uv tool install --force <同URL>`。代码（接力脚本与原地回退）与全部文档（README/AGENTS/install.md 三副本/M102）同步；单测断言脚本无 `@main`。
+
 ## v0.6.4 — 2026-09-01
 
 - **升级即清理历史老版本**（用户定向）：

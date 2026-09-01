@@ -959,7 +959,8 @@ def test_relayed_tool_upgrade_builds_pwsh_wait_and_tail(monkeypatch):
     argv = spawned[0]
     assert argv[0] == "C:/pwsh.exe" and argv[1] == "-NoProfile" and argv[2] == "-Command"
     script = argv[3]
-    assert "Get-Process -Id" in script and "uv tool install --upgrade --force" in script
+    assert "Get-Process -Id" in script and "uv tool install --force" in script
+    assert "@main" not in script  # default branch is main; suffix is redundant
     assert "browser-harness skills sync; browser-harness x-monitor" in script
 
     admin._relayed_tool_upgrade(had_x_monitor=False)

@@ -5,7 +5,7 @@ This is a **one-time prerequisite**, not part of the regular AI workflow. Do it 
 ## Install the command
 
 ```powershell
-uv tool install --python 3.12 --upgrade --force git+https://github.com/raystyle/browser-harness@main
+uv tool install --python 3.12 --force git+https://github.com/raystyle/browser-harness
 browser-harness --version   # should print the version
 ```
 
@@ -60,7 +60,7 @@ One command: it stops the running stack (rmux sessions + daemons, which otherwis
 lock the venv on Windows), reinstalls from `main`, re-provisions skills and
 workspace apps (additively — local additions are never deleted), and brings back
 the x-monitor stack if it was running. The manual
-`uv tool install --upgrade --force git+https://github.com/raystyle/browser-harness@main`
+`uv tool install --force git+https://github.com/raystyle/browser-harness`
 also works but requires stopping the stack first (M102 in the repo docs).
 
 State lives under `C:\Users\<user>\.config\browser-harness` by default on Windows: agent workspace, agent Chrome profile, runtime sockets, logs, screenshots, and temp files. Override with `BH_HOME` or `BROWSER_HARNESS_HOME`.

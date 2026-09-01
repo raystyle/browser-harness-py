@@ -22,7 +22,7 @@
 browser-harness rmux kill-server                       # 停 x-supervisor / x-worker
 Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -like "D:\ohmyenv\uv-tools\browser-harness*" }   # 实查残留
 Stop-Process -Id <残留PID> -Force                       # 通常是 default daemon
-uv tool install --upgrade --force git+https://github.com/raystyle/browser-harness@main
+uv tool install --force git+https://github.com/raystyle/browser-harness
 ```
 
 升级后恢复：`browser-harness x-monitor`（幂等重拉 Chrome 附着 + rmux 栈 + daemon）。
