@@ -1,4 +1,4 @@
-"""Search tweets stored by x_worker.py / x_monitor.py.
+"""Search tweets stored by x_worker.py.
 
 No browser required; reads the SQLite database directly.
 
