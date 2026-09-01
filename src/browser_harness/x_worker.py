@@ -16,6 +16,11 @@ import time
 import datetime
 import platform
 
+# Dedicated daemon so capture rounds never race ad-hoc CLI scripts (which use
+# the "default" daemon) for the daemon's tab attachment. Must be set before
+# browser_harness imports resolve their module-level NAME.
+os.environ.setdefault("BU_NAME", "x-monitor")
+
 from browser_harness.admin import ensure_daemon
 from browser_harness import helpers
 

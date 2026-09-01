@@ -42,10 +42,10 @@ print(page_info())
   the same scroll once, then re-read the scroll position. This visibly switches
   tabs, so do not use it when the user has forbidden foreground changes. Do not
   invent a `Runtime.evaluate` scroll replacement or a cross-frame JS walker.
-- Ad-hoc scripts share the default daemon with the x-monitor worker. During a
-  capture round the daemon's tab attachment can move back to the X tab
-  mid-script; right after `new_tab()` verify with `current_tab()` and
-  re-`switch_tab()` if it moved.
+- The x-monitor worker drives the browser through its own daemon
+  (`BU_NAME=x-monitor`), so capture rounds never race ad-hoc CLI scripts for
+  the default daemon's tab attachment. Both daemons may attach to the same
+  agent Chrome concurrently.
 - The default daemon is pinned to the isolated agent Chrome via
   `BU_CDP_URL=http://127.0.0.1:9223` in `<BH_HOME>/.env` — it never attaches
   to the user's own Chrome, even one with the chrome://inspect remote-debugging

@@ -2,6 +2,11 @@
 
 版本里程碑：本 fork 相对上游的本地改动记录。
 
+## v0.2.7 — 2026-09-01
+
+- **X 栈独立 daemon**：x_monitor worker 改用 `BU_NAME=x-monitor` 专属 daemon（`x_worker` 导入前 setdefault + `x-monitor` 启动器同步设置），抓取轮次不再与随手 CLI 脚本争夺 default daemon 的标签页附着；两个 daemon 可同时附着同一 agent Chrome（实测共存）。
+- SKILL.md 更新 daemon 共享说明（原"mid-script 附着可能被切走"的 gotcha 已消除）。
+
 ## v0.2.6 — 2026-09-01
 
 - 修复 `x-search --author` 只匹配显示名列：传 handle（`Rainmaker1973` / `@Rainmaker1973`）返回 0 条；现同时匹配显示名与 handle。

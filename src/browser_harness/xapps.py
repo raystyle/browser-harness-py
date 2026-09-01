@@ -118,6 +118,9 @@ def _run_monitor(rest: list[str]) -> int:
         print(f"failed to launch the isolated agent Chrome (port {_AGENT_PORT})", file=sys.stderr)
         return 1
     os.environ["BU_CDP_URL"] = f"http://127.0.0.1:{_AGENT_PORT}"
+    # The X stack drives the browser through its own daemon so capture rounds
+    # never race ad-hoc CLI scripts for the default daemon's tab attachment.
+    os.environ.setdefault("BU_NAME", "x-monitor")
     supervisor = Path(browser_harness.__file__).parent / "x_supervisor.py"
     try:
         Rmux().ensure_session(
