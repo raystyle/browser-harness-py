@@ -62,6 +62,92 @@ browser-harness --doctor          # Chrome / daemon / 连接状态
 browser-harness rmux status       # 两个 rmux 会话是否存活
 ```
 
+## 自由执行指定代码
+
+`browser-harness` 不带子命令、且 stdin 不是终端时，会把 stdin 当作 Python 执行；核心 helper（`page_info`、`js`、`goto_url`、`list_tabs` 等）已经预导入，无需 `import`。
+
+全局安装版：
+
+```powershell
+@'
+print(page_info())
+print(js("document.title"))
+'@ | browser-harness
+```
+
+开发仓库内等价写法：
+
+```powershell
+@'
+print(page_info())
+print(setup_browser_apps())
+'@ | uv run python -m browser_harness.run
+```
+
+上面的代码会经 daemon 连上当前绑定的 Chrome，并把结果打印到 stdout。脚本执行失败会以非 0 退出码返回，适合被 agent 或 CI 直接调用。
+
+## 开发 agent-workspace
+
+任务辅助函数默认在 `src/browser_harness/agent_helpers.py`。在**开发仓库** checkout 下，`agent-workspace/agent_helpers.py` 会被优先加载，因此本仓库内置了可编辑的 workspace：
+
+```powershell
+# 在 D:\browser-harness\agent-workspace\agent_helpers.py 里增加：
+def summarize_current_page():
+    info = page_info() or {}
+    body = js("(document.body && document.body.innerText || '').slice(0, 3000)")
+    return {"url": info.get("url"), "title": info.get("title"), "body": body}
+```
+
+```powershell
+@'
+print(summarize_current_page())
+'@ | uv run python -m browser_harness.run
+```
+
+全局安装版默认加载包内 `browser_harness.agent_helpers`；如果需要使用自己的 workspace，显式指定：
+
+```powershell
+$env:BH_AGENT_WORKSPACE = "D:\browser-harness\agent-workspace"
+@'
+print(summarize_current_page())
+'@ | browser-harness
+```
+
+站点技能放在 `agent-workspace/domain-skills/<host>/`，设置 `BH_DOMAIN_SKILLS=1` 后 `goto_url` 会把当前域名匹配到的技能文件一并返回。核心应用已经迁入主包：`web_fetch.py`、`x_search.py`、`x_worker.py`、`x_supervisor.py`。
+
+## 部署细节与数据目录
+
+开发仓库和全局 `uv tool install` 会使用不同位置：
+
+| 内容 | 开发仓库 | 全局安装 |
+| --- | --- | --- |
+| 推文 DB / 心跳 / 日志 | `agent-workspace/`（`x_tweets.db` 等） | `~/.config/browser-harness/agent-workspace/` |
+| agent 专属 Chrome profile | `agent-chrome-profile/` | `~/.config/browser-harness/agent-chrome-profile/` |
+| daemon 配置 / 运行时 / 临时文件 | `.browser-harness-dev/`（仓库 launcher）；否则 `~/.config/browser-harness` | `~/.config/browser-harness/{runtime,tmp}/` |
+| agent Chrome 调试端口 | `9223` | `9223` |
+
+在 Windows 上 `~/.config/browser-harness` 实际为 `C:\Users\<你>\.config\browser-harness`（不走 `%APPDATA%`）。开发仓库的 `./browser-harness` launcher 会把 daemon 状态额外隔离到仓库内 `.browser-harness-dev/`，便于本地测试时不污染全局目录；如果直接使用 `uv run python -m browser_harness.run`，则 daemon 状态沿用 `~/.config/browser-harness`。
+
+可用环境变量覆盖默认位置：
+
+```powershell
+$env:BH_HOME                 # browser-harness 根数据目录（全局）
+$env:X_DB                    # 推文 SQLite 路径
+$env:X_HEARTBEAT             # 心跳文件
+$env:X_SUPERVISOR_LOG        # supervisor 日志
+$env:BH_AGENT_WORKSPACE      # agent workspace 目录
+$env:BH_AGENT_CHROME_PROFILE # agent Chrome profile
+$env:BU_CDP_URL              # CDP http 地址
+$env:BU_CDP_WS               # CDP websocket 地址
+```
+
+小版本升级（例如本机从 0.2.0 升到 0.2.1）：
+
+```powershell
+uv tool install --upgrade git+https://github.com/raystyle/browser-harness@dev/work
+browser-harness --version
+```
+
 ## 命令使用
 
 ### X 监控
