@@ -2,6 +2,11 @@
 
 版本里程碑：本 fork 相对上游的本地改动记录。
 
+## v0.2.8 — 2026-09-01
+
+- **interaction-skills 十个占位专题全部充实**：uploads（DOM.setFileInputFiles）、cookies（读取/回写与浏览器态 vs 页面态）、iframes（同源穿越 + 帧坐标换算警告）、cross-origin-iframes（OOPIF 独立 target + `js(target_id=)`）、downloads（setDownloadBehavior + .crdownload 轮询）、drag-and-drop（插值鼠标拖拽 + HTML5 DnD DOM 事件两路）、dropdowns（先开后重读坐标 + 原生 select 直设）、network-requests（drain_events 差分 + getResponseBody + 网络空闲）、shadow-dom（合成器坐标穿透 + shadowRoot 递归）、print-as-pdf（printToPDF 参数与坑）。
+- 关键声明实测验证：事件流、响应体读取、PDF 输出、cookies 读取均在 agent Chrome 上跑通；所有 helper 签名取自源码（`upload_file`/`iframe_target`/`drain_events`/`wait_for_network_idle`/`dispatch_key` 等）。
+
 ## v0.2.7 — 2026-09-01
 
 - **X 栈独立 daemon**：x_monitor worker 改用 `BU_NAME=x-monitor` 专属 daemon（`x_worker` 导入前 setdefault + `x-monitor` 启动器同步设置），抓取轮次不再与随手 CLI 脚本争夺 default daemon 的标签页附着；两个 daemon 可同时附着同一 agent Chrome（实测共存）。
