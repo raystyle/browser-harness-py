@@ -323,7 +323,9 @@ recording path while the main agent returns the task result.
 
 ## Interaction Skills
 
-If you get stuck on a browser mechanic, check https://github.com/raystyle/browser-harness/tree/dev/work/interaction-skills.
+If you get stuck on a browser mechanic, check the interaction skills — when this
+skill is installed they sit right next to this file under `references/interaction/`;
+upstream they live at https://github.com/raystyle/browser-harness/tree/dev/work/interaction-skills.
 
 - connection.md
 - cookies.md

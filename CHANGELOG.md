@@ -2,6 +2,12 @@
 
 版本里程碑：本 fork 相对上游的本地改动记录。
 
+## v0.2.5 — 2026-09-01
+
+- 新增 `browser-harness skills [sync]`：把打包的技能（SKILL.md + references/）同步到 agent CLI 技能目录（`~/.claude/skills/browser-harness/`、`~/.codex/skills/browser-harness/`），支持状态查看与内容哈希比对。
+- 技能打包完整化：17 个 interaction-skills 专题 + install.md 以 `references/` 形式随包分发；SKILL.md 的 Interaction Skills 章节改为优先指向本地 `references/interaction/`。
+- 修复 `skills/browser-harness/SKILL.md` 与 plugin.json 版本过期（0.2.2）；新增防漂移测试覆盖包内副本、插件副本与 interaction 引用。
+
 ## v0.2.4 — 2026-09-01
 
 - **默认 daemon 永久钉住 agent Chrome**：`<BH_HOME>/.env` 写入 `BU_CDP_URL=http://127.0.0.1:9223`。根因实证：用户 Chrome 的 chrome://inspect 调试开关（DevToolsActivePort=9222）会被 daemon 发现链优先命中（Chrome 147+ /json 404 时走 WS 绕行），导致默认 daemon 连上用户浏览器。

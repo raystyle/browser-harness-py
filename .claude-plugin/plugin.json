@@ -1,6 +1,6 @@
 {
   "name": "browser-harness",
-  "version": "0.2.2",
+  "version": "0.2.5",
   "description": "Direct local Chrome control via CDP. Drives an isolated agent Chrome or the user's real Chrome with coordinate clicks, screenshots, and Python helpers — no selector hunting. Windows-focused fork. Requires the one-time `browser-harness` CLI install (see the skill's references/install.md).",
   "author": {
     "name": "raystyle",
