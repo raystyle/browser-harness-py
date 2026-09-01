@@ -52,7 +52,7 @@
 - 研究（S）：`S001-patchright与CDP-Patches集成研究.md`、`S002-rmux集成研究.md`、`S003-defuddle网页正文提取研究.md`、`S004-用户浏览器与agent浏览器隔离研究.md`、`S005-抓取内容提取能力对比研究.md`、`S006-WSL2无头环境适配研究.md`、`S007-会话cookie跨设备迁移研究.md`
 - 参考（R）：`R001-browser-harness资料整理.md`、`R002-浏览器隔离与抓取工作流.md`、`R003-插件开发与测试规范.md`、`R004-Windows无头模式测试指引.md`
 - 元规范（G）：`G001-文档标准细则-命名写作规范.md`、`G002-研究标准细则-结构与六态标记.md`、`G003-工作流标准细则-从登记到归档五步.md`、`G004-经验沉淀细则-成功与错误经验分治.md`、`template.md`
-- 错误（M）：`M101-Chrome的user-data-dir引号导致profile污染.md`、`M102-CLI升级前运行中的进程锁住venv.md`、`M103-uv-tool-uninstall删除dangling环境连带shim目录.md`、`M104-Linux下Chrome重写cmdline导致NUL切分失效.md`
+- 错误（M）：`M101-Chrome的user-data-dir引号导致profile污染.md`、`M102-CLI升级前运行中的进程锁住venv.md`、`M103-uv-tool-uninstall删除dangling环境连带shim目录.md`、`M104-Linux下Chrome重写cmdline导致NUL切分失效.md`、`M105-单测字符串比对路径在win32失效.md`
 
 ## 六、阶段与版本
 

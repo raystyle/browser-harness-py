@@ -17,7 +17,9 @@ def fake_proc(monkeypatch, tmp_path):
     real_iterdir = pathlib.Path.iterdir
 
     def iterdir(self, *args, **kwargs):
-        if str(self) == "/proc":
+        # Path equality, not a string compare: on win32 str(Path("/proc"))
+        # normalizes to "\\proc" and the redirect would never fire (M105).
+        if self == pathlib.Path("/proc"):
             return real_iterdir(tmp_path, *args, **kwargs)
         return real_iterdir(self, *args, **kwargs)
 
