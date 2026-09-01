@@ -27,7 +27,7 @@ WSL2 无头接管（对应 `GOAL.md`，队列目标「Linux/macOS 接管」的 L
 | browsers 视图 Linux 枚举 | 已完成 | /proc 扫描 + M104 cmdline 兼容 | 2026-09-01 |
 | WSL 验证 | 已完成 | 单测 207 全绿 + doctor 全绿 + web-fetch/管道自动化实测 | 2026-09-01 |
 | cookie 跨设备迁移 | 已完成 | cookies export/import 应用（S007），X 登录态 Windows→WSL 实测迁移成功 | 2026-09-01 |
-| WSL x-monitor 登录 | 已完成 | cookie 导入即登录（S007）；是否在 WSL 侧起 x-monitor 待用户定（勿与 Windows 侧双跑） | 2026-09-01 |
+| WSL x-monitor 登录 | 已完成 | cookie 导入即登录（S007）；Windows 侧停栈后 WSL 侧 x-monitor 已接管实跑（首分钟 24 推入库） | 2026-09-01 |
 
 ## 队列目标
 
