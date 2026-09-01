@@ -40,7 +40,7 @@ def test_c_flag_is_rejected():
         try:
             run.main()
         except SystemExit as e:
-            assert "browser-harness <<'PY'" in str(e)
+            assert "@'" in str(e)
         else:
             raise AssertionError("-c should be rejected")
 
@@ -54,7 +54,7 @@ def test_no_args_interactive_stdin_prints_usage():
         try:
             run.main()
         except SystemExit as e:
-            assert "browser-harness <<'PY'" in str(e)
+            assert "@'" in str(e)
         else:
             raise AssertionError("interactive no-args invocation should exit with usage")
 
@@ -65,7 +65,7 @@ def test_no_args_empty_stdin_prints_usage():
         try:
             run.main()
         except SystemExit as e:
-            assert "browser-harness <<'PY'" in str(e)
+            assert "@'" in str(e)
         else:
             raise AssertionError("empty stdin should exit with usage")
 

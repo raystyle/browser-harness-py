@@ -62,6 +62,40 @@ browser-harness --doctor          # Chrome / daemon / 连接状态
 browser-harness rmux status       # 两个 rmux 会话是否存活
 ```
 
+## Skill 安装部署
+
+本仓库的 `SKILL.md` 是 agent 操作路由；`browser-harness skill` 会把安装包内的同一份 SKILL.md 输出到 stdout。先把 CLI 升级到本仓库最新版，再注册 skill：
+
+```powershell
+uv tool install --upgrade git+https://github.com/raystyle/browser-harness@dev/work
+```
+
+### Codex
+
+```powershell
+$skillDir = "$env:USERPROFILE\.codex\skills\browser-harness"
+New-Item -ItemType Directory -Force $skillDir | Out-Null
+browser-harness skill | Set-Content -LiteralPath "$skillDir\SKILL.md" -Encoding utf8
+```
+
+注册后 skill 名称为 `browser-harness`，触发器使用 SKILL frontmatter 里的 description：
+
+```text
+Always use browser-harness for any web interaction: automation, scraping, testing, or site/app work.
+```
+
+### Claude Code / 其他 agent
+
+本仓库同时提供 Claude plugin 结构：
+
+- `.claude-plugin/plugin.json`：plugin 元数据。
+- `.claude-plugin/marketplace.json`：marketplace 索引。
+- `skills/browser-harness/`：skill 目录，其中 `references/install.md` 是 CLI 安装前置说明。
+
+也可以用和 Codex 相同的方式手动注册：skill 名 `browser-harness`，skill body 由 `browser-harness skill` 生成，trigger 同上。
+
+如果旧的用户级 `browser` 或 `browser-use` skill 抢占了同名意图，手动删除那个 stale skill 目录；不要改 bundled/vendor plugin cache。
+
 ## 自由执行指定代码
 
 `browser-harness` 不带子命令、且 stdin 不是终端时，会把 stdin 当作 Python 执行；核心 helper（`page_info`、`js`、`goto_url`、`list_tabs` 等）已经预导入，无需 `import`。

@@ -31,7 +31,7 @@ def _events(directory):
 def test_capture_uses_the_screenshot_ipc_timeout(tmp_path, monkeypatch):
     """Frames must get the same budget capture_screenshot() uses.
 
-    On the default 5s IPC timeout every cloud screenshot times out, and the
+    On the default 5s IPC timeout every screenshot times out, and the
     handler in _capture swallows it — the recording keeps growing with no
     frames in it.
     """
@@ -55,7 +55,7 @@ def test_dropped_frame_is_recorded_and_never_raises(tmp_path, monkeypatch):
     """A failed screenshot stays non-fatal, but stops being invisible.
 
     Drives the real IPC timeout rather than a hand-made TimeoutError: _send()
-    is what actually raises when a cloud screenshot overruns, and a stand-in
+    is what actually raises when a screenshot overruns, and a stand-in
     with a message of its own would hide an empty one on the real exception.
     """
 

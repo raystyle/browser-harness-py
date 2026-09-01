@@ -120,8 +120,8 @@ def _load_env_file(p):
 _load_env()
 
 NAME = os.environ.get("BU_NAME", "default")
-BU_API = "https://api.browser-use.com/api/v3"
-PYPI_JSON = "https://pypi.org/pypi/browser-harness/json"
+GITHUB_RELEASE_API = "https://api.github.com/repos/raystyle/browser-harness/releases/latest"
+GITHUB_REPO_URL = "https://github.com/raystyle/browser-harness"
 VERSION_CACHE = paths.config_dir() / "version-cache.json"
 VERSION_CACHE_TTL = 24 * 3600
 DOCTOR_TEXT_LIMIT = 140
@@ -305,7 +305,7 @@ def _doctor_probe_chrome_binary_for_snap():
 
 
 def _snap_linux_headless_doc_url():
-    return "https://github.com/browser-use/browser-harness/blob/main/docs/snap-linux-headless.md"
+    return "https://github.com/raystyle/browser-harness/blob/dev/work/docs/snap-linux-headless.md"
 
 
 def run_doctor_fix_snap():
@@ -558,10 +558,10 @@ def _repo_dir():
 
 
 def _install_mode():
-    """"git" for editable clone, "pypi" for an installed wheel, "unknown" otherwise."""
+    """"git" for editable clone, "installed" for a uv tool install, "unknown" otherwise."""
     if _repo_dir():
         return "git"
-    return "pypi" if _version() else "unknown"
+    return "installed" if _version() else "unknown"
 
 
 def _cache_read():
@@ -584,13 +584,13 @@ def _cache_write(data):
 
 
 def _latest_release_tag(force=False):
-    """Return latest PyPI version, or None. Cached for 24h to avoid hammering PyPI."""
+    """Return the latest GitHub release tag for this fork, or None."""
     cache = _cache_read()
     now = time.time()
     if not force and cache.get("tag") and now - cache.get("fetched_at", 0) < VERSION_CACHE_TTL:
         return cache["tag"]
     try:
-        tag = json.loads(urllib.request.urlopen(PYPI_JSON, timeout=5).read()).get("info", {}).get("version") or ""
+        tag = json.loads(urllib.request.urlopen(GITHUB_RELEASE_API, timeout=5).read()).get("tag_name") or ""
     except Exception:
         return cache.get("tag")  # fall back to last known
     tag = tag.lstrip("v")
@@ -885,7 +885,7 @@ def run_doctor():
     if latest:
         print(f"  latest release    {latest}" + (" (update available)" if newer else ""))
     else:
-        print("  latest release    (could not reach PyPI)")
+        print("  latest release    (could not reach GitHub releases)")
     if platform.system() == "Linux":
         bname, bpath = _doctor_probe_chrome_binary_for_snap()
         if bname and bpath and _is_snap_browser(bpath):
@@ -982,7 +982,7 @@ def run_update(yes=False):
     elif latest:
         print(f"installed version unknown; will try to update to {latest}.")
     else:
-        print("could not reach PyPI; will try to update anyway.")
+        print("could not reach GitHub releases; will try to update anyway.")
 
     mode = _install_mode()
     if mode == "git":
@@ -998,8 +998,11 @@ def run_update(yes=False):
         r = subprocess.run(["git", "-C", str(repo), "pull", "--ff-only"])
         if r.returncode != 0:
             return r.returncode
-    elif mode == "pypi":
-        tool_upgrade = subprocess.run(["uv", "tool", "upgrade", "browser-harness"])
+    elif mode == "installed":
+        tool_upgrade = subprocess.run([
+            "uv", "tool", "install", "--upgrade", "--force",
+            f"git+{GITHUB_REPO_URL}@dev/work",
+        ])
         if tool_upgrade.returncode != 0:
             return tool_upgrade.returncode
     else:

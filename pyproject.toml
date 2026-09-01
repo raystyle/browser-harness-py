@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "browser-harness"
-version = "0.2.1"
+version = "0.2.2"
 description = "The simplest, thinnest, and most powerful harness to control your real browser with your agent."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -35,9 +35,9 @@ mcp = ["mcp>=2.0.0,<3"]
 browser-harness = "browser_harness.run:main"
 
 [project.urls]
-Homepage = "https://github.com/browser-use/browser-harness"
-Repository = "https://github.com/browser-use/browser-harness"
-Issues = "https://github.com/browser-use/browser-harness/issues"
+Homepage = "https://github.com/raystyle/browser-harness"
+Repository = "https://github.com/raystyle/browser-harness"
+Issues = "https://github.com/raystyle/browser-harness/issues"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

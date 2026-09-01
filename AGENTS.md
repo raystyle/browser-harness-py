@@ -11,7 +11,7 @@
    - 本仓是 `browser-use/browser-harness` 的个人 fork，个人工作推到 `raystyle/browser-harness`。
 
 2. **边界**
-   - 连接模型：默认 daemon、`BU_CDP_URL` / `BU_CDP_WS`（独立 automation Chrome）、或 Browser Use cloud。
+   - 连接模型：默认 daemon、`BU_CDP_URL` / `BU_CDP_WS`（独立 automation Chrome），纯本地，无 cloud。
    - **用户浏览器与 agent 浏览器分离**：agent 只操作独立 `agent-chrome-profile`（9223），永不碰用户的 `Profile 3`（见 S004）。
    - 核心代码在 `src/browser_harness/`；agent 可编辑区在 `agent-workspace/`。
 

@@ -2,6 +2,13 @@
 
 版本里程碑：本 fork 相对上游的本地改动记录。
 
+## v0.2.2 — 2026-09-01
+
+- 移除 `browser-harness telemetry` 及 `telemetry.py`，CLI 不再上报匿名事件。
+- 更新来源从 PyPI 官方包改为本 fork GitHub `dev/work`；`--update` / doctor 不再连官方 PyPI。
+- 清理 Browser Use Cloud 残余文档与 skill：`browser-use-cloud`、`profile-sync.md`、AGENTS/INDEX 同步修正。
+- 修正 SKILL 中的启动命令、链接、rmux 路由与 Windows PowerShell 示例。
+
 ## v0.2.1 — 2026-09-01
 
 - 移除 Browser Use Cloud 支持：`auth login/status/logout`、`start_remote_daemon`、`stop_remote_daemon`、`fetch-use` 依赖、`Remote Browsers` 全部下线；daemon 简化为纯本地（cdp/local）。

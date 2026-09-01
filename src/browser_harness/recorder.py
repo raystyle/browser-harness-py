@@ -275,7 +275,7 @@ def _capture(d, helper, args=(), kwargs=None, duration=None):
         if k in event:
             event[k] = _scrub_url(event[k])
     try:
-        # Same budget capture_screenshot() uses: a cloud screenshot routinely
+        # Same budget capture_screenshot() uses: a screenshot routinely
         # exceeds the 5s default IPC timeout, and every frame here would time
         # out and be swallowed below, leaving a recording with no frames.
         shot = helpers.cdp(

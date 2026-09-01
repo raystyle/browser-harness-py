@@ -412,7 +412,7 @@ class Daemon:
 
         pages = [t for t in targets if is_real_page(t)]
         if not pages:
-            # Fresh browser (ex: BU cloud) starts w about:blank; reuse it
+            # Fresh browser starts w about:blank; reuse it
             pages = [t for t in targets if is_reusable_blank_page(t)]
         if not pages:
             # Freshly launched browser (ex: harness relaunching closed Chrome)
@@ -660,7 +660,7 @@ class Daemon:
         if meta == "shutdown":
             # Flip the barrier synchronously with recovery registration, then
             # cancel/drain existing handlers. In particular, a CDP replay that
-            # never answers must not prevent Cloud cleanup from being attempted.
+            # never answers must not prevent cleanup from being attempted.
             if self._shutting_down:
                 return {"error": "shutdown already in progress"}
             self._shutting_down = True
@@ -754,7 +754,7 @@ async def serve(d):
         # Establish the same recovery barrier before touching owned targets.
         d._shutting_down = True
         recoveries_drained = await d._cancel_and_drain_recoveries()
-        # Named non-cloud daemons create one dedicated background tab. Shutdown
+        # Named daemons create one dedicated background tab. Shutdown
         # has blocked new recovery and drained active recovery before setting
         # d.stop (or finalization established the barrier after a server crash).
         # Take the same locks, in the same order as recovery, so cleanup closes

@@ -9,18 +9,31 @@ Use once. For browser work, read `SKILL.md`.
 
 ## Fast Path
 
-```bash
-uv tool install --python 3.12 --upgrade --force browser-harness
-mkdir -p "${CODEX_HOME:-$HOME/.codex}/skills/browser-harness"
-browser-harness skill > "${CODEX_HOME:-$HOME/.codex}/skills/browser-harness/SKILL.md"
-browser-harness <<'PY'
+This fork installs from GitHub, not PyPI:
+
+```powershell
+uv tool install --python 3.12 --upgrade --force git+https://github.com/raystyle/browser-harness@dev/work
+```
+
+Register the Codex skill:
+
+```powershell
+$skillDir = "$env:USERPROFILE\.codex\skills\browser-harness"
+New-Item -ItemType Directory -Force $skillDir | Out-Null
+browser-harness skill | Set-Content -LiteralPath "$skillDir\SKILL.md" -Encoding utf8
+```
+
+Quick browser check:
+
+```powershell
+@'
 print(page_info())
-PY
+'@ | browser-harness
 ```
 
 If `page_info()` prints, configure recording consent below, then stop.
 
-`--python 3.12` prevents uv from selecting old releases that support older Python versions. `--upgrade --force` replaces any previous `browser-harness` tool install with the latest stable release. It does not uninstall unrelated commands such as `browser-use-Browser` or `browser-use-Terminal`.
+`--python 3.12` prevents uv from selecting old releases that support older Python versions. `--upgrade --force` replaces any previous `browser-harness` tool install with the latest `dev/work` build.
 
 For Claude Code or other agents: install `browser-harness`, register a skill named `browser-harness`, use `browser-harness skill` as the body, and use this trigger:
 
@@ -36,7 +49,7 @@ Run `browser-harness recordings`. If it reports `(default)`, ask the user once:
 
 > Enable local browser recordings? This saves screenshots and action traces on
 > this machine, which may include sensitive page content, so you can later ask
-> “show me what you did” or request a video. Videos are never generated
+> "show me what you did" or request a video. Videos are never generated
 > automatically. [y/N]
 
 Default to no. Run `browser-harness recordings enable` only after yes; otherwise
@@ -65,43 +78,36 @@ Chrome setup step; it is not exposed to the harness until CDP is available.
 The helper requires Accessibility permission for the app launching the CLI
 (for example Terminal, iTerm, Codex, or an IDE) in System Settings.
 
-## Cloud Browsers
+## Isolated Agent Chrome
 
-Cloud is optional. Local Chrome does not need a Browser Use API key.
+X monitoring does not use your normal Chrome. Start it with:
 
-Use any short made-up name; `r7k2` below is just a placeholder.
-
-```bash
-browser-harness auth login
-browser-harness <<'PY'
-start_remote_daemon("r7k2")
-PY
+```powershell
+browser-harness x-monitor
 ```
 
-Then use it by name:
-
-```bash
-BU_NAME=r7k2 browser-harness <<'PY'
-print(page_info())
-PY
-```
+This launches an isolated `agent-chrome-profile` on port `9223` with
+anti-throttle flags and pins the worker to it via `BU_CDP_URL`.
 
 ## If Still Broken
 
-```bash
+```powershell
 browser-harness --doctor
 ```
 
 Use the output:
 
-- `chrome running` FAIL: ask the user to open Chrome, or use isolated/cloud browser.
-- `daemon alive` FAIL: Chrome remote debugging permission is missing, Chrome is closed, or the CDP endpoint is not reachable.
-- update available: run `browser-harness --update -y` when you decide to upgrade.
+- `chrome running` FAIL: ask the user to open Chrome, or start the isolated
+  agent Chrome via `browser-harness x-monitor`.
+- `daemon alive` FAIL: Chrome remote debugging permission is missing, Chrome is
+  closed, or the CDP endpoint is not reachable.
+- `rmux` FAIL: install rmux under `%LOCALAPPDATA%\rmux` or make `rmux` available
+  on PATH; see README.
 
 For a machine-readable health check, an orchestrator can set `BU_NAME` to an
 already-provisioned daemon and run:
 
-```bash
+```powershell
 browser-harness doctor --json --require-existing-daemon
 ```
 
@@ -112,9 +118,8 @@ If this still fails, inspect `src/browser_harness/admin.py`, `src/browser_harnes
 
 Useful:
 
-```bash
+```powershell
 browser-harness --update -y
-browser-harness telemetry disable
 ```
 
-State lives under `${XDG_CONFIG_HOME:-~/.config}/browser-harness` by default: auth, telemetry id, agent workspace, runtime sockets, logs, screenshots, and temp files. Override with `BH_HOME` or `BROWSER_HARNESS_HOME`.
+State lives under `C:\Users\<user>\.config\browser-harness` by default on Windows: agent workspace, agent Chrome profile, runtime sockets, logs, screenshots, and temp files. Override with `BH_HOME` or `BROWSER_HARNESS_HOME`.

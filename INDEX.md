@@ -31,7 +31,7 @@
 | `src\browser_harness\xapps.py` / `browsers.py` / `rmux.py` | 应用子命令 / 资源视图 / rmux 集成 |
 | `src\browser_harness\x_worker.py` / `x_supervisor.py` / `x_search.py` | X 监控 worker / 自愈 supervisor / 推文查询 |
 | `src\browser_harness\web_fetch.py` / `agent_helpers.py` | 网页正文提取 CLI / agent 辅助函数 |
-| `src\browser_harness\_ipc.py` / `auth.py` / `paths.py` / `macos.py` / `recorder.py` / `telemetry.py` / `video.py` / `video_render.py` | 支撑模块 |
+| `src\browser_harness\_ipc.py` / `paths.py` / `macos.py` / `recorder.py` / `video.py` / `video_render.py` | 支撑模块 |
 | `mcp_server.py` | MCP stdio 工具暴露 |
 | `tests\unit\` / `tests\integration\` | 分层测试 |
 | `examples\poc-os-input.py` | OS 级输入 vs CDP 输入域泄漏实证（S001 依据，Windows） |

@@ -5,7 +5,7 @@ description: "Always use browser-harness for any web interaction: automation, sc
 
 # browser-harness
 
-Direct browser control via CDP. For task-specific edits, use `agent-workspace/agent_helpers.py`. For setup, install, or connection problems, read https://github.com/browser-use/browser-harness/blob/main/install.md.
+Direct browser control via CDP. For task-specific edits, use `agent-workspace/agent_helpers.py`. For setup, install, or connection problems, read https://github.com/raystyle/browser-harness/blob/dev/work/install.md.
 
 ## When Not to Use
 
@@ -17,13 +17,14 @@ Domain skills are off by default. Set `BH_DOMAIN_SKILLS=1` to enable them; see t
 
 ## Usage
 
-```bash
-browser-harness <<'PY'
+```powershell
+@'
 print(page_info())
-PY
+'@ | browser-harness
 ```
 
-- Invoke as `browser-harness`. Use heredocs for multi-line commands.
+- Invoke as `browser-harness`. On Windows PowerShell use a here-string piped to
+  the command (`@'... '@ | browser-harness`); on macOS/Linux a heredoc works.
 - Helpers are pre-imported. `run.py` calls `ensure_daemon()` before `exec`.
 - First navigation for a task is `new_tab(url)`, not `goto_url(url)`. The daemon
   preserves the attached tab across separate CLI invocations, so do not call
@@ -41,7 +42,9 @@ PY
   scroll once, then re-read the scroll position. This visibly switches tabs,
   so do not use it when the user has forbidden foreground changes. Do not
   invent a `Runtime.evaluate` scroll replacement or a cross-frame JS walker.
-- The normal local flow attaches to the running Chrome/Chromium CDP endpoint. No browser ids or local profile selection.
+- The normal local flow attaches to the running Chrome/Chromium CDP endpoint.
+  For X monitoring the worker is pinned to the isolated agent Chrome via
+  `BU_CDP_URL`; see the X section below.
 
 ## Agent Workspace
 
@@ -67,10 +70,10 @@ def summarize_current_page():
 
 Then invoke without importing:
 
-```bash
-browser-harness <<'PY'
+```powershell
+@'
 print(summarize_current_page())
-PY
+'@ | browser-harness
 ```
 
 - Keep app data there too: `x_tweets.db`, heartbeats, supervisor logs.
@@ -79,7 +82,7 @@ PY
 
 ## Apps routing
 
-The agent-built apps live in `agent-workspace/`. Route by intent:
+Commands live in the main package; task data lives in `agent-workspace/`. Route by intent:
 
 | User intent | App / command |
 | --- | --- |
@@ -88,13 +91,13 @@ The agent-built apps live in `agent-workspace/`. Route by intent:
 | Google 搜索 | `browser-harness google-search <query>` |
 | Bing 搜索 | `browser-harness bing-search <query>` |
 | 网页正文提取 | `browser-harness web-fetch <url>` |
-| rmux 会话管理 | `browser-harness rmux list\|new\|ensure\|...` |
+| rmux 会话管理 | `browser-harness rmux list\|status\|ensure\|capture\|kill\|kill-server` |
 
 ## Local Chrome
 
 If the daemon cannot connect, run diagnostics:
 
-```bash
+```powershell
 browser-harness --doctor
 ```
 
@@ -154,12 +157,10 @@ user's own Chrome — via `BU_CDP_URL`.
 
 - Start (non-blocking; launches the isolated Chrome if needed and the supervisor
   in a rmux pane, then returns):
-  `agent-workspace/start-x-monitor.ps1`
+  `browser-harness x-monitor`
   -> isolated Chrome on `agent-chrome-profile` + port `9223`; rmux sessions
      `x-supervisor` (supervisor) and `x-monitor` (worker).
-  Windows only; on macOS use `open -na "Google Chrome" --args --user-data-dir=...`
-  for the isolated profile, then `BU_CDP_URL=http://127.0.0.1:9223 browser-harness
-  x-monitor`.
+  Windows only for now.
 - Poll status/data anytime:
   `browser-harness rmux status`              # are both sessions alive?
   heartbeat freshness at `agent-workspace/x_worker.heartbeat`
@@ -225,7 +226,7 @@ language, site, word_count, markdown, text, content_html, engine}`.
 
 Or from the shell (no browser needed for public pages):
 
-```bash
+```powershell
 browser-harness web-fetch "https://example.com/article"          # markdown
 browser-harness web-fetch "https://example.com/article" --text   # plain text
 browser-harness web-fetch "https://example.com/article" --json    # full metadata
@@ -242,7 +243,7 @@ dependency.
 To know whether there is an operable browser (Chrome running + remote debugging
 enabled + daemon connected), poll:
 
-```bash
+```powershell
 browser-harness doctor --json   # parse daemon.browser_ready / chrome_running
 ```
 
@@ -250,25 +251,40 @@ or run the setup wizard — a guided, step-by-step flow that auto-opens Chrome,
 reminds for remote-debugging / Allow, and creates one tab per app (X, Google,
 Bing):
 
-```bash
+```powershell
 uv run python agent-workspace/browser_wizard.py
 ```
 
 or watch it continuously — this also auto-opens Chrome when none is running,
 then reports when the daemon becomes connected:
 
-```bash
+```powershell
 uv run python agent-workspace/browser_watch.py
 ```
 
 In a browser script, `setup_browser_apps()` ensures X / Google / Bing each have
 their own tab and returns the target ids.
 
+## Browser instances and tab binding
+
+Use the resource views to check the attached browser before operating:
+
+```powershell
+browser-harness browsers   # Chrome instances, tabs, app-tab binding, rmux state
+browser-harness current    # currently attached target + CDP attach state
+```
+
+- `browsers` marks each instance as `agent` or `user` by profile path.
+- X monitoring always uses `agent-chrome-profile` on port `9223`; it never
+  touches the user's normal profile.
+- `setup_browser_apps()` is idempotent and mutex-like: X, Google, and Bing each
+  reuse their own tab rather than opening duplicates.
+
 ## Recordings and Videos
 
 Fresh installs do not record. Users can enable local background traces:
 
-```bash
+```powershell
 browser-harness recordings enable
 browser-harness recordings disable
 browser-harness recordings
@@ -283,19 +299,19 @@ returned directory, and call `stop_recording()` after verifying the result.
 Never replace that path with `recordings --latest`. For a request made after
 the task, use:
 
-```bash
+```powershell
 browser-harness recordings --latest
 ```
 
 Use it only if timestamps and pages match; otherwise say the work was not
 captured. Never reenact a completed task. For a video, follow
-[make-video.md](https://github.com/browser-use/browser-harness/blob/main/interaction-skills/make-video.md).
+[make-video.md](https://github.com/raystyle/browser-harness/blob/dev/work/interaction-skills/make-video.md).
 If sub-agents are available, they may handle post-production from the exact
 recording path while the main agent returns the task result.
 
 ## Interaction Skills
 
-If you get stuck on a browser mechanic, check https://github.com/browser-use/browser-harness/tree/main/interaction-skills.
+If you get stuck on a browser mechanic, check https://github.com/raystyle/browser-harness/tree/dev/work/interaction-skills.
 
 - connection.md
 - cookies.md
@@ -308,7 +324,6 @@ If you get stuck on a browser mechanic, check https://github.com/browser-use/bro
 - make-video.md
 - network-requests.md
 - print-as-pdf.md
-- profile-sync.md
 - screenshots.md
 - scrolling.md
 - shadow-dom.md
@@ -319,7 +334,8 @@ If you get stuck on a browser mechanic, check https://github.com/browser-use/bro
 ## Design Constraints
 
 - Coordinate clicks default. CDP mouse events pass through iframes/shadow/cross-origin at the compositor level.
-- Keep the connection model simple: use the default daemon, `BU_CDP_URL`, or `BU_CDP_WS`.
+- Keep the connection model simple: use the default daemon, `BU_CDP_URL`, or
+  `BU_CDP_WS`.
 - Trusted orchestrators that already provisioned an exact named daemon can set
   `BH_REQUIRE_EXISTING_DAEMON=1`. Each CLI call then health-checks and reuses
   that daemon or fails closed; it never auto-starts or discovers another Chrome.

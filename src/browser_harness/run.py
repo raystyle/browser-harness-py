@@ -1,5 +1,6 @@
-import json, os, sys, time, urllib.request
-from io import StringIO
+import os
+import sys
+import time
 
 # Windows default stdout/stderr encoding is cp1252
 # which can't encode the 🐴 marker helpers prepend to tab titles (or anything
@@ -7,14 +8,15 @@ from io import StringIO
 # tracebacks carrying page titles don't UnicodeEncodeError on Windows. #124(4).
 for _stream in (sys.stdout, sys.stderr):
     if hasattr(_stream, "reconfigure"):
-        try: _stream.reconfigure(encoding="utf-8", errors="replace")
-        except Exception: pass
+        try:
+            _stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
 
 from .admin import (
     _version,
     NAME,
     daemon_alive,
-    daemon_browser_kind,
     ensure_daemon,
     print_update_banner,
     require_existing_daemon,
@@ -24,7 +26,7 @@ from .admin import (
     run_doctor_json,
     run_update,
 )
-from . import recorder, telemetry
+from . import recorder
 from .helpers import *
 
 HELP = """Browser Harness
@@ -32,10 +34,10 @@ HELP = """Browser Harness
 Read SKILL.md for the default workflow and examples.
 
 Typical usage:
-  browser-harness <<'PY'
+  @'
   ensure_real_tab()
   print(page_info())
-  PY
+  '@ | browser-harness
 
 Helpers are pre-imported. The daemon auto-starts and connects to the running browser.
 
@@ -55,7 +57,6 @@ Commands:
   browser-harness video init <recording>      prepare a recording for editing
   browser-harness video review <recording>    compile and review the video
   browser-harness video export <recording> --reviewed   export a verified MP4
-  browser-harness telemetry status    show anonymous telemetry opt-out state
   browser-harness rmux list|new|ensure|send|keys|capture|kill|version
                                     drive rmux sessions/panes for multiplexed browser scripts
   browser-harness browsers           list Chrome instances, tabs, and app-tab binding
@@ -70,38 +71,17 @@ Commands:
 """
 
 USAGE = """Usage:
-  browser-harness <<'PY'
+  @'
   print(page_info())
-  PY
+  '@ | browser-harness
 """
 
 
 def _print_skill():
     from importlib import resources
+
     # SKILL.md is UTF-8 (contains emoji); locale-codec read crashes on gbk Windows
     print(resources.files("browser_harness").joinpath("SKILL.md").read_text(encoding="utf-8"), end="")
-
-
-def _telemetry_command(args):
-    if not args:
-        return "script"
-    first = args[0]
-    if first in {"-h", "--help"}:
-        return "help"
-    if first == "--version":
-        return "version"
-    if first in {"--doctor", "doctor"}:
-        return "doctor"
-    if first == "--update":
-        return "update"
-    if first == "--reload":
-        return "reload"
-    if first == "--debug-clicks":
-        return "debug-clicks"
-    if first in {"skill", "mac-approve", "recordings", "telemetry", "video", "rmux", "browsers", "current",
-                 "x-monitor", "x-search", "web-fetch", "google-search", "bing-search"}:
-        return first
-    return "usage"
 
 
 def _exit_code(result) -> int:
@@ -111,36 +91,19 @@ def _exit_code(result) -> int:
         return result
     return 1
 
-_MAX_TRACED_STEPS = 500
-_MAX_STEP_ARGS_LENGTH = 300
-_helper_trace = []
-_helper_call_count = 0
-
-
-def _step_args(args, kwargs):
-    parts = [repr(a) for a in args] + [f"{k}={v!r}" for k, v in kwargs.items()]
-    return ", ".join(parts)[:_MAX_STEP_ARGS_LENGTH]
-
 
 def _traced(name, fn):
     import functools
 
     @functools.wraps(fn)
     def wrapper(*args, **kwargs):
-        global _helper_call_count
-        _helper_call_count += 1
-        entry = {"helper": name, "args": _step_args(args, kwargs)}
-        if len(_helper_trace) < _MAX_TRACED_STEPS:
-            _helper_trace.append(entry)
         step_start = time.monotonic()
         try:
             result = fn(*args, **kwargs)
         except BaseException as exc:
-            entry["duration_seconds"] = round(time.monotonic() - step_start, 3)
-            entry["error"] = str(exc)[:300]
-            raise
-        entry["duration_seconds"] = round(time.monotonic() - step_start, 3)
-        recorder.observe(name, args, kwargs, entry["duration_seconds"])
+            recorder.observe(name, args, kwargs, round(time.monotonic() - step_start, 3))
+            raise exc
+        recorder.observe(name, args, kwargs, round(time.monotonic() - step_start, 3))
         return result
 
     wrapper.__bh_traced__ = True
@@ -159,115 +122,8 @@ def _install_helper_trace():
             g[name] = _traced(name, fn)
 
 
-_MAX_OUTPUT_LENGTH = 20_000
-
-
-class _StreamTail:
-    """Pass-through stream wrapper that remembers the tail and total length."""
-
-    def __init__(self, wrapped, limit=500):
-        self._wrapped = wrapped
-        self._limit = limit
-        self.tail = ""
-        self.length = 0
-
-    def write(self, text):
-        text = str(text)
-        self.length += len(text)
-        self.tail = (self.tail + text)[-self._limit :]
-        return self._wrapped.write(text)
-
-    def __getattr__(self, name):
-        return getattr(self._wrapped, name)
-
-
-def _read_task(args):
-    if args and args[0] == "--debug-clicks":
-        args = args[1:]
-    if args or sys.stdin.isatty():
-        return None
-    code = sys.stdin.read()
-    sys.stdin = StringIO(code)
-    return code
-
-
-def _traced_steps():
-    return _helper_trace or None
-
-
-def _telemetry_browser(task):
-    """'cloud' | 'cdp' | 'local', self-reported by the daemon the task ran on.
-    None when no browser was involved (non-script commands, daemon never up)."""
-    if not task or not telemetry.is_enabled():
-        return None
-    try:
-        return daemon_browser_kind()
-    except Exception:
-        return None
-
-
 def main():
-    global _helper_call_count
-    args = sys.argv[1:]
-    if args and args[0] == "telemetry":
-        sys.exit(telemetry.run_telemetry_cli(args[1:]))
-    _helper_trace.clear()
-    _helper_call_count = 0
-    start_time = time.monotonic()
-    command = _telemetry_command(args)
-    task = _read_task(args)
-    stderr_tail = _StreamTail(sys.stderr)
-    stdout_tail = _StreamTail(sys.stdout, limit=_MAX_OUTPUT_LENGTH)
-    sys.stderr = stderr_tail
-    sys.stdout = stdout_tail
-    try:
-        _run(args)
-    except SystemExit as exc:
-        code = _exit_code(exc.code)
-        telemetry.capture_cli_event(
-            action="error" if code else "completed",
-            command=command,
-            task=task,
-            browser=_telemetry_browser(task),
-            output=stdout_tail.tail or None,
-            output_length=stdout_tail.length or None,
-            steps=_traced_steps(),
-            step_count=_helper_call_count or None,
-            duration_seconds=time.monotonic() - start_time,
-            exit_code=code,
-            error_message=str(exc.code) if isinstance(exc.code, str) else (stderr_tail.tail.strip() or None) if code else None,
-        )
-        raise
-    except Exception as exc:
-        telemetry.capture_cli_event(
-            action="error",
-            command=command,
-            task=task,
-            browser=_telemetry_browser(task),
-            output=stdout_tail.tail or None,
-            output_length=stdout_tail.length or None,
-            steps=_traced_steps(),
-            step_count=_helper_call_count or None,
-            duration_seconds=time.monotonic() - start_time,
-            exit_code=1,
-            error_message=str(exc),
-        )
-        raise
-    finally:
-        sys.stderr = stderr_tail._wrapped
-        sys.stdout = stdout_tail._wrapped
-    telemetry.capture_cli_event(
-        action="completed",
-        command=command,
-        task=task,
-        browser=_telemetry_browser(task),
-        output=stdout_tail.tail or None,
-        output_length=stdout_tail.length or None,
-        steps=_traced_steps(),
-        step_count=_helper_call_count or None,
-        duration_seconds=time.monotonic() - start_time,
-        exit_code=0,
-    )
+    _run(sys.argv[1:])
 
 
 def _run(args):
