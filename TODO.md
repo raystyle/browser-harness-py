@@ -26,7 +26,8 @@ WSL2 无头接管（对应 `GOAL.md`，队列目标「Linux/macOS 接管」的 L
 | agent 端口可配 + 无头启动 | 已完成 | BH_AGENT_CDP_PORT / BH_CHROME_HEADLESS / EXTRA_FLAGS 透传 | 2026-09-01 |
 | browsers 视图 Linux 枚举 | 已完成 | /proc 扫描 + M104 cmdline 兼容 | 2026-09-01 |
 | WSL 验证 | 已完成 | 单测 207 全绿 + doctor 全绿 + web-fetch/管道自动化实测 | 2026-09-01 |
-| WSL x-monitor 登录 | 待办 | agent profile 需在 9224 登录 X 后 x-monitor 才可跑 | 待用户 |
+| cookie 跨设备迁移 | 已完成 | cookies export/import 应用（S007），X 登录态 Windows→WSL 实测迁移成功 | 2026-09-01 |
+| WSL x-monitor 登录 | 已完成 | cookie 导入即登录（S007）；是否在 WSL 侧起 x-monitor 待用户定（勿与 Windows 侧双跑） | 2026-09-01 |
 
 ## 队列目标
 

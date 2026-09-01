@@ -64,8 +64,8 @@ Commands:
   browser-harness current            show the tab/app the daemon is operating on now
   browser-harness <app> [args...]    run an agent-workspace app (apps/<app>.py):
                                       x-monitor, x-search, web-fetch,
-                                      google-search, bing-search — installed by
-                                      `browser-harness skills sync`
+                                      google-search, bing-search, cookies —
+                                      installed by `browser-harness skills sync`
   browser-harness --update [-y]    pull the latest version (agents: pass -y)
   browser-harness --reload         stop the daemon so next call picks up code changes
 """
