@@ -2,6 +2,13 @@
 
 版本里程碑：本 fork 相对上游的本地改动记录。
 
+## v0.4.1 — 2026-09-01
+
+- **修复 about:blank 标签页泄漏**（实证：71 个空白 / 203 次 worker 重拉，1:1 对应）：根因是 worker 心跳只在轮末打一次，而 `HEARTBEAT_TIMEOUT=120s < INTERVAL=600s` —— 连健康 worker 也会在睡眠期被判死，supervisor 每 ~2 分钟杀掉重拉；每次重拉使 x-monitor daemon 随之重启，命名 daemon 的 `dedicated_target_id` 只存内存，冷启动即新开一个空白，旧空白永久孤儿。两层修复：
+  - x-worker 睡眠改为分段心跳（`_sleep_with_heartbeat`，每 2 秒 tick），根治误杀循环；
+  - 命名 daemon 冷启动先**复用孤儿空白**（`is_reusable_blank_page`）再创建，杜绝重启泄漏。
+- 教训：升级/重装 CLI 前须先停 rmux 栈 —— 运行中的 worker/supervisor 锁住 venv `Scripts\`，导致 `uv tool install` 访问拒绝、shim 丢失（已实证）。
+
 ## v0.4.0 — 2026-09-01
 
 - **插件化架构**：X（x-monitor/x-supervisor/x-worker/x-search）、web-fetch、google/bing-search 七个应用从包内抽离为 `agent-workspace/apps/` 插件；包收敛为薄核心（daemon/helpers/admin/rmux/browsers/skills/recordings）。命令入口 `browser-harness <app名>` 自动路由到 `apps/<app名>.py`（参数经 `APP_ARGS` 注入，支持直接 python 调试）。

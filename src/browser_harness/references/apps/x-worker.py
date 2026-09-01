@@ -258,6 +258,22 @@ def _round(con):
     return con.execute("SELECT COUNT(*) FROM tweets").fetchone()[0]
 
 
+def _sleep_with_heartbeat(seconds):
+    """Sleep while keeping the heartbeat fresh.
+
+    HEARTBEAT_TIMEOUT (120s) < INTERVAL (600s): a plain time.sleep(INTERVAL)
+    stops ticking long enough for the supervisor to declare the worker stale
+    and kill it mid-sleep — every cycle, even when perfectly healthy. Tick
+    throughout instead."""
+    deadline = time.time() + seconds
+    while True:
+        remaining = deadline - time.time()
+        if remaining <= 0:
+            return
+        time.sleep(min(2.0, remaining))
+        _tick()
+
+
 def main():
     con = _conn()
     _init(con)
@@ -270,7 +286,7 @@ def main():
         except Exception as e:
             print(f"[worker] error {_clean(repr(e))}", flush=True)
             time.sleep(5.0)
-        time.sleep(INTERVAL)
+        _sleep_with_heartbeat(INTERVAL)
 
 
 if __name__ == "__main__":

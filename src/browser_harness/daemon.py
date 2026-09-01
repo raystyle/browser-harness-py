@@ -392,6 +392,16 @@ class Daemon:
                     pages_by_id = {t["targetId"]: t for t in refreshed if t["type"] == "page"}
                     page = pages_by_id.get(self.target_id) or pages_by_id.get(self.dedicated_target_id)
                     if page is None:
+                        # Daemon restarts forget dedicated_target_id (it lives in
+                        # memory only). Reuse an orphaned blank instead of minting
+                        # a new one — a fresh blank per restart leaked tabs one
+                        # respawn cycle at a time.
+                        blank = next((t for t in refreshed if is_reusable_blank_page(t)), None)
+                        if blank is not None:
+                            self.dedicated_target_id = blank["targetId"]
+                            log(f"named daemon {NAME}: reused blank tab ({blank['targetId']})")
+                            page = blank
+                    if page is None:
                         tid = (await self.cdp.send_raw(
                             "Target.createTarget", {"url": "about:blank", "background": True}
                         ))["targetId"]
