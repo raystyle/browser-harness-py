@@ -2,6 +2,11 @@
 
 版本里程碑：本 fork 相对上游的本地改动记录。
 
+## v0.2.1 — 2026-09-01
+
+- 移除 Browser Use Cloud 支持：`auth login/status/logout`、`start_remote_daemon`、`stop_remote_daemon`、`fetch-use` 依赖、`Remote Browsers` 全部下线；daemon 简化为纯本地（cdp/local）。
+- 文档体系完整对齐 ohmyagents：AGENTS 四段职责、G002（六态）、G003（五步）、G004（经验沉淀分治）、三原语重写、R002 实证工作流。
+
 ## v0.2.0 — 2026-09-01
 
 - X 监控：rmux 自愈 supervisor + worker，10 分钟空闲门控刷新，SQLite 去重存储。
