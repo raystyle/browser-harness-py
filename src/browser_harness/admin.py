@@ -1122,6 +1122,39 @@ def _provision_after_update():
         return 1
 
 
+def _relayed_tool_upgrade(had_x_monitor):
+    """Hand the venv replacement to a shell that does NOT run from the venv.
+
+    On Windows the update command itself executes from the tool venv's
+    Scripts\\ and locks it, so an in-process `uv tool install` can never
+    succeed — worse, it can half-demolish the install (verified: shim alive,
+    package gone). The relayed shell waits for this process to exit, then
+    installs, re-provisions, and restores the x-monitor stack when needed.
+
+    Returns True when the relay was spawned successfully."""
+    parent = os.getpid()
+    tail = "browser-harness skills sync"
+    if had_x_monitor:
+        tail += "; browser-harness x-monitor"
+    script = (
+        "for ($i = 0; $i -lt 150; $i++) {"
+        f" if (-not (Get-Process -Id {parent} -ErrorAction SilentlyContinue)) {{ break }};"
+        " Start-Sleep -Milliseconds 200 }; "
+        f"uv tool install --upgrade --force git+{GITHUB_REPO_URL}@main; "
+        f"if ($LASTEXITCODE -eq 0) {{ {tail} }} "
+        "else { Write-Host 'browser-harness upgrade failed; restore the stack with: browser-harness x-monitor' }"
+    )
+    shell = shutil.which("pwsh") or shutil.which("powershell")
+    if not shell:
+        return False
+    try:
+        subprocess.Popen([shell, "-NoProfile", "-Command", script])
+        return True
+    except OSError as exc:
+        print(f"relay spawn failed: {exc}", file=sys.stderr)
+        return False
+
+
 def run_update(yes=False):
     """Upgrade to the latest release and realign the machine with the repo.
 
@@ -1161,6 +1194,20 @@ def run_update(yes=False):
             return r.returncode
     elif mode == "installed":
         restart_stack = _stop_stack_for_upgrade()
+        if sys.platform == "win32" and _relayed_tool_upgrade(restart_stack):
+            # The relay owns install + provision + stack-restore once we exit.
+            # Invalidate the version cache now so the new install isn't flagged
+            # against a stale cached tag.
+            cache = _cache_read()
+            cache.pop("banner_shown_on", None)
+            cache.pop("tag", None)
+            cache.pop("fetched_at", None)
+            _cache_write(cache)
+            print("update continues in this console — the running CLI cannot replace its own venv (M102);"
+                  " this command returns now.")
+            return 0
+        if sys.platform == "win32":
+            print("relay unavailable; trying in-place upgrade (the venv may be locked, M102)…", file=sys.stderr)
         tool_upgrade = subprocess.run([
             "uv", "tool", "install", "--upgrade", "--force",
             f"git+{GITHUB_REPO_URL}@main",
@@ -1168,6 +1215,8 @@ def run_update(yes=False):
         if tool_upgrade.returncode != 0:
             print("hint: a running browser-harness process can lock the venv on Windows (M102); close it and retry.",
                   file=sys.stderr)
+            if restart_stack:
+                _restart_x_monitor()  # best-effort: the old binary may still work
             return tool_upgrade.returncode
     else:
         print("unknown install mode; can't auto-update.", file=sys.stderr)

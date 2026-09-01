@@ -6,6 +6,11 @@
 
 - **升级文档收口（v0.6.0 遗漏面）**：打包 install.md（两副本）"Keeping current" 与根 install.md、README「Skill 与插件安装部署」段统一以 `browser-harness --update -y` 为首选（注明一条命令语义：停栈/升级/铺装/恢复），手动 `uv tool install --upgrade --force` 降为备选并标注 M102 前置；README 升级块补 `--force` 语义；TODO 回填 v0.6.0 升级闭环目标行。
 
+## v0.6.2 — 2026-09-01
+
+- **修复 Windows 下 `--update` 无法原地自替换**（M102 第三形态，本机实证）：`browser-harness` 命令本身跑在工具 venv 的 `Scripts\` 内，停净栈后进程内 `uv tool install` 仍锁目录（os error 5），且失败会半拆安装（shim 存活、包被删 → ModuleNotFoundError，本机中招后外部重装修复）。Windows 下改为**pwsh 接力**：停栈后生成脱离 venv 的 shell（pwsh，回退 powershell），等本进程退出再执行 安装→铺装→按需恢复 x-monitor，本命令打印说明后立即返回；版本缓存在接力前同步失效。非 Windows 保留原进程内路径；接力不可用时回退并提示。
+- 测试 186 passed：新增接力三分支（成功返回/回退原地/脚本构造与 x-monitor 条件尾巴），既有 installed 用例显式固定为非 Windows 路径。
+
 ## v0.6.0 — 2026-09-01
 
 - **`--update` 一条命令无缝升级闭环**（M102 根治 + 消灭"忘记 skills sync"）：installed 模式下自动 **停栈**（rmux kill-server + 停 default/x-monitor 两 daemon，解除 venv 文件锁）→ `uv tool install` @main → **铺装** skills 与 workspace（apps/domain-skills，复用 `skills sync`，只增不删）→ **恢复** x-monitor 栈（升级前在跑才恢复）。uv 失败时提示 M102；up-to-date 路径也执行铺装对齐（版本相同但 workspace 漂移时可修复）。

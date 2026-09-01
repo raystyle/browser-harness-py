@@ -8,10 +8,11 @@
 
 ## 根因
 
-升级要替换 venv 的 `Scripts\` 目录，但仍有 python 进程从该目录运行，Windows 拒绝删除被占用文件。锁住者不止一类（[实证] 两轮各见一种）：
+升级要替换 venv 的 `Scripts\` 目录，但仍有 python 进程从该目录运行，Windows 拒绝删除被占用文件。锁住者不止一类（[实证] 三轮各见一种）：
 
 - v0.4.1：rmux 栈里的 x-worker / x-supervisor（`rmux kill-server` 前）。
 - v0.5.1：default daemon（`python.exe -m browser_harness.daemon`，PID 实查）。**rmux kill-server 不会停 daemon**，daemon 是独立常驻进程。
+- v0.6.1：**`--update` 进程自己**（shim 即 venv `Scripts\` 下的可执行）。停净栈后原地 `uv tool install` 仍 os error 5，且失败会**半拆安装**（shim 存活、包被删，CLI 直接 ModuleNotFoundError）。正解：Windows 下把安装/铺装/恢复交给脱离 venv 的 pwsh 接力进程（等父进程退出再动 venv），v0.6.2 起 `--update` 内置。
 
 ## 正确处理
 

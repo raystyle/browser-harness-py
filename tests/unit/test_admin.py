@@ -842,6 +842,8 @@ def test_provision_after_update_runs_skills_sync(monkeypatch):
 
 def test_run_update_installed_stops_before_uv_and_restores(monkeypatch):
     calls = []
+    import sys as _sys
+    monkeypatch.setattr(_sys, "platform", "linux")  # in-process path; win32 relays
 
     monkeypatch.setattr(admin, "check_for_update", lambda: ("0.5.1", "0.6.0", True))
     monkeypatch.setattr(admin, "_install_mode", lambda: "installed")
@@ -870,6 +872,8 @@ def test_run_update_installed_stops_before_uv_and_restores(monkeypatch):
 
 
 def test_run_update_installed_uv_failure_hints_m102(monkeypatch, capsys):
+    import sys as _sys
+    monkeypatch.setattr(_sys, "platform", "linux")
     monkeypatch.setattr(admin, "check_for_update", lambda: ("0.5.1", "0.6.0", True))
     monkeypatch.setattr(admin, "_install_mode", lambda: "installed")
     monkeypatch.setattr(admin, "_stop_stack_for_upgrade", lambda: True)
@@ -893,3 +897,71 @@ def test_run_update_uptodate_still_provisions(monkeypatch, capsys):
     assert admin.run_update(yes=True) == 0
     assert provided == [1]
     assert "up to date" in capsys.readouterr().out
+
+
+def test_run_update_windows_relays_and_returns(monkeypatch, capsys):
+    import sys as _sys
+    monkeypatch.setattr(_sys, "platform", "win32")
+    relay_args = []
+
+    monkeypatch.setattr(admin, "check_for_update", lambda: ("0.6.1", "0.6.2", True))
+    monkeypatch.setattr(admin, "_install_mode", lambda: "installed")
+    monkeypatch.setattr(admin, "_stop_stack_for_upgrade", lambda: True)
+    monkeypatch.setattr(admin, "_relayed_tool_upgrade",
+                        lambda had: relay_args.append(had) or True)
+    monkeypatch.setattr(admin.subprocess, "run",
+                        lambda argv, **_kw: pytest.fail("relay must own the install"))
+    monkeypatch.setattr(admin, "_cache_read", lambda: {"banner_shown_on": "x", "tag": "0.6.1", "fetched_at": 1})
+    written = {}
+    monkeypatch.setattr(admin, "_cache_write", lambda c: written.update(c))
+
+    assert admin.run_update(yes=True) == 0
+    assert relay_args == [True]  # x-monitor was running -> relay told to restore it
+    out = capsys.readouterr().out
+    assert "cannot replace its own venv" in out
+    assert "tag" not in written and "fetched_at" not in written
+
+
+def test_run_update_windows_relay_failure_falls_back_in_process(monkeypatch, capsys):
+    import sys as _sys
+    monkeypatch.setattr(_sys, "platform", "win32")
+    calls = []
+
+    monkeypatch.setattr(admin, "check_for_update", lambda: ("0.6.1", "0.6.2", True))
+    monkeypatch.setattr(admin, "_install_mode", lambda: "installed")
+    monkeypatch.setattr(admin, "_stop_stack_for_upgrade", lambda: calls.append("stop") or True)
+    monkeypatch.setattr(admin, "_relayed_tool_upgrade", lambda had: False)
+    monkeypatch.setattr(admin, "_provision_after_update", lambda: calls.append("provision") or 0)
+    monkeypatch.setattr(admin, "_restart_x_monitor", lambda: calls.append("restart") or 0)
+    monkeypatch.setattr(admin, "_cache_read", lambda: {})
+    monkeypatch.setattr(admin, "_cache_write", lambda c: None)
+    monkeypatch.setattr(admin.subprocess, "run", lambda argv, **_kw: FakeCompleted())
+    monkeypatch.setattr(admin, "daemon_alive", lambda name=None: False)
+
+    assert admin.run_update(yes=True) == 0
+    assert calls == ["stop", "provision", "restart"]
+    assert "relay unavailable" in capsys.readouterr().err
+
+
+def test_relayed_tool_upgrade_builds_pwsh_wait_and_tail(monkeypatch):
+    spawned = []
+
+    class FakePopen:
+        def __init__(self, argv, **_kw):
+            spawned.append(argv)
+
+    monkeypatch.setattr(admin.shutil, "which", lambda name: "C:/pwsh.exe" if name == "pwsh" else None)
+    monkeypatch.setattr(admin.subprocess, "Popen", FakePopen)
+
+    assert admin._relayed_tool_upgrade(had_x_monitor=True) is True
+    argv = spawned[0]
+    assert argv[0] == "C:/pwsh.exe" and argv[1] == "-NoProfile" and argv[2] == "-Command"
+    script = argv[3]
+    assert "Get-Process -Id" in script and "uv tool install --upgrade --force" in script
+    assert "browser-harness skills sync; browser-harness x-monitor" in script
+
+    admin._relayed_tool_upgrade(had_x_monitor=False)
+    assert "skills sync; browser-harness x-monitor" not in spawned[1][3]
+
+    monkeypatch.setattr(admin.shutil, "which", lambda name: None)
+    assert admin._relayed_tool_upgrade(had_x_monitor=True) is False
