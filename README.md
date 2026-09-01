@@ -25,13 +25,7 @@ rmux -V   # → rmux 0.10.0
 
 ## 部署方法
 
-### 1. 安装依赖
-
-```powershell
-uv sync
-```
-
-### 1b. 全局安装成命令行（可选）
+### 1. 安装命令行
 
 ```powershell
 uv tool install git+https://github.com/raystyle/browser-harness
@@ -39,7 +33,7 @@ browser-harness --version     # 验证
 browser-harness --doctor      # 依赖/连接自检
 ```
 
-安装后全局 `browser-harness` 命令可用；`pydefuddle`（网页正文提取）已作为核心依赖随包安装，无需额外 `[content]`。
+一条命令完成安装：全局 `browser-harness` 可用，全部依赖（含 `pydefuddle` 网页正文提取）随包自带 —— 不需要 `uv sync`、不需要 clone 源码、不需要额外 extras。源码开发运行方式见下文「二次开发」。
 
 ### 2. 安装技能与插件，启动 agent 专属 Chrome + X 监控
 
@@ -442,8 +436,7 @@ browser-harness rmux kill x-supervisor      # 停整个监控栈
 
 ```bash
 git clone https://github.com/raystyle/browser-harness && cd browser-harness
-uv sync
-./browser-harness --version      # 跑当前工作树（隔离 BH_HOME=<repo>/.browser-harness-dev，不污染装机数据）
+./browser-harness --version      # 跑当前工作树（环境自动准备：.venv 优先，否则 uv run 兜底；BH_HOME 隔离在 <repo>/.browser-harness-dev，不污染装机数据）
 uv run --with pytest python -m pytest tests/unit -q    # 单测（集成测试需 live browser）
 ```
 
