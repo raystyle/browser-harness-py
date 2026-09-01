@@ -624,14 +624,20 @@ from .recorder import start_recording, stop_recording, recording_dir
 
 def _load_agent_helpers():
     p = AGENT_WORKSPACE / "agent_helpers.py"
-    if not p.exists():
+    if p.exists():
+        spec = importlib.util.spec_from_file_location("browser_harness_agent_helpers", p)
+        if not spec or not spec.loader:
+            return
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        for name, value in vars(module).items():
+            if name.startswith("_"):
+                continue
+            globals()[name] = value
         return
-    spec = importlib.util.spec_from_file_location("browser_harness_agent_helpers", p)
-    if not spec or not spec.loader:
-        return
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    for name, value in vars(module).items():
+    from . import agent_helpers as _ah
+
+    for name, value in vars(_ah).items():
         if name.startswith("_"):
             continue
         globals()[name] = value

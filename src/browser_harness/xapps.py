@@ -1,65 +1,104 @@
-"""Unified CLI entries for the agent-workspace apps."""
+"""Built-in app subcommands (X monitor / search / page text)."""
 
 from __future__ import annotations
 
 import os
+import platform
 import subprocess
 import sys
+import time
+import urllib.request
 from pathlib import Path
 
 
 _USAGE = """usage: browser-harness <command> [args]
 
 Apps:
-  x-monitor                 start the self-healing X capture supervisor
+  x-monitor                 start isolated Chrome + self-healing X capture
   x-search <...>            query/search stored tweets
-  page-text <url|--current> extract clean text/markdown from a URL
+  web-fetch <url|--current> extract clean text/markdown from a URL
   google-search <query> [--page N]  search Google in the logged-in browser
   bing-search <query> [--page N]    search Bing in the logged-in browser
 """
 
-_SCRIPTS = {
-    "x-search": "x_search.py",
-    "page-text": "page_text.py",
-}
+_AGENT_PORT = 9223
+_NO_THROTTLE_FLAGS = (
+    "--disable-background-timer-throttling",
+    "--disable-renderer-backgrounding",
+    "--disable-backgrounding-occluded-windows",
+    "--disable-features=IntensiveWakeUpThrottling,CalculateNativeWinOcclusion",
+)
 
 
-def _workspace() -> Path:
-    """Locate the agent-workspace: repo checkout > per-user dir (seeded once)."""
+def _agent_profile() -> Path:
+    raw = os.environ.get("BH_AGENT_CHROME_PROFILE")
+    if raw:
+        return Path(raw).expanduser().resolve()
+    repo_profile = Path(__file__).resolve().parents[2] / "agent-chrome-profile"
+    if (repo_profile / "Local State").exists():
+        return repo_profile
+    from browser_harness.paths import home_dir
+
+    return home_dir() / "agent-chrome-profile"
+
+
+def _agent_chrome_running() -> bool:
+    try:
+        urllib.request.urlopen(f"http://127.0.0.1:{_AGENT_PORT}/json/version", timeout=2)
+        return True
+    except Exception:
+        return False
+
+
+def _chrome_path() -> str | None:
     import shutil
 
-    env = os.environ.get("BH_AGENT_WORKSPACE")
-    if env:
-        return Path(env)
-
-    repo_ws = Path(__file__).resolve().parents[2] / "agent-workspace"
-    if (repo_ws / "x_supervisor.py").exists():
-        return repo_ws
-
-    # Global install: seed the per-user workspace from the bundled templates.
-    from browser_harness.paths import workspace_dir
-
-    user_ws = workspace_dir()
-    bundled = Path(__file__).resolve().parent / "_agent_workspace"
-    if bundled.is_dir():
-        try:
-            for p in bundled.glob("*.py"):
-                shutil.copy2(p, user_ws / p.name)
-        except OSError:
-            pass
-    return user_ws
+    for key in ("BH_CHROME_PATH", "CHROME_PATH"):
+        raw = (os.environ.get(key) or "").strip()
+        if raw and Path(raw).expanduser().is_file():
+            return raw
+    if platform.system() == "Windows":
+        for c in (
+            r"C:\Program Files\Google\Chrome Dev\Application\chrome.exe",
+            r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+            r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+        ):
+            if Path(c).exists():
+                return c
+        return shutil.which("chrome")
+    if platform.system() == "Darwin":
+        p = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+        return p if Path(p).exists() else shutil.which("google-chrome")
+    return shutil.which("google-chrome") or shutil.which("chromium") or shutil.which("chromium-browser")
 
 
-def _run_script(cmd: str, rest: list[str]) -> int:
-    script = _workspace() / _SCRIPTS[cmd]
-    if not script.exists():
-        print(f"app script not found: {script}", file=sys.stderr)
-        return 1
-    return subprocess.call([sys.executable, str(script), *rest])
+def _launch_agent_chrome() -> bool:
+    if _agent_chrome_running():
+        return True
+    chrome = _chrome_path()
+    if not chrome:
+        return False
+    flags = [
+        f"--user-data-dir={_agent_profile()}",
+        f"--remote-debugging-port={_AGENT_PORT}",
+        *_NO_THROTTLE_FLAGS,
+    ]
+    try:
+        if platform.system() == "Darwin":
+            subprocess.Popen(["open", "-na", "Google Chrome", "--args", *flags])
+        else:
+            subprocess.Popen([chrome, *flags], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except OSError:
+        return False
+    deadline = time.time() + 20
+    while time.time() < deadline:
+        if _agent_chrome_running():
+            return True
+        time.sleep(0.5)
+    return False
 
 
 def _decode_bing_target(url: str) -> str | None:
-    """Decode the real target URL from a Bing ``ck/a`` redirect link."""
     import base64
     import re
 
@@ -75,13 +114,14 @@ def _decode_bing_target(url: str) -> str | None:
 
 
 def _run_monitor(rest: list[str]) -> int:
-    """Ensure the self-healing supervisor runs in a rmux pane (non-blocking)."""
+    import browser_harness
     from browser_harness.rmux import Rmux
 
-    supervisor = _workspace() / "x_supervisor.py"
-    if not supervisor.exists():
-        print(f"supervisor not found: {supervisor}", file=sys.stderr)
+    if not _launch_agent_chrome():
+        print(f"failed to launch the isolated agent Chrome (port {_AGENT_PORT})", file=sys.stderr)
         return 1
+    os.environ["BU_CDP_URL"] = f"http://127.0.0.1:{_AGENT_PORT}"
+    supervisor = Path(browser_harness.__file__).parent / "x_supervisor.py"
     try:
         Rmux().ensure_session(
             "x-supervisor",
@@ -91,8 +131,8 @@ def _run_monitor(rest: list[str]) -> int:
     except Exception as e:
         print(f"failed to start x-monitor: {e}", file=sys.stderr)
         return 1
-    print("x-monitor supervisor running in rmux session 'x-supervisor'")
-    print("poll with: browser-harness rmux status / rmux capture x-supervisor")
+    print(f"x-monitor running (isolated Chrome on {_AGENT_PORT}, rmux session 'x-supervisor')")
+    print("poll: browser-harness rmux status / rmux capture x-supervisor")
     return 0
 
 
@@ -117,13 +157,9 @@ def _run_search(engine: str, rest: list[str]) -> int:
         print(f"usage: browser-harness {engine}-search <query> [--page N]", file=sys.stderr)
         return 2
     from browser_harness.admin import ensure_daemon
+    from browser_harness.agent_helpers import bing_search, extract_url_content, google_search
 
     ensure_daemon()
-    ws = _workspace()
-    if str(ws) not in sys.path:
-        sys.path.insert(0, str(ws))
-    from agent_helpers import bing_search, extract_url_content, google_search
-
     rows = google_search(query, limit=5, page=page) if engine == "google" else bing_search(query, limit=5, page=page)
     for i, r in enumerate(rows, 1):
         url = r.get("url", "")
@@ -153,8 +189,14 @@ def run_cli(args: list[str]) -> int:
     cmd, rest = args[0], args[1:]
     if cmd == "x-monitor":
         return _run_monitor(rest)
-    if cmd in _SCRIPTS:
-        return _run_script(cmd, rest)
+    if cmd == "x-search":
+        from browser_harness import x_search
+
+        return x_search.main(rest) or 0
+    if cmd == "web-fetch":
+        from browser_harness import web_fetch
+
+        return web_fetch.main(rest) or 0
     if cmd in ("google-search", "bing-search"):
         return _run_search(cmd.split("-", 1)[0], rest)
     print(f"unknown command: {cmd}", file=sys.stderr)

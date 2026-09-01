@@ -53,7 +53,7 @@ The agent-built apps live in `agent-workspace/`. Route by intent:
 | X 已存推的查询 / 搜索 / 统计 | `browser-harness x-search ...` |
 | Google 搜索 | `browser-harness google-search <query>` |
 | Bing 搜索 | `browser-harness bing-search <query>` |
-| 网页正文提取 | `browser-harness page-text <url>` |
+| 网页正文提取 | `browser-harness web-fetch <url>` |
 | rmux 会话管理 | `browser-harness rmux list\|new\|ensure\|...` |
 
 ## Local Chrome
@@ -232,11 +232,11 @@ language, site, word_count, markdown, text, content_html, engine}`.
 Or from the shell (no browser needed for public pages):
 
 ```bash
-browser-harness page-text "https://example.com/article"          # markdown
-browser-harness page-text "https://example.com/article" --text   # plain text
-browser-harness page-text "https://example.com/article" --json    # full metadata
-browser-harness page-text "https://x.com/home" --browser          # reuse session
-browser-harness page-text --current                                # current tab
+browser-harness web-fetch "https://example.com/article"          # markdown
+browser-harness web-fetch "https://example.com/article" --text   # plain text
+browser-harness web-fetch "https://example.com/article" --json    # full metadata
+browser-harness web-fetch "https://x.com/home" --browser          # reuse session
+browser-harness web-fetch --current                                # current tab
 ```
 
 Engine order: `pydefuddle` (Python, bundled as a core dependency), then a

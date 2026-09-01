@@ -71,7 +71,7 @@ Commands:
   browser-harness current            show the tab/app the daemon is operating on now
   browser-harness x-monitor              start the self-healing X capture supervisor
   browser-harness x-search <...>         query/search stored tweets
-  browser-harness page-text <url>        extract clean text/markdown from a URL
+  browser-harness web-fetch <url>         extract clean text/markdown from a URL
   browser-harness google-search <query>  search Google in the logged-in browser
   browser-harness bing-search <query>    search Bing in the logged-in browser
   browser-harness --update [-y]    pull the latest version (agents: pass -y)
@@ -140,7 +140,7 @@ def _telemetry_command(args):
     if first == "--debug-clicks":
         return "debug-clicks"
     if first in {"auth", "skill", "mac-approve", "recordings", "telemetry", "video", "rmux", "browsers", "current",
-                 "x-monitor", "x-search", "page-text", "google-search", "bing-search"}:
+                 "x-monitor", "x-search", "web-fetch", "google-search", "bing-search"}:
         return first
     return "usage"
 
@@ -383,7 +383,7 @@ def _run(args):
         from . import browsers
 
         sys.exit(browsers.run_current(args[1:]))
-    if args and args[0] in {"x-monitor", "x-search", "page-text", "google-search", "bing-search"}:
+    if args and args[0] in {"x-monitor", "x-search", "web-fetch", "google-search", "bing-search"}:
         from . import xapps
 
         sys.exit(xapps.run_cli(args))

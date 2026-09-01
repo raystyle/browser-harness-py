@@ -25,8 +25,20 @@ def _clean(s):
 
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-DB = os.environ.get("X_DB") or os.path.join(_HERE, "x_tweets.db")
-HEARTBEAT = os.environ.get("X_HEARTBEAT") or os.path.join(_HERE, "x_worker.heartbeat")
+
+
+def _data_dir():
+    """Repo agent-workspace (dev) else per-user workspace dir (global install)."""
+    repo = os.path.normpath(os.path.join(_HERE, "..", "..", "agent-workspace"))
+    if os.path.isdir(repo):
+        return repo
+    from browser_harness.paths import workspace_dir
+
+    return str(workspace_dir())
+
+
+DB = os.environ.get("X_DB") or os.path.join(_data_dir(), "x_tweets.db")
+HEARTBEAT = os.environ.get("X_HEARTBEAT") or os.path.join(_data_dir(), "x_worker.heartbeat")
 INTERVAL = float(os.environ.get("X_INTERVAL") or "45")
 DOCK_W = int(os.environ.get("X_DOCK_W") or "520")
 DOCK_H = int(os.environ.get("X_DOCK_H") or "200")

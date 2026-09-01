@@ -36,7 +36,20 @@ for _s in (sys.stdout, sys.stderr):
         pass
 
 
-DB = os.environ.get("X_DB") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "x_tweets.db")
+_HERE = os.path.dirname(os.path.abspath(__file__))
+
+
+def _data_dir():
+    """Repo agent-workspace (dev) else per-user workspace dir (global install)."""
+    repo = os.path.normpath(os.path.join(_HERE, "..", "..", "agent-workspace"))
+    if os.path.isdir(repo):
+        return repo
+    from browser_harness.paths import workspace_dir
+
+    return str(workspace_dir())
+
+
+DB = os.environ.get("X_DB") or os.path.join(_data_dir(), "x_tweets.db")
 
 
 def _parse_duration(s):
@@ -188,8 +201,8 @@ def _stats():
             print(f"  @{r['handle']}: {r['n']}")
 
 
-def main():
-    kw, limit, author, recent, since, group_by, csv_mode, csv_path, stats = _parse(sys.argv[1:])
+def main(argv=None):
+    kw, limit, author, recent, since, group_by, csv_mode, csv_path, stats = _parse(argv if argv is not None else sys.argv[1:])
     if stats:
         _stats()
         return
@@ -207,4 +220,5 @@ def main():
         _print_flat(rows)
 
 
-main()
+if __name__ == "__main__":
+    main()

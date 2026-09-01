@@ -9,7 +9,6 @@
 - Windows 11（当前开发环境）；macOS / Linux 部分能力可用。
 - `uv` + Python 3.12。
 - Chrome（本机 Chrome Dev 154 已验证）。
-- Node（`page-text` 的 `npx defuddle` 回退路径用，可选）。
 - rmux 0.10.0（X 监控的多路复用）。
 
 ## 部署方法
@@ -68,10 +67,10 @@ browser-harness rmux kill x-monitor          # 停 worker（supervisor 会自愈
 ### 网页正文提取
 
 ```powershell
-browser-harness page-text <url>          # markdown
-browser-harness page-text <url> --text   # 纯文本
-browser-harness page-text <url> --json   # 完整元数据
-browser-harness page-text --current      # 当前标签
+browser-harness web-fetch <url>          # markdown
+browser-harness web-fetch <url> --text   # 纯文本
+browser-harness web-fetch <url> --json   # 完整元数据
+browser-harness web-fetch --current      # 当前标签
 ```
 
 ### 搜索引擎搜索（搜索后自动接正文提取）

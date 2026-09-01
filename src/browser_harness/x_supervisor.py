@@ -20,8 +20,20 @@ from browser_harness.rmux import Rmux
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 WORKER = os.path.join(_HERE, "x_worker.py")
-HEARTBEAT = os.environ.get("X_HEARTBEAT") or os.path.join(_HERE, "x_worker.heartbeat")
-LOG = os.environ.get("X_SUPERVISOR_LOG") or os.path.join(_HERE, "x_supervisor.log")
+
+
+def _data_dir():
+    """Repo agent-workspace (dev) else per-user workspace dir (global install)."""
+    repo = os.path.normpath(os.path.join(_HERE, "..", "..", "agent-workspace"))
+    if os.path.isdir(repo):
+        return repo
+    from browser_harness.paths import workspace_dir
+
+    return str(workspace_dir())
+
+
+HEARTBEAT = os.environ.get("X_HEARTBEAT") or os.path.join(_data_dir(), "x_worker.heartbeat")
+LOG = os.environ.get("X_SUPERVISOR_LOG") or os.path.join(_data_dir(), "x_supervisor.log")
 
 SESSION = os.environ.get("X_RMUX_SESSION") or "x-monitor"
 HEARTBEAT_TIMEOUT = float(os.environ.get("X_HEARTBEAT_TIMEOUT") or "120")

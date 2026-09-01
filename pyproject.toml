@@ -47,7 +47,7 @@ package-dir = {"" = "src"}
 where = ["src"]
 
 [tool.setuptools.package-data]
-browser_harness = ["SKILL.md", "video-template.html", "_agent_workspace/*.py"]
+browser_harness = ["SKILL.md", "video-template.html"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

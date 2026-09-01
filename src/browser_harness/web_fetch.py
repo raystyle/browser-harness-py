@@ -18,7 +18,7 @@ import argparse
 import json
 import sys
 
-from agent_helpers import extract_page_content, extract_url_content
+from browser_harness.agent_helpers import extract_page_content, extract_url_content
 
 
 def main(argv=None):
