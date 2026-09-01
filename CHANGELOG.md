@@ -11,6 +11,13 @@
 - **修复 Windows 下 `--update` 无法原地自替换**（M102 第三形态，本机实证）：`browser-harness` 命令本身跑在工具 venv 的 `Scripts\` 内，停净栈后进程内 `uv tool install` 仍锁目录（os error 5），且失败会半拆安装（shim 存活、包被删 → ModuleNotFoundError，本机中招后外部重装修复）。Windows 下改为**pwsh 接力**：停栈后生成脱离 venv 的 shell（pwsh，回退 powershell），等本进程退出再执行 安装→铺装→按需恢复 x-monitor，本命令打印说明后立即返回；版本缓存在接力前同步失效。非 Windows 保留原进程内路径；接力不可用时回退并提示。
 - 测试 186 passed：新增接力三分支（成功返回/回退原地/脚本构造与 x-monitor 条件尾巴），既有 installed 用例显式固定为非 Windows 路径。
 
+## v0.6.4 — 2026-09-01
+
+- **升级即清理历史老版本**（用户定向）：
+  - `skills sync`（`--update` 内置）新增**退役文件清扫**：精确剔除本项目 v0.4.0 前铺到 workspace 根的旧文件（`x_worker.py`/`x_supervisor.py`/`x_search.py`/`x_monitor.py`/`page_text.py`/`browser_watch.py`/`browser_wizard.py`/`start-x-monitor.ps1`，清单 `skills.py::_RETIRED_WORKSPACE_FILES`）；用户/agent 自加文件与 `agent_helpers.py` 覆盖永不触碰。经历过老版本的机器升级后自动落干净。
+  - 接力升级尾部追加 `browser-harness --version` 输出，升级完成即见落地版本。
+  - uv 工具层单 venv 原地替换（`--force`），不累积旧版本；本机顺带清除 uv 注册表悬空残留 `bin`（历史安装事故，`uv tool uninstall bin`）。
+
 ## v0.6.3 — 2026-09-01
 
 - **修复版本缓存劫持升级判定**（同日两次实证：0.5.0 缓存藏住 0.6.1、0.6.1 缓存藏住 0.6.2）：`_latest_release_tag` 原逻辑"缓存新鲜即返回"，但当缓存 tag ≤ 已装版本时它证明不了"没有更新"（缓存可能早于手动升级或新 Release）——现仅当缓存 tag **大于**已装版本才允许短路命中，否则强制重拉（一次 API 调用，离线时仍回退缓存）。doctor 横幅与 `--update` 判定同时受益。

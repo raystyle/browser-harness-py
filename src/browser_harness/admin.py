@@ -1142,6 +1142,7 @@ def _relayed_tool_upgrade(had_x_monitor):
     tail = "browser-harness skills sync"
     if had_x_monitor:
         tail += "; browser-harness x-monitor"
+    tail += "; browser-harness --version"
     script = (
         "for ($i = 0; $i -lt 150; $i++) {"
         f" if (-not (Get-Process -Id {parent} -ErrorAction SilentlyContinue)) {{ break }};"

@@ -19,6 +19,31 @@ _SKILL_DIRS = {
 # user or agent added locally; provisioning never deletes.
 _PROVISION_DIRS = ("domain-skills", "apps")
 
+# Files this project itself shipped into the workspace root before the v0.4.0
+# apps/ layout and later retired. Sync removes exactly these names so upgraded
+# machines drop pre-v0.4.0 relics; anything else in the workspace (user/agent
+# additions, agent_helpers.py overrides) is never touched.
+_RETIRED_WORKSPACE_FILES = (
+    "browser_watch.py",
+    "browser_wizard.py",
+    "page_text.py",
+    "start-x-monitor.ps1",
+    "x_monitor.py",
+    "x_search.py",
+    "x_supervisor.py",
+    "x_worker.py",
+)
+
+
+def _prune_retired_files(dst_root: Path) -> int:
+    removed = 0
+    for name in _RETIRED_WORKSPACE_FILES:
+        p = dst_root / name
+        if p.is_file():
+            p.unlink()
+            removed += 1
+    return removed
+
 
 def _packaged_skill_dir() -> Path:
     return Path(__file__).parent
@@ -169,4 +194,10 @@ def run_cli(args: list[str]) -> int:
             print(f"  workspace synced        {dst}  [{copied}/{total} {name} copied]")
         else:
             print(f"  workspace OUTDATED      {dst}  ({missing} missing, {differing} differ — run: browser-harness skills sync)")
+    if do_sync:
+        from .paths import workspace_dir
+
+        pruned = _prune_retired_files(workspace_dir())
+        if pruned:
+            print(f"  workspace pruned        {pruned} retired pre-v0.4.0 file(s) removed")
     return 0

@@ -392,4 +392,5 @@ stripping a leading `www.`**: `github.com` → `github/`, `www.bing.com` →
 scripts (e.g. `claude-ai/extract-share-transcript.py`) are not listed — list
 the directory itself to find them. `browser-harness skills sync` (also run by `--update`) provisions
 the packaged site skills into the workspace (additively — locally added site
-skills are never deleted).
+skills are never deleted; only this project's own retired pre-v0.4.0 filenames
+are pruned on sync).
