@@ -283,30 +283,104 @@ browser-harness skills sync        # 铺装新版插件与技能
 
 ## 命令使用
 
+以下示例的输出均为 v0.4.0 实机验收时截取（非虚构）。
+
+### 诊断与状态（核心）
+
+```powershell
+PS> browser-harness doctor
+  platform          Windows 11
+  version           0.4.0 (installed)
+  latest release    0.4.0
+  [ok  ] chrome running
+  [ok  ] daemon alive
+  [ok  ] active browser connections — 2      # default + x-monitor 双 daemon
+        default — active page: 🐴 … / X
+        x-monitor — active page: 🐴 主页 / X — https://x.com/home
+  [ok  ] rmux — rmux 0.10.0
+
+PS> browser-harness browsers                  # 实例/标签页/[inspect-toggle] 盲区探测
+PS> browser-harness current                   # daemon 当前附着目标
+PS> browser-harness doctor --json             # 机器可读（healthy/version/browser_ready）
+```
+
 ### 插件（workspace apps，`skills sync` 安装后可用）
 
 ```powershell
-browser-harness x-monitor                    # 启动自愈 X 监控（非阻塞）
-browser-harness x-search --stats             # 统计已存推
-browser-harness x-search --recent --limit 10 # 最近推
-browser-harness x-search <关键词> --limit 10  # 关键词搜索
-browser-harness x-search --since 1h --group-by hour
-browser-harness web-fetch <url>              # 网页正文提取（--text/--json/--current/--browser）
-browser-harness google-search <query>        # Google 搜索（自动接正文提取）
-browser-harness bing-search <query>          # Bing 搜索
+# X 监控：启动（幂等，非阻塞）
+PS> browser-harness x-monitor
+x-monitor running (isolated Chrome on 9223, rmux session 'x-supervisor')
+
+# 推文库统计
+PS> browser-harness x-search --stats
+total_tweets: 798
+distinct_authors: 498
+posted_range: 2026-08-02T12:43:14.000Z -> 2026-09-01T05:31:01.000Z
+
+# 关键词搜索（author=显示名，handle 独立成列）
+PS> browser-harness x-search Kubernetes --limit 1
+author: Darryl Ruggles | @RDarrylR | posted: 2026-09-01T05:30:13.000Z
+text: Kubernetes pods run 24/7 but many APIs sit idle most of the time...
+
+# 最近抓取 / 时间窗 / 按作者过滤（--author 匹配显示名或 @handle，需搭配主模式）
+PS> browser-harness x-search --recent --limit 5
+PS> browser-harness x-search --since 1h --group-by hour
+PS> browser-harness x-search rust --author Rainmaker --limit 3
+
+# 网页正文提取（默认 markdown；另有 --text / --json / --current / --browser）
+PS> browser-harness web-fetch https://example.com
+# Example Domain
+This domain is for use in documentation examples...
+
+# 搜索引擎（跑在已登录的 agent Chrome，前 3 条自动接正文提取）
+PS> browser-harness google-search "rust tokio"
+[1] Tokio - An asynchronous Rust runtime
+PS> browser-harness bing-search "python asyncio"
+[1] asyncio — Asynchronous I/O — Python 3.14.7 documentation
 ```
 
-未安装插件时命令会报 usage —— 先跑 `browser-harness skills sync`。
+未安装插件时命令报 usage —— 先跑 `browser-harness skills sync`。
+
+### 管道脚本（核心能力：Python 直驱浏览器）
+
+```powershell
+PS> @'
+info = page_info()                     # {'url': …, 'title': 🐴 …, 'w': 506, 'h': 106}
+t = new_tab("https://example.com")     # 新标签 + 附着（马标记🐴，不切换可见页）
+wait_for_load()
+print(js("document.title"))            # 🐴 Example Domain
+c = extract_page_content(markdown=True)# defuddle 提取：17 words | engine: pydefuddle
+print(capture_screenshot())            # 返回 PNG 文件路径（非 base64）
+close_tab(t)
+'@ | browser-harness
+```
+
+预导入助手：`page_info / js / cdp / list_tabs / new_tab / switch_tab / activate_tab / close_tab / click_at_xy / scroll / fill_input / press_key / upload_file / wait_for_element / wait_for_load / wait_for_network_idle / extract_page_content / extract_url_content / google_search / bing_search / setup_browser_apps / capture_screenshot / drain_events / http_get`（全部经 daemon，永远只碰 agent Chrome）。
+
+### 技能与插件分发
+
+```powershell
+PS> browser-harness skills
+  claude   up to date    ~\.claude\skills\browser-harness
+  codex    up to date    ~\.codex\skills\browser-harness
+  workspace up to date   …\agent-workspace\domain-skills  [107 domain-skills]
+  workspace up to date   …\agent-workspace\apps           [7 apps]
+```
 
 ### rmux 会话管理（框架核心）
 
 ```powershell
 browser-harness rmux list|status|new|ensure|send|keys|capture|kill|kill-server|version
-browser-harness rmux capture x-supervisor   # 看 x-monitor 监督输出
+PS> browser-harness rmux status
+running: True
+sessions: x-monitor, x-supervisor
+
+browser-harness rmux capture x-supervisor   # 看 x-monitor 监督日志
 browser-harness rmux kill x-monitor         # 停抓取 worker（supervisor 自愈重拉）
+browser-harness rmux kill x-supervisor      # 停整个监控栈
 ```
 
-`kill-server` 只销毁本项目 `browser-harness` label 的 daemon，不碰其他程序的 rmux 服务。
+`kill-server` 只销毁本项目 `browser-harness` label 的 rmux 服务，不碰其他程序。
 
 ## 插件开发
 
