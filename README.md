@@ -20,6 +20,16 @@
 uv sync
 ```
 
+### 1b. 全局安装成命令行（可选）
+
+```powershell
+uv tool install git+https://github.com/raystyle/browser-harness@dev/work
+browser-harness --version     # 验证
+browser-harness --doctor      # 依赖/连接自检
+```
+
+安装后全局 `browser-harness` 命令可用；`pydefuddle`（网页正文提取）已作为核心依赖随包安装，无需额外 `[content]`。
+
 ### 2. 启动 agent 专属 Chrome + X 监控
 
 ```powershell

@@ -239,8 +239,8 @@ browser-harness page-text "https://x.com/home" --browser          # reuse sessio
 browser-harness page-text --current                                # current tab
 ```
 
-Engine order: `pydefuddle` (Python, install with `pip install browser-harness[content]`),
-then a stdlib/bs4 fallback. The `engine` field says which one was used. No Node/npx
+Engine order: `pydefuddle` (Python, bundled as a core dependency), then a
+stdlib/bs4 fallback. The `engine` field says which one was used. No Node/npx
 dependency.
 
 ## Browser availability
