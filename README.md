@@ -1,6 +1,6 @@
-# browser-harness（raystyle fork）
+# browser-harness
 
-本仓库是 [browser-use/browser-harness](https://github.com/browser-use/browser-harness) 的个人 fork，用于本地开发与测试，个人分支推送到 [raystyle/browser-harness](https://github.com/raystyle/browser-harness)。
+本仓库是独立维护的主仓库 [raystyle/browser-harness](https://github.com/raystyle/browser-harness)。项目源自 [browser-use/browser-harness](https://github.com/browser-use/browser-harness) 的 v0.1.10 基线，此后架构独立演化——插件化应用层（apps/）、agent 专属浏览器隔离、本地 X 监控、skills 分发链等均为本项目特性；感谢上游的初始设计。
 
 本 README 只讲**本项目的部署方法与命令使用**。开发/交互规范见 [AGENTS.md](AGENTS.md)，agent 操作路由见 [SKILL.md](SKILL.md)，方案与研究沉淀见 [INDEX.md](INDEX.md) 及 `docs/`。
 

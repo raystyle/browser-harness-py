@@ -8,7 +8,7 @@
 
 1. **本质**
    - browser-harness 是把 LLM 直接连到真实浏览器的薄 CDP harness：一个 CDP websocket，agent 边做边写缺失的 helper。
-   - 本仓是 `browser-use/browser-harness` 的个人 fork，个人工作推到 `raystyle/browser-harness`。
+   - 本仓是独立主仓库 `raystyle/browser-harness`（源自 browser-use 上游 v0.1.10 基线，2026-09-01 起独立演化）。
 
 2. **边界**
    - 连接模型：默认 daemon、`BU_CDP_URL` / `BU_CDP_WS`（独立 automation Chrome），纯本地，无 cloud。
@@ -24,9 +24,9 @@
    - 定位 / 归档：`docs/proven/`；研究：`docs/research/`；参考：`docs/references/`；错误：`docs/mistakes/`。
    - 唯一索引：`INDEX.md`。
 
-5. **fork 工作流**
-   - `origin`（上游只拉取）、`mine`（fork 推送）、`main`（上游镜像，不直接改）、`dev/work`（开发分支）。
-   - 规则：不推 `origin`；在 `dev/work` 开发；合并上游用 `git switch main && git pull --ff-only origin main && git switch dev/work && git merge main`；本地验证 `browser-harness --doctor` + `uv run --with pytest python -m pytest tests/unit -q`。
+5. **独立主仓工作流**
+   - `origin`（= raystyle/browser-harness，唯一远程）、`dev/work`（开发/发布/默认分支）。
+   - 规则：在 `dev/work` 开发并推 `origin`；发版 = tag + GitHub Release，目标机 `browser-harness --update -y && browser-harness skills sync`；本地验证 `browser-harness --doctor` + `uv run --with pytest python -m pytest tests/unit -q`。
 
 ## 二、操作规则
 

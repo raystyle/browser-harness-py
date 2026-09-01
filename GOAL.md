@@ -38,6 +38,7 @@
 | --- | --- | --- |
 | 2026-09-01 | v0.2.0 封版：X 监控 + web-fetch + 搜索 + rmux 隔离 + 资源视图 + 打包 | 达成：tag v0.2.0 已推 mine/dev/work |
 | 2026-08-31 | 个人 fork 分支维护（deepseek-harness 模式） | 达成：mine 远程 + dev/work 分支 + fork 工作流 |
+| 2026-09-01 | 摆脱上游，独立主仓库 | 达成：origin=raystyle 唯一远程、默认分支 dev/work、身份文档更新（v0.5.0） |
 | 2026-08-31 | 项目结构对齐 ohmyagents | 达成：三原语 + INDEX + docs 六目录 |
 
 ## 维护规则
