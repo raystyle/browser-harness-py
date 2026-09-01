@@ -386,6 +386,22 @@ def _looks_blocked(html):
     )
 
 
+def _fetch_in_browser(url, markdown=True):
+    """Open ``url`` in a fresh tab, extract, then close it (no tab pollution)."""
+    from browser_harness.helpers import close_tab, new_tab, switch_tab, wait_for_load
+
+    tid = new_tab(url)
+    wait_for_load(timeout=30)
+    try:
+        switch_tab(tid, activate=False)  # re-attach in case the X worker moved it
+        return extract_page_content(markdown=markdown)
+    finally:
+        try:
+            close_tab(tid)
+        except Exception:
+            pass
+
+
 def extract_url_content(url, markdown=True, use_browser=True):
     """Fetch ``url`` and extract clean text/markdown + metadata.
 
@@ -395,11 +411,7 @@ def extract_url_content(url, markdown=True, use_browser=True):
     response looks like a bot wall or the extracted text is suspiciously short.
     """
     if use_browser:
-        from browser_harness.helpers import goto_url, wait_for_load
-
-        goto_url(url)
-        wait_for_load(timeout=30)
-        return extract_page_content(markdown=markdown)
+        return _fetch_in_browser(url, markdown)
     try:
         html = _http_get(url)
     except Exception:
@@ -407,11 +419,7 @@ def extract_url_content(url, markdown=True, use_browser=True):
     result = _defuddle_html(html, url)
     if (not html or _looks_blocked(html) or (result.get("word_count") or 0) < 20):
         try:
-            from browser_harness.helpers import goto_url, wait_for_load
-
-            goto_url(url)
-            wait_for_load(timeout=30)
-            result = extract_page_content(markdown=True)
+            result = _fetch_in_browser(url, True)
             result["engine"] = result.get("engine", "") + "+browser-retry"
         except Exception:
             pass
