@@ -113,9 +113,13 @@ rg -n "关键词" INDEX.md                    # 1 先搜总索引，定位编号
 rg --files docs | rg 关键词                 # 2 按文件名搜文档
 rg -n "关键词" docs\research docs\references # 3 全文搜研究参考
 rg -n "关键词" docs\mistakes\               # 4 搜错误处理
+
+# mq（markdown 结构查询，D:\ohmyenv\mq\mq.exe，jq 风格；section 模块必须 -A）
+mq -F grep '.h2' docs\research\*.md         # 跨文件按节标题定位
+mq -A 'section::section(., "关键结论")' 文档  # 抽整节内容
 ```
 
 ## Security
 
-- 不提交 secrets、Browser Use Cloud token、会话 cookie（`agent-chrome-profile/` 已 gitignore）。
+- 不提交 secrets、会话 cookie（`agent-chrome-profile/` 已 gitignore）。
 - 最小改动修 bug，不扩大 CDP surface。
