@@ -4,7 +4,7 @@
 
 ## 当前目标
 
-v0.2.0 封版（对应 `GOAL.md`），2026-09-01 已完成；同日追加 v0.6.0 升级闭环（用户定向），已完成。
+WSL2 无头接管（对应 `GOAL.md`，队列目标「Linux/macOS 接管」的 Linux 半），2026-09-01 完成；S006 落档。
 
 ## 任务进度清单
 
@@ -21,11 +21,17 @@ v0.2.0 封版（对应 `GOAL.md`），2026-09-01 已完成；同日追加 v0.6.0
 | 打包 | 已完成 | uv tool install + 应用集成主包 | 2026-09-01 |
 | 文档体系对齐 | 已完成 | AGENTS/GOAL/PLAN/TODO/ROADMAP + G002/G003 | 2026-09-01 |
 | 升级闭环 v0.6.0 | 已完成 | --update 停栈/升级/铺装 workspace/恢复 x-monitor 一条命令 | 2026-09-01 |
+| WSL 安装原生 Chrome | 已完成 | google-chrome-stable .deb 152（WSL 无 snap） | 2026-09-01 |
+| launcher 行尾修复 | 已完成 | .gitattributes 钉 browser-harness/*.sh 为 LF | 2026-09-01 |
+| agent 端口可配 + 无头启动 | 已完成 | BH_AGENT_CDP_PORT / BH_CHROME_HEADLESS / EXTRA_FLAGS 透传 | 2026-09-01 |
+| browsers 视图 Linux 枚举 | 已完成 | /proc 扫描 + M104 cmdline 兼容 | 2026-09-01 |
+| WSL 验证 | 已完成 | 单测 207 全绿 + doctor 全绿 + web-fetch/管道自动化实测 | 2026-09-01 |
+| WSL x-monitor 登录 | 待办 | agent profile 需在 9224 登录 X 后 x-monitor 才可跑 | 待用户 |
 
 ## 队列目标
 
 | 目标 | 状态 | 说明 |
 | --- | --- | --- |
-| Linux/macOS 接管 | 排后 | 环境 + mac-approve + 冒烟 + 单元/集成 |
+| Linux/macOS 接管 | Linux 半已完成 | WSL 无头栈全链路实测（S006）；macOS（mac-approve 等）仍排后 |
 | 站点专用提取扩充 | 排后 | domain-skills 按站点定制正文提取 |
 | MCP 集成 | 排后 | web-fetch / 搜索暴露为 MCP 工具 |

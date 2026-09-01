@@ -176,7 +176,7 @@ def _is_local_chrome_mode(env=None):
 
 
 def _pinned_agent_cdp(env=None):
-    """True when BU_CDP_URL pins the isolated agent Chrome (loopback:9223).
+    """True when BU_CDP_URL pins the isolated agent Chrome (loopback:<agent port>).
 
     Only this endpoint may be auto-launched by ensure_daemon; any other CDP
     endpoint is externally provisioned and must not be probed or started.
@@ -189,7 +189,10 @@ def _pinned_agent_cdp(env=None):
 
     try:
         parsed = urlparse(raw if "//" in raw else f"http://{raw}")
-        return parsed.hostname in ("127.0.0.1", "localhost", "::1") and parsed.port == 9223
+        return (
+            parsed.hostname in ("127.0.0.1", "localhost", "::1")
+            and parsed.port == _agent_port()
+        )
     except ValueError:
         return False
 
@@ -745,7 +748,21 @@ _NO_THROTTLE_FLAGS = (
 )
 
 
-_AGENT_PORT = 9223
+def _agent_port():
+    """CDP port of the isolated agent Chrome: BH_AGENT_CDP_PORT or 9223.
+
+    A WSL2 mirrored-network host shares loopback with the Windows side, where
+    the Windows stack already owns 9223; WSL points this at its own port so
+    the two agent Chromes never collide.
+    """
+    raw = (os.environ.get("BH_AGENT_CDP_PORT") or "").strip()
+    try:
+        return int(raw) if raw else 9223
+    except ValueError:
+        return 9223
+
+
+_AGENT_PORT = _agent_port()
 
 
 def _agent_profile():
@@ -791,6 +808,29 @@ def _chrome_path():
     return shutil.which("google-chrome") or shutil.which("chromium") or shutil.which("chromium-browser")
 
 
+def _headless_flags():
+    """Headless flags for agent Chrome.
+
+    BH_CHROME_HEADLESS=1 forces headless; =0 keeps a window even where the
+    auto-detect below would kick in. Unset: headless only on Linux with no
+    DISPLAY and no WAYLAND_DISPLAY — a machine with no screen can't host a
+    browser window, and WSLg boxes that want headless opt in explicitly.
+    """
+    raw = (os.environ.get("BH_CHROME_HEADLESS") or "").strip().lower()
+    if raw in ("0", "false", "no", "off"):
+        return []
+    enabled = raw in ("1", "true", "yes", "on")
+    if not enabled and sys.platform.startswith("linux"):
+        enabled = not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
+    if not enabled:
+        return []
+    flags = ["--headless=new", "--disable-gpu"]
+    # Chrome refuses to start as root without it (containers, WSL as root).
+    if hasattr(os, "geteuid") and os.geteuid() == 0:
+        flags.append("--no-sandbox")
+    return flags
+
+
 def _launch_agent_chrome() -> bool:
     """Start the isolated agent Chrome if it is not already up. Blocks up to 20s.
 
@@ -809,6 +849,8 @@ def _launch_agent_chrome() -> bool:
         f"--user-data-dir={_agent_profile()}",
         f"--remote-debugging-port={_AGENT_PORT}",
         *_NO_THROTTLE_FLAGS,
+        *_headless_flags(),
+        *_extra_chrome_flags(),
     ]
     try:
         if platform.system() == "Darwin":

@@ -991,3 +991,79 @@ def test_latest_release_tag_cache_hits_when_newer_than_installed(monkeypatch, ca
     monkeypatch.setattr(admin.urllib.request, "urlopen",
                         lambda _url, timeout=0: pytest.fail("cache hit must not hit the network"))
     assert admin._latest_release_tag() == "0.6.3"
+
+
+# --- WSL/Linux headless adaptation: configurable agent port + headless launch ---
+
+
+def test_agent_port_defaults_to_9223(monkeypatch):
+    monkeypatch.delenv("BH_AGENT_CDP_PORT", raising=False)
+    assert admin._agent_port() == 9223
+
+
+def test_agent_port_env_override(monkeypatch):
+    monkeypatch.setenv("BH_AGENT_CDP_PORT", "9224")
+    assert admin._agent_port() == 9224
+    monkeypatch.setenv("BH_AGENT_CDP_PORT", "not-a-port")
+    assert admin._agent_port() == 9223
+
+
+def test_pinned_agent_cdp_follows_configured_port(monkeypatch):
+    # WSL2 mirrored networking: the Windows stack owns 9223, WSL moves its own
+    # agent Chrome to 9224 — the auto-launch pin must follow that port.
+    monkeypatch.delenv("BH_AGENT_CDP_PORT", raising=False)
+    monkeypatch.delenv("BU_CDP_URL", raising=False)
+    assert admin._pinned_agent_cdp({"BU_CDP_URL": "http://127.0.0.1:9223"}) is True
+    assert admin._pinned_agent_cdp({"BU_CDP_URL": "http://127.0.0.1:9224"}) is False
+    monkeypatch.setenv("BH_AGENT_CDP_PORT", "9224")
+    assert admin._pinned_agent_cdp({"BU_CDP_URL": "http://127.0.0.1:9224"}) is True
+    assert admin._pinned_agent_cdp({"BU_CDP_URL": "http://127.0.0.1:9223"}) is False
+    # Remote endpoints stay externally provisioned — never auto-launched.
+    assert admin._pinned_agent_cdp({"BU_CDP_URL": "http://192.168.88.1:9224"}) is False
+
+
+def test_headless_flags_explicit_states(monkeypatch):
+    monkeypatch.delenv("DISPLAY", raising=False)
+    monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
+    monkeypatch.setenv("BH_CHROME_HEADLESS", "1")
+    assert admin._headless_flags()[:2] == ["--headless=new", "--disable-gpu"]
+    monkeypatch.setenv("BH_CHROME_HEADLESS", "0")
+    assert admin._headless_flags() == []
+
+
+@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="auto-detect branch is Linux-only")
+def test_headless_flags_auto_detects_displayless_linux(monkeypatch):
+    monkeypatch.delenv("BH_CHROME_HEADLESS", raising=False)
+    monkeypatch.setenv("DISPLAY", ":0")
+    assert admin._headless_flags() == []
+    monkeypatch.delenv("DISPLAY")
+    monkeypatch.setenv("WAYLAND_DISPLAY", "wayland-0")
+    assert admin._headless_flags() == []
+    monkeypatch.delenv("WAYLAND_DISPLAY")
+    assert admin._headless_flags()[:2] == ["--headless=new", "--disable-gpu"]
+
+
+def test_launch_agent_chrome_passes_headless_and_extra_flags(monkeypatch, tmp_path):
+    calls = []
+    monkeypatch.setattr(admin, "_agent_profile", lambda: tmp_path / "agent-chrome-profile")
+    monkeypatch.setattr(admin, "_AGENT_PORT", 9224)
+    monkeypatch.setattr(admin, "_chrome_path", lambda: "/usr/bin/google-chrome")
+    monkeypatch.setenv("BH_CHROME_HEADLESS", "1")
+    monkeypatch.setenv("BH_CHROME_EXTRA_FLAGS", "--window-size=1280,800")
+    monkeypatch.setenv("BH_NO_THROTTLE", "")
+
+    # Flip running->True on the launch call so the wait loop exits immediately.
+    state = {"running": False}
+    monkeypatch.setattr(admin, "_agent_chrome_running", lambda: state["running"])
+
+    def fake_popen(argv, **_kwargs):
+        calls.append(argv)
+        state["running"] = True
+
+    monkeypatch.setattr("subprocess.Popen", fake_popen)
+    assert admin._launch_agent_chrome() is True
+    argv = calls[0]
+    assert "--remote-debugging-port=9224" in argv
+    assert f"--user-data-dir={tmp_path / 'agent-chrome-profile'}" in argv
+    assert "--headless=new" in argv and "--disable-gpu" in argv
+    assert "--window-size=1280,800" in argv

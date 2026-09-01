@@ -86,8 +86,12 @@ X monitoring does not use your normal Chrome. Start it with:
 browser-harness x-monitor
 ```
 
-This launches an isolated `agent-chrome-profile` on port `9223` with
-anti-throttle flags and pins the worker to it via `BU_CDP_URL`.
+This launches an isolated `agent-chrome-profile` on port `BH_AGENT_CDP_PORT`
+(default `9223`) with anti-throttle flags and pins the worker to it via
+`BU_CDP_URL`. On a headless Linux/WSL2 host, add to `<BH_HOME>/.env`:
+`BH_CHROME_HEADLESS=1` (implicit on display-less Linux) and, for WSL2 with
+mirrored networking, a non-9223 `BH_AGENT_CDP_PORT` so the WSL stack does not
+collide with the Windows stack's agent Chrome on the shared loopback.
 
 ## If Still Broken
 

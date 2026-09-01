@@ -51,6 +51,11 @@ print(page_info())
   to the user's own Chrome, even one with the chrome://inspect remote-debugging
   toggle enabled (that toggle's DevToolsActivePort would otherwise be
   discovered first). If the agent Chrome is down, `ensure_daemon` launches it.
+  The port comes from `BH_AGENT_CDP_PORT` (default 9223); a WSL2 host on
+  mirrored networking shares loopback with Windows, so its stack pins its own
+  port (e.g. 9224) to not collide with the Windows stack's agent Chrome.
+  `BH_CHROME_HEADLESS=1` launches the agent Chrome headless (default on
+  display-less Linux).
 - To drive a different browser for a task, set `BU_CDP_URL`/`BU_CDP_WS` (per
   call or in `<BH_HOME>/.env`); see the X section below.
 
@@ -176,9 +181,11 @@ user's own Chrome — via `BU_CDP_URL`.
 - Start (non-blocking; launches the isolated Chrome if needed and the supervisor
   in a rmux pane, then returns):
   `browser-harness x-monitor`
-  -> isolated Chrome on `<BH_HOME>/agent-chrome-profile` + port `9223`; rmux
+  -> isolated Chrome on `<BH_HOME>/agent-chrome-profile` + port
+     `BH_AGENT_CDP_PORT` (default `9223`); rmux
      sessions `x-supervisor` (supervisor) and `x-monitor` (worker).
-  Windows only for now.
+  Windows first; WSL2 works headless (S006) once the agent profile is
+  logged in to X on that host.
 - Poll status/data anytime:
   `browser-harness rmux status`              # are both sessions alive?
   heartbeat freshness at `agent-workspace/x_worker.heartbeat`
@@ -296,8 +303,8 @@ browser-harness current    # currently attached target + CDP attach state
 ```
 
 - `browsers` marks each instance as `agent` or `user` by profile path.
-- X monitoring always uses `agent-chrome-profile` on port `9223`; it never
-  touches the user's normal profile.
+- X monitoring always uses `agent-chrome-profile` on `BH_AGENT_CDP_PORT`
+  (default `9223`); it never touches the user's normal profile.
 - `setup_browser_apps()` is idempotent and mutex-like: X, Google, and Bing each
   reuse their own tab rather than opening duplicates.
 

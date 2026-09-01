@@ -48,6 +48,52 @@ def _chrome_instances_windows() -> list[dict]:
     return instances
 
 
+_MAIN_PROCESS_BASENAMES = (
+    "chrome", "google-chrome", "google-chrome-stable", "google-chrome-beta",
+    "google-chrome-unstable", "chromium", "chromium-browser",
+    "microsoft-edge", "microsoft-edge-stable", "brave-browser", "brave",
+)
+
+
+def _chrome_instances_linux() -> list[dict]:
+    """Return ``[{pid, data_dir, port}]`` for Chrome main processes via /proc.
+
+    Mirrors the Windows CIM query: main processes only (no ``--type=`` child),
+    same flag parsing, so the downstream agent/user classification is shared.
+    """
+    from pathlib import Path
+
+    instances = []
+    try:
+        entries = list(Path("/proc").iterdir())
+    except OSError:
+        return []
+    for proc in entries:
+        if not proc.name.isdigit():
+            continue
+        try:
+            raw = (proc / "cmdline").read_bytes()
+        except OSError:
+            continue
+        argv = [a.decode("utf-8", errors="replace") for a in raw.split(b"\0") if a]
+        # Chrome rewrites its own cmdline on Linux (canonicalized flags) and the
+        # rewritten block is space-joined, not NUL-separated. `ps` shows one too.
+        if len(argv) == 1 and " " in argv[0]:
+            argv = argv[0].split()
+        if not argv or Path(argv[0]).name.lower() not in _MAIN_PROCESS_BASENAMES:
+            continue
+        if any(a.startswith("--type=") for a in argv[1:]):
+            continue  # renderer/gpu/utility child process
+        data_dir = next((a.split("=", 1)[1] for a in argv if a.startswith("--user-data-dir=")), "default")
+        port_raw = next((a.split("=", 1)[1] for a in argv if a.startswith("--remote-debugging-port=")), "")
+        try:
+            port = int(port_raw) if port_raw.isdigit() else None
+            instances.append({"pid": int(proc.name), "data_dir": data_dir, "port": port})
+        except ValueError:
+            continue
+    return sorted(instances, key=lambda i: i["pid"])
+
+
 def _tabs_for_port(port: int) -> list[dict] | None:
     """Return page tabs via ``/json/list``, or ``None`` if unavailable."""
     try:
@@ -102,10 +148,14 @@ def _app_for_url(url: str) -> str:
 
 
 def run_cli(args: list[str]) -> int:
-    if platform.system() != "Windows":
-        print("browsers: Windows enumeration only for now", file=sys.stderr)
+    system = platform.system()
+    if system == "Windows":
+        instances = _chrome_instances_windows()
+    elif system == "Linux":
+        instances = _chrome_instances_linux()
+    else:
+        print("browsers: Windows/Linux enumeration only for now", file=sys.stderr)
         return 1
-    instances = _chrome_instances_windows()
     print("browser-harness browsers")
     if not instances:
         print("  (no Chrome instances found)")

@@ -18,6 +18,7 @@
 
 | 日期 | 进展 |
 | --- | --- |
+| 2026-09-01 | WSL2 无头适配（S006）：装原生 Linux Chrome 152、launcher 行尾修 LF、agent 端口可配（`BH_AGENT_CDP_PORT`，WSL 用 9224 避开 mirrored 网络下 Windows 侧 9223）、`BH_CHROME_HEADLESS` 无头启动、`browsers` 视图 Linux 枚举（M104 cmdline 重写坑）。本机 WSL `--doctor` 全绿、web-fetch/管道自动化实测通过、单测 207 全绿 |
 | 2026-09-01 | v0.6.1–v0.6.3 升级可靠性三连修：文档统一以 `--update` 为首选；Windows 自更新改 pwsh 接力（原地自替换必败且失败会半拆安装，M102 第三形态）；版本缓存不再劫持升级判定（tag ≤ 已装即强制重拉，两次实证藏更新）。E2E 实证 0.6.2→0.6.3 接力全链路 |
 | 2026-09-01 | v0.6.0 可靠升级闭环：`--update` 一条命令停栈（rmux+双daemon，M102 根治）→ uv 升级 @main → 铺装 skills/workspace → 恢复 x-monitor；up-to-date 路径同样铺装对齐；本机 E2E 通过 |
 | 2026-09-01 | 独立主仓收官：v0.5.0 摆脱上游（origin 唯一）、v0.5.1 默认分支更名 main（`--update` 源与文档链接同步）、本机升级闭环、M102 落档、diary 补记 |
@@ -39,6 +40,7 @@
 
 | 日期 | 目标 | 结果 |
 | --- | --- | --- |
+| 2026-09-01 | WSL2 无头接管（队列目标「Linux/macOS 接管」的 Linux 半） | 达成：WSL 自包含无头栈全链路实测（S006）；macOS 半仍排后 |
 | 2026-09-01 | v0.2.0 封版：X 监控 + web-fetch + 搜索 + rmux 隔离 + 资源视图 + 打包 | 达成：tag v0.2.0 已推 mine/dev/work |
 | 2026-08-31 | 个人 fork 分支维护（deepseek-harness 模式） | 达成：mine 远程 + dev/work 分支 + fork 工作流 |
 | 2026-09-01 | 摆脱上游，独立主仓库 | 达成：origin=raystyle 唯一远程、默认分支 dev/work、身份文档更新（v0.5.0） |
