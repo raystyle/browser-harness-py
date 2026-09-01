@@ -43,6 +43,40 @@ PY
   invent a `Runtime.evaluate` scroll replacement or a cross-frame JS walker.
 - The normal local flow attaches to the running Chrome/Chromium CDP endpoint. No browser ids or local profile selection.
 
+## Agent Workspace
+
+`agent-workspace/` is an **agent-owned runtime directory**, not package source.
+Only add task-specific helpers and data here; do not edit the installed package.
+
+- Default after `uv tool install`:
+  `~/.config/browser-harness/agent-workspace`
+  (Windows: `C:\Users\<你>\.config\browser-harness\agent-workspace`).
+- In a git checkout, the `agent-workspace/` next to `README.md` is used when present.
+- Override the location with `BH_AGENT_WORKSPACE`.
+- Load order: the active `agent_helpers.py` first, then the packaged
+  `browser_harness.agent_helpers` fallback.
+- To add a helper, create `agent_helpers.py` in the active workspace. Its public
+  functions are imported automatically by the next `browser-harness` script:
+
+```python
+def summarize_current_page():
+    info = page_info() or {}
+    body = js("(document.body && document.body.innerText || '').slice(0, 3000)")
+    return {"url": info.get("url"), "title": info.get("title"), "body": body}
+```
+
+Then invoke without importing:
+
+```bash
+browser-harness <<'PY'
+print(summarize_current_page())
+PY
+```
+
+- Keep app data there too: `x_tweets.db`, heartbeats, supervisor logs.
+- Domain skills live in `agent-workspace/domain-skills/<host>/`. When
+  `BH_DOMAIN_SKILLS=1`, read every matching file before inventing an approach.
+
 ## Apps routing
 
 The agent-built apps live in `agent-workspace/`. Route by intent:
