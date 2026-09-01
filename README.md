@@ -86,32 +86,40 @@ print(setup_browser_apps())
 
 上面的代码会经 daemon 连上当前绑定的 Chrome，并把结果打印到 stdout。脚本执行失败会以非 0 退出码返回，适合被 agent 或 CI 直接调用。
 
-## 开发 agent-workspace
+## agent-workspace（agent 临时/运行目录）
 
-任务辅助函数默认在 `src/browser_harness/agent_helpers.py`。在**开发仓库** checkout 下，`agent-workspace/agent_helpers.py` 会被优先加载，因此本仓库内置了可编辑的 workspace：
+`agent-workspace` 不是源码开发目录，而是 agent 运行时的**临时开发目录**。agent 只在这个目录里放自己的辅助函数、技能和数据，不改主包代码。
+
+加载优先级：
+
+1. `agent-workspace/agent_helpers.py`（存在时优先加载）。
+2. 包内置 `browser_harness.agent_helpers`（没有 workspace 文件时回退）。
+
+全局 `uv tool install` 后的默认位置：
 
 ```powershell
-# 在 D:\browser-harness\agent-workspace\agent_helpers.py 里增加：
+$ws = "$env:USERPROFILE\.config\browser-harness\agent-workspace"
+New-Item -ItemType Directory -Force $ws | Out-Null
+```
+
+在该目录创建 `agent_helpers.py`：
+
+```powershell
 def summarize_current_page():
     info = page_info() or {}
     body = js("(document.body && document.body.innerText || '').slice(0, 3000)")
     return {"url": info.get("url"), "title": info.get("title"), "body": body}
 ```
 
-```powershell
-@'
-print(summarize_current_page())
-'@ | uv run python -m browser_harness.run
-```
-
-全局安装版默认加载包内 `browser_harness.agent_helpers`；如果需要使用自己的 workspace，显式指定：
+然后直接调用：
 
 ```powershell
-$env:BH_AGENT_WORKSPACE = "D:\browser-harness\agent-workspace"
 @'
 print(summarize_current_page())
 '@ | browser-harness
 ```
+
+开发仓库 checkout 下同名目录 `D:\browser-harness\agent-workspace\` 也会被优先使用；如果要强制指向其他目录，设置 `BH_AGENT_WORKSPACE`。
 
 站点技能放在 `agent-workspace/domain-skills/<host>/`，设置 `BH_DOMAIN_SKILLS=1` 后 `goto_url` 会把当前域名匹配到的技能文件一并返回。核心应用已经迁入主包：`web_fetch.py`、`x_search.py`、`x_worker.py`、`x_supervisor.py`。
 
