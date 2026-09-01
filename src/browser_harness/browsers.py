@@ -91,7 +91,7 @@ def run_cli(args: list[str]) -> int:
 
 def run_current(args: list[str]) -> int:
     """Show the tab the daemon is currently operating on and its app."""
-    from browser_harness.helpers import current_tab
+    from browser_harness.helpers import cdp, current_tab
 
     try:
         cur = current_tab()
@@ -106,4 +106,15 @@ def run_current(args: list[str]) -> int:
     print(f"  title: {title}")
     print(f"  url:   {url}")
     print(f"  target: {cur.get('targetId') or cur.get('target_id')}")
+    # Debug-attach state: which tabs are CDP-attached, and which is current.
+    try:
+        pages = [t for t in cdp("Target.getTargets").get("targetInfos", []) if t.get("type") == "page"]
+        attached = [t for t in pages if t.get("attached")]
+        cur_id = cur.get("targetId") or cur.get("target_id")
+        print(f"  attach: {len(attached)}/{len(pages)} tabs attached")
+        for t in pages:
+            marker = "*" if t.get("targetId") == cur_id else " "
+            print(f"    {marker} {t.get('targetId','')[:14]} attached={bool(t.get('attached'))}")
+    except Exception:
+        print("  attach: unavailable")
     return 0
