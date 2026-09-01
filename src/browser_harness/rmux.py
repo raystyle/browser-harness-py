@@ -113,14 +113,33 @@ class Rmux:
             return []
         return [line for line in r.stdout.splitlines() if line.strip()]
 
+    def list_panes(self):
+        """Return ``[{session, pane, command}]`` for this label's panes."""
+        r = self._run(
+            "list-panes", "-a", "-F",
+            "#{session_name}|#{window_index}.#{pane_index}|#{pane_current_command}",
+        )
+        if r.returncode != 0:
+            return []
+        panes = []
+        for line in r.stdout.splitlines():
+            parts = line.split("|", 2)
+            if len(parts) == 3 and parts[0].strip():
+                panes.append({"session": parts[0], "pane": parts[1], "command": parts[2]})
+        return panes
+
     def server_running(self):
         """True when the daemon for this label is up (no session created)."""
         return self._run("list-sessions").returncode == 0
 
     def server_status(self):
-        """Return ``{"running": bool, "sessions": [...]}`` for this label."""
+        """Return ``{"running", "sessions", "panes"}`` for this label."""
         sessions = self.list_sessions()
-        return {"running": bool(sessions) or self.server_running(), "sessions": sessions}
+        return {
+            "running": bool(sessions) or self.server_running(),
+            "sessions": sessions,
+            "panes": self.list_panes(),
+        }
 
     def has_session(self, name):
         return self._run("has-session", "-t", name).returncode == 0
@@ -204,6 +223,10 @@ def run_cli(args):
             st = r.server_status()
             print("running:", st["running"])
             print("sessions:", ", ".join(st["sessions"]) or "(none)")
+            if st["panes"]:
+                print("panes:")
+                for p in st["panes"]:
+                    print(f"  {p['session']}:{p['pane']}  {p['command']}")
             return 0
         if cmd in ("new", "ensure"):
             name, command, cwd = _parse_session_args(rest)

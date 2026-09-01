@@ -86,6 +86,16 @@ def run_cli(args: list[str]) -> int:
             title = (t.get("title") or "").strip().replace("\n", " ")
             app = _app_for_url(url)
             print(f"          {i}. [{app}] {title[:40]} — {url[:90]}")
+    # rmux 服务 / 会话 / 窗格
+    try:
+        from browser_harness.rmux import Rmux
+
+        st = Rmux().server_status()
+        print(f"  [rmux] running={st['running']} sessions={len(st['sessions'])} panes={len(st['panes'])}")
+        for p in st["panes"]:
+            print(f"          {p['session']}:{p['pane']}  {p['command']}")
+    except Exception:
+        print("  [rmux] unavailable")
     return 0
 
 
