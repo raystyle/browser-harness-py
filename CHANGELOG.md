@@ -2,6 +2,12 @@
 
 版本里程碑：本项目版本记录（v0.2.2 起独立维护；v0.1.x 为 browser-use 上游基线历史）。
 
+## v0.6.6 — 2026-09-01
+
+- **WSL2/Linux 无头适配**（S006）：`BH_AGENT_CDP_PORT` agent 端口可配（mirrored 网络下 WSL 用 9224 避开 Windows 侧 9223）、`BH_CHROME_HEADLESS` 无头启动（=1 强制；=0 保窗；不设时仅无 `DISPLAY`/`WAYLAND_DISPLAY` 的 Linux 自动无头）、`BH_CHROME_EXTRA_FLAGS` 透传、`browsers` 视图 Linux `/proc` 枚举（兼容 Chrome 重写 cmdline 的空格连接形态，M104）；launcher `.gitattributes` 钉 LF（Windows smudge 出 `bash\r` 的根）。WSL 全链路实证：doctor 全绿、web-fetch 浏览器链路、管道自动化、无头 x-monitor 实跑 11 分钟 +27 推。
+- **cookies 插件**（S007）：agent Chrome 间会话 cookie 跨设备导出/导入（免重登）。默认拒绝全量导（仅指定域）、导出文件 0600 + gitignore 兜底、导入后复读对账、批量失败降级逐条。端到端实证：Windows 9223 导出 → WSL 9224 无头导入 → x.com 登录态生效。
+- **单测可移植性**（M105）：`fake_proc` 拦截由字符串比对改 Path 等值——win32 上 `str(Path("/proc"))` 归一化为 `\proc` 致拦截失效，S006 新增 3 用例只在 WSL 跑过而漏检；修复后双平台复跑绿（Windows 202 passed / 9 skipped、WSL browsers 4/4）。
+
 ## v0.6.5 — 2026-09-01
 
 - **安装/升级命令统一简化**：默认分支已是 `main`，`@main` 后缀冗余；`--force` 单独即可升级（git 源每次解析到默认分支头）。新标准形：全新安装 `uv tool install git+https://github.com/raystyle/browser-harness`，升级 `uv tool install --force <同URL>`。代码（接力脚本与原地回退）与全部文档（README/AGENTS/install.md 三副本/M102）同步；单测断言脚本无 `@main`。
