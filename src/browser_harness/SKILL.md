@@ -37,11 +37,15 @@ print(page_info())
   changing Chrome's visible tab. Screenshots and normal CDP input work in the
   background; call `activate_tab(target)` only when the user explicitly asks
   or a page demonstrably pauses rendering while hidden.
-- A timed-out `scroll(...)` on an attached background tab is evidence that the
-  page needs to be visible. Call `activate_tab(current_tab())`, retry the same
-  scroll once, then re-read the scroll position. This visibly switches tabs,
-  so do not use it when the user has forbidden foreground changes. Do not
+- A timed-out `scroll(x, y, dx, dy)` on an attached background tab is evidence
+  that the page needs to be visible. Call `activate_tab(current_tab())`, retry
+  the same scroll once, then re-read the scroll position. This visibly switches
+  tabs, so do not use it when the user has forbidden foreground changes. Do not
   invent a `Runtime.evaluate` scroll replacement or a cross-frame JS walker.
+- Ad-hoc scripts share the default daemon with the x-monitor worker. During a
+  capture round the daemon's tab attachment can move back to the X tab
+  mid-script; right after `new_tab()` verify with `current_tab()` and
+  re-`switch_tab()` if it moved.
 - The default daemon is pinned to the isolated agent Chrome via
   `BU_CDP_URL=http://127.0.0.1:9223` in `<BH_HOME>/.env` — it never attaches
   to the user's own Chrome, even one with the chrome://inspect remote-debugging
@@ -141,9 +145,11 @@ After the user clicks Allow, verify with `browser-harness --doctor` that
 
 ## Page Workflow
 
-- Prefer to find elements with the accessibility tree, not screenshots: `cdp("Accessibility.getFullAXTree")["nodes"]` has every element's role, name, and `backendDOMNodeId` — filter in Python before printing (it is thousands of nodes). Coordinates: `q = cdp("DOM.getBoxModel", backendNodeId=n)["model"]["content"]; x, y = sum(q[0::2])/4, sum(q[1::2])/4` (viewport px, ready for `click_at_xy`; negative/oversized means scroll first).
-- Clicking: AX node -> box center -> `click_at_xy(x, y)` -> verify with a targeted `js(...)`/`page_info()` check.
-- Fall back to raw HTML via `js(...)` only when the AX tree lacks the element (canvas, exotic widgets); screenshot when layout or imagery matters.
+- Prefer to find elements with the accessibility tree, not screenshots: `cdp("Accessibility.getFullAXTree")["nodes"]` has every element's role, name, and `backendDOMNodeId` — filter in Python before printing (it is thousands of nodes). Node `role` is a property object, not a plain string, and its nesting varies by Chrome version — normalize it:
+  `v = n.get("role") or {}; role = v if isinstance(v, str) else (v.get("value") if isinstance(v.get("value"), str) else (v.get("value") or {}).get("value", ""))`.
+  Coordinates: `q = cdp("DOM.getBoxModel", backendNodeId=n)["model"]["content"]; x, y = sum(q[0::2])/4, sum(q[1::2])/4` (viewport px, ready for `click_at_xy`; negative/oversized means scroll first).
+- Clicking: AX node -> box center -> `click_at_xy(x, y)` -> verify with a targeted `js(...)`/`page_info()` check. A click that dispatches without effect on a hidden tab needs the same `activate_tab` treatment as a timed-out scroll.
+- Fall back to raw HTML via `js(...)` only when the AX tree lacks the element (canvas, exotic widgets); screenshot when layout or imagery matters — `capture_screenshot()` returns a PNG file path, not base64.
 - After navigation, call `wait_for_load()`.
 - If the current tab is stale or internal, call `ensure_real_tab()`.
 - Use `js(...)` for DOM inspection or extraction when coordinates are the wrong tool.
