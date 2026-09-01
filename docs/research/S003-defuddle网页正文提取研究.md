@@ -5,20 +5,18 @@
 
 ## 结论速览
 
-- **defuddle** 是 JS 库，把网页正文提取为干净 HTML / Markdown，并附带元数据（title、author、description、domain、favicon、image、language、published、site、wordCount）。
-- 命令行：`defuddle parse <url|file|stdin> [--markdown|--json|--property <name>|--user-agent ...]`；无 `<source>` 或 `-` 时从 stdin 读 HTML。
-- 本机 Node 24 已有，`npx defuddle` 可直接用，**无需安装**。
-- PyPI 有 Python 移植 **`pydefuddle` 0.1.0**（依赖 beautifulsoup4 / lxml / markdownify / click / httpx / rich / pyperclip）。API：`pydefuddle.defuddle(html, url="", markdown=True) -> DefuddleResult`。
+- **defuddle** 是 JS 库，把网页正文提取为干净 HTML / Markdown，并附带元数据。[实证: npx 实测输出字段]
+- 命令行：`defuddle parse <url|file|stdin> [--markdown|--json|--property <name>|--user-agent ...]`。[实证: CLI 实测]
+- PyPI 有 Python 移植 **`pydefuddle` 0.1.0**。API：`pydefuddle.defuddle(html, url="", markdown=True) -> DefuddleResult`。[实证: PyPI JSON 核实]
 
 ## 集成决策
 
-三层回退，优先本地、依赖可选：
+两层回退（后来 npx 回退已移除，改为纯 Python）：
 
-1. `pydefuddle`（Python 移植）—— 若可导入。
-2. `npx defuddle parse - --json`（Node CLI）—— 本机已有 Node。
-3. stdlib +（若存在）bs4 的最简正文回退。
+1. `pydefuddle`（Python 移植，核心依赖）—— 若可导入。
+2. stdlib +（若存在）bs4 的最简正文回退。
 
-`pydefuddle` 作为可选依赖组 `content`（`pip install browser-harness[content]`），不进入核心依赖；浏览器端解析优先走浏览器（复用登录会话 / JS），公开页走纯 HTTP。
+`pydefuddle` 现为核心依赖（`pip install browser-harness` 自带）；浏览器端解析优先走浏览器（复用登录会话 / JS），公开页走纯 HTTP。[实证: pyproject.toml dependencies 含 pydefuddle]
 
 ## 关键实测
 
@@ -33,6 +31,6 @@ r = defuddle(html, url=url, markdown=True)  # -> content / markdown / title / do
 
 ## 实现位置
 
-- `agent-workspace\agent_helpers.py`：`_pydefuddle_parse / _npx_defuddle_parse / _fallback_parse / _defuddle_html`（归一化分发）、`extract_page_content()`、`extract_url_content(url, markdown, use_browser)`。
-- `agent-workspace\page_text.py`：CLI（`URL [--markdown|--text|--json] [--browser]`、`--current`）。
+- `src\browser_harness\agent_helpers.py`：`_pydefuddle_parse / _fallback_parse / _defuddle_html`（归一化分发）、`extract_page_content()`、`extract_url_content()`。
+- `src\browser_harness\web_fetch.py`：CLI（`URL [--markdown|--text|--json] [--browser]`、`--current`）。
 - 归一化返回字段统一：`title / url / domain / author / published / description / image / favicon / language / site / word_count / content_html / markdown / text / engine`。

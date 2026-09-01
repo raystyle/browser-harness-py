@@ -5,11 +5,11 @@
 
 ## 结论速览
 
-- **patchright** = Playwright 的免检测 fork，只支持 Chromium/Chrome，Apache-2.0。Python 包叫 `patchright`，Node 包叫 `patchright-nodejs`，两者共用同一个 patched driver（`patchright install chromium|chrome` 下载）。
-- **browser-harness** 是「薄 CDP 层」：用 `cdp-use` 附着到用户**真实 Chrome**（远程调试 / 本机 / Browser Use Cloud），agent 通过 `cdp(method, ...)` 原语写 helper。真实浏览器天然无 `navigator.webdriver`、指纹真实、登录态真实——这部分 stealth 优势已经具备。
-- 源码确认 browser-harness 只发送极少的 CDP 方法，**不发送 `Runtime.enable` / `Console.enable`**（patchright 最大的两个补丁），因此这两处不适用。
-- **POC 实证（Chrome Dev 154.0.8025.0，125% DPI）**：CDP `Input.dispatchMouseEvent` 与 OS 级 `WM_LBUTTONDOWN/UP` 两种方式下 `screenX != pageX`、`is_bot` 均为 false——输入域 page==screen 泄漏在 Chrome 142+ 已修复，本机同样不存在。
-- **结论：不建议集成**。browser-harness 附着真实浏览器，patchright 解决的两大问题（Runtime.enable、command flags）本就不存在，输入域泄漏又被新版 Chrome 修掉了；OS 级输入「只能作用于活动标签页」的局限反而更差，不构成收益。
+- **patchright** = Playwright 的免检测 fork，只支持 Chromium/Chrome，Apache-2.0。Python 包叫 `patchright`，Node 包叫 `patchright-nodejs`，两者共用同一个 patched driver。[实证: README/PyPI]
+- **browser-harness** 是「薄 CDP 层」：用 `cdp-use` 附着到用户**真实 Chrome**，真实浏览器天然无 `navigator.webdriver`、指纹真实、登录态真实——这部分 stealth 优势已经具备。[实证: 源码核实连接模型]
+- 源码确认 browser-harness 只发送极少的 CDP 方法，**不发送 `Runtime.enable` / `Console.enable`**，因此这两处不适用。[实证: 源码逐方法核实]
+- **POC 实证（Chrome Dev 154.0.8025.0，125% DPI）**：CDP `Input.dispatchMouseEvent` 与 OS 级 `WM_LBUTTONDOWN/UP` 两种方式下 `screenX != pageX`、`is_bot` 均为 false——输入域 page==screen 泄漏在 Chrome 142+ 已修复，本机同样不存在。[实证: examples/poc-os-input.py 实测]
+- **结论：不建议集成**。三大泄漏点（Runtime.enable、command flags、输入域）对 browser-harness 均不构成收益。[实证: 三处逐一排除]
 
 ## 组件一览
 

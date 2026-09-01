@@ -5,10 +5,10 @@
 
 ## 结论速览
 
-- **rmux** 是通用 Rust 终端多路复用器（tmux 兼容），带 Rust / Python / TypeScript SDK。Python SDK 是 **`librmux`**（PyPI，0.6.1）。
-- **本机已装 rmux 0.10.0**：`C:\Users\ray\AppData\Local\rmux\bin\rmux.exe`（PATH 内），布局含 `bin\rmux.exe`（分发器）、`bin\rmux-daemon.exe`、`libexec\rmux\rmux.exe`。
-- **`librmux` 0.6.1 与本机 rmux 0.10.0 不兼容**：其 `start_server()` 走 `rmux start-server`（Windows 上是 no-op），且默认 socket 名嵌进程级可变哈希，`start-server` 与 `list-sessions` 打不到同一 daemon。
-- **可行方案是直接驱动 `rmux` CLI**（SDK 内部本就 shell out 到 CLI），并统一用 `-L <label>` 提供跨进程稳定的 socket。
+- **rmux** 是通用 Rust 终端多路复用器（tmux 兼容），带 Rust / Python / TypeScript SDK。Python SDK 是 **`librmux`**（PyPI，0.6.1）。[实证: README/PyPI]
+- **本机已装 rmux 0.10.0**：`C:\Users\ray\AppData\Local\rmux\bin\rmux.exe`，布局含分发器 / daemon / libexec 三层。[实证: rmux -V 与目录实测]
+- **`librmux` 0.6.1 与本机 rmux 0.10.0 不兼容**：`start_server()` 在 Windows 是 no-op，默认 socket 名嵌进程级可变哈希，跨进程打不到同一 daemon。[实证: 实测 start-server no-op、list-sessions 连不上]
+- **可行方案是直接驱动 `rmux` CLI**，并统一用 `-L <label>` 提供跨进程稳定的 socket。[实证: -L label 跨进程可见会话]
 
 ## 组件与检测
 
