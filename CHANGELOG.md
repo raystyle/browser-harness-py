@@ -4,6 +4,7 @@
 
 ## v0.6.6 — 2026-09-01
 
+- **跨平台字节一致性收口**（M107）：`.gitattributes` 钉全仓 `* text=auto eol=lf`（Windows autocrlf 检出 CRLF 曾致 `skills` 哈希永不相等、同步后仍报 OUTDATED；顺带 renormalize 修正 `.gitignore` 历史混入的 7 行 CRLF）；`skills.py` 哈希/provision 比较对 `.md`/`.py` 折 CRLF→LF（editable install 免误报）；回归 +2（CRLF 容错、三副本与打包树禁 symlink）。Windows 215 passed / 9 skipped。
 - **macOS 无头接管与双模切换**（S008、用户定向）：新增 `browser-harness chrome-mode status|headed|headless`——`.env` 为唯一事实源，翻转自动完成改写 `.env` + 按 pid 精确停 agent Chrome（枚举匹配 user-data-dir/端口，绝不误伤用户 Chrome）+ 双 daemon 重启 + x-monitor 幂等恢复，所有 app 无差别继承双模；登录录入标准姿势 = headed 人工登录一次 → headless 值守。macOS 实证：有头写入的登录态跨无头重启存活（钥匙串加密落盘），CDP 导入的 cookie 仅进程内有效（Linux/Windows 无此差异，见 S008 对照表）。`browsers` 视图补 Darwin 枚举（`ps -axo`，可执行路径含空格按首 flag 前头部识别）。R005 四条验收全过，「Linux/macOS 接管」队列目标收口。
 - **WSL2/Linux 无头适配**（S006）：`BH_AGENT_CDP_PORT` agent 端口可配（mirrored 网络下 WSL 用 9224 避开 Windows 侧 9223）、`BH_CHROME_HEADLESS` 无头启动（=1 强制；=0 保窗；不设时仅无 `DISPLAY`/`WAYLAND_DISPLAY` 的 Linux 自动无头）、`BH_CHROME_EXTRA_FLAGS` 透传、`browsers` 视图 Linux `/proc` 枚举（兼容 Chrome 重写 cmdline 的空格连接形态，M104）；launcher `.gitattributes` 钉 LF（Windows smudge 出 `bash\r` 的根）。WSL 全链路实证：doctor 全绿、web-fetch 浏览器链路、管道自动化、无头 x-monitor 实跑 11 分钟 +27 推。
 - **cookies 插件**（S007）：agent Chrome 间会话 cookie 跨设备导出/导入（免重登）。默认拒绝全量导（仅指定域）、导出文件 0600 + gitignore 兜底、导入后复读对账、批量失败降级逐条。端到端实证：Windows 9223 导出 → WSL 9224 无头导入 → x.com 登录态生效。

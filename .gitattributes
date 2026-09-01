@@ -1,2 +1,5 @@
+# 仓库统一 LF：任何平台检出字节一致（M107——CRLF 检出曾致 skills 哈希永不相等）
+* text=auto eol=lf
 browser-harness text eol=lf
 *.sh text eol=lf
+*.png binary

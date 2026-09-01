@@ -47,6 +47,54 @@ def test_bad_subcommand_usage():
     assert skills.run_cli(["bogus"]) == 2
 
 
+def test_sync_tolerates_crlf_checkout(tmp_path, monkeypatch):
+    """M107: raw-byte hashes kept every Windows status run OUTDATED — a CRLF
+    checkout (autocrlf) must compare equal to the LF copy we sync out."""
+    fake = {
+        "claude": tmp_path / "claude" / "skills" / "browser-harness",
+        "codex": tmp_path / "codex" / "skills" / "browser-harness",
+    }
+    monkeypatch.setattr(skills, "_SKILL_DIRS", fake)
+    monkeypatch.setattr(skills, "_provision_dst", lambda name: tmp_path / "workspace" / name)
+
+    # Pretend the packaged tree came off a CRLF checkout.
+    packaged = skills._packaged_skill_dir()
+    crlf_root = tmp_path / "crlf-packaged"
+    for p in skills._skill_files(packaged):
+        q = crlf_root / p.relative_to(packaged)
+        q.parent.mkdir(parents=True, exist_ok=True)
+        q.write_bytes(p.read_bytes().replace(b"\n", b"\r\n"))
+    monkeypatch.setattr(skills, "_packaged_skill_dir", lambda: crlf_root)
+
+    assert skills.run_cli(["sync"]) == 0
+    want = skills._skill_hash(crlf_root)
+    assert skills._skill_hash(fake["claude"]) == want
+    assert skills._skill_hash(fake["codex"]) == want
+
+    # Provision comparison is newline-agnostic too: CRLF source vs LF workspace.
+    prov_src = crlf_root / "references" / "domain-skills"
+    prov_src.mkdir(parents=True)
+    (prov_src / "demo.md").write_bytes(b"# demo\r\nhello\r\n")
+    ws_dst = tmp_path / "workspace" / "domain-skills"
+    ws_dst.mkdir(parents=True)
+    (ws_dst / "demo.md").write_bytes(b"# demo\nhello\n")
+    assert skills._provision_diff("domain-skills") == (1, 0, 0)
+
+
+def test_repo_skill_copies_are_real_files():
+    """M106/M107 relapse guard: repo-side SKILL.md copies and the packaged
+    bundle must be real files — symlinks broke mac clone (ENAMETOOLONG) and
+    materialize as link-path stubs on Windows."""
+    repo = Path(__file__).resolve().parents[2]
+    for rel in ("SKILL.md", "skills/browser-harness/SKILL.md"):
+        p = repo / rel
+        if p.exists():  # absent in a wheel install — repo guard only
+            assert not p.is_symlink(), f"symlink leaked back in: {p}"
+    root = skills._packaged_skill_dir()
+    for p in [root / "SKILL.md", *root.rglob("*")]:
+        assert not p.is_symlink(), f"symlink in skill bundle: {p}"
+
+
 def test_sync_prunes_retired_relics_but_keeps_user_files(tmp_path, monkeypatch, capsys):
     fake = {
         "claude": tmp_path / "claude" / "skills" / "browser-harness",

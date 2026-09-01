@@ -77,6 +77,20 @@ def _skill_files(root: Path) -> list[Path]:
     return files
 
 
+_TEXT_SUFFIXES = (".md", ".py")
+
+
+def _norm_bytes(p: Path) -> bytes:
+    """File bytes with CRLF folded to LF for text payloads (M107).
+
+    A CRLF checkout (Windows autocrlf) must hash/compare equal to the LF
+    copy we sync out, else every status run reports OUTDATED forever."""
+    data = p.read_bytes()
+    if p.suffix in _TEXT_SUFFIXES:
+        data = data.replace(b"\r\n", b"\n")
+    return data
+
+
 def _skill_hash(root: Path) -> str | None:
     files = _skill_files(root)
     if not files:
@@ -84,7 +98,7 @@ def _skill_hash(root: Path) -> str | None:
     h = hashlib.sha256()
     for p in files:
         h.update(str(p.relative_to(root)).replace("\\", "/").encode())
-        h.update(p.read_bytes())
+        h.update(_norm_bytes(p))
     return h.hexdigest()[:16]
 
 
@@ -136,7 +150,7 @@ def _provision_diff(name: str) -> tuple[int, int, int]:
         t = dst / p.relative_to(src)
         if not t.is_file():
             missing += 1
-        elif t.read_bytes() != p.read_bytes():
+        elif _norm_bytes(t) != _norm_bytes(p):
             differing += 1
     return total, missing, differing
 
@@ -149,7 +163,7 @@ def _provision_sync(name: str) -> int:
     copied = 0
     for p in _provision_files(src):
         t = dst / p.relative_to(src)
-        if not t.is_file() or t.read_bytes() != p.read_bytes():
+        if not t.is_file() or _norm_bytes(t) != _norm_bytes(p):
             t.parent.mkdir(parents=True, exist_ok=True)
             t.write_bytes(p.read_bytes())
             copied += 1
