@@ -35,6 +35,6 @@ WSL2 无头接管（对应 `GOAL.md`，队列目标「Linux/macOS 接管」的 L
 
 | 目标 | 状态 | 说明 |
 | --- | --- | --- |
-| Linux/macOS 接管 | Linux 半已完成 | WSL 无头栈全链路实测（S006）；macOS（mac-approve 等）仍排后 |
+| Linux/macOS 接管 | Linux 半已完成；macOS 半用户接管中 | WSL 无头栈全链路实测（S006）；Windows 复测闭环（R004 路径 A）；macOS 验收指引 R005 已落档（cookie 已 scp 至 lan-mac，代码先行三选一待用户执行） |
 | 站点专用提取扩充 | 排后 | domain-skills 按站点定制正文提取 |
 | MCP 集成 | 排后 | web-fetch / 搜索暴露为 MCP 工具 |
