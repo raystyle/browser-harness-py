@@ -5,9 +5,9 @@
 
 ## 结论速览
 
-- agent 直接 attach 用户手动打开的 Chrome（默认 Profile 3），缩窗 / 最小化 / 切标签 / 抢焦点都会作用在用户窗口上，严重干扰用户。
-- 正确做法：agent 用**独立 profile + 独立调试端口**的 Chrome，worker 通过 `BU_CDP_URL` 只连这个独立实例；用户 Chrome 完全不碰。
-- 会话复用优先「独立 profile 手动登录一次」；CDP 导出 cookie 再导入会被 Chrome 144+ 默认 profile 的 M144 授权拦住，不推荐。
+- agent 直接 attach 用户手动打开的 Chrome（默认 Profile 3），缩窗 / 最小化 / 切标签 / 抢焦点都会作用在用户窗口上，严重干扰用户。[实证: 本机实测窗口状态被 agent 改变]
+- 正确做法：agent 用**独立 profile + 独立调试端口**的 Chrome，worker 通过 `BU_CDP_URL` 只连这个独立实例；用户 Chrome 完全不碰。[实证: v0.2.0 独立 Chrome 缩窗、用户 Profile 3 不变]
+- 会话复用优先「独立 profile 手动登录一次」；CDP 导出 cookie 再导入会被 Chrome 144+ 默认 profile 的 M144 授权拦住，不推荐。[实证: cookie 导出 ConnectionRefused，改手动登录成功]
 
 ## 探索过程（含失败尝试）
 

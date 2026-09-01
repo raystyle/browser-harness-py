@@ -28,6 +28,9 @@
 | `src\browser_harness\admin.py` | daemon 生命周期、诊断、更新、profile |
 | `src\browser_harness\daemon.py` | 浏览器与 agent 之间的长驻中间进程 |
 | `src\browser_harness\helpers.py` | CDP 封装与浏览器原语 |
+| `src\browser_harness\xapps.py` / `browsers.py` / `rmux.py` | 应用子命令 / 资源视图 / rmux 集成 |
+| `src\browser_harness\x_worker.py` / `x_supervisor.py` / `x_search.py` | X 监控 worker / 自愈 supervisor / 推文查询 |
+| `src\browser_harness\web_fetch.py` / `agent_helpers.py` | 网页正文提取 CLI / agent 辅助函数 |
 | `src\browser_harness\_ipc.py` / `auth.py` / `paths.py` / `macos.py` / `recorder.py` / `telemetry.py` / `video.py` / `video_render.py` | 支撑模块 |
 | `mcp_server.py` | MCP stdio 工具暴露 |
 | `tests\unit\` / `tests\integration\` | 分层测试 |
@@ -48,7 +51,7 @@
 
 - 研究（S）：`S001-patchright与CDP-Patches集成研究.md`、`S002-rmux集成研究.md`、`S003-defuddle网页正文提取研究.md`、`S004-用户浏览器与agent浏览器隔离研究.md`、`S005-抓取内容提取能力对比研究.md`
 - 参考（R）：`R001-browser-harness资料整理.md`
-- 元规范（G）：`G001-文档标准细则-命名写作规范.md`、`template.md`
+- 元规范（G）：`G001-文档标准细则-命名写作规范.md`、`G002-研究标准细则-结构与六态标记.md`、`G003-工作流标准细则-从登记到归档五步.md`、`template.md`
 - 错误（M）：`M101-Chrome的user-data-dir引号导致profile污染.md`
 
 ## 六、阶段与版本

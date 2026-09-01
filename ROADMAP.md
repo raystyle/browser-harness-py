@@ -1,28 +1,33 @@
 # ROADMAP
 
-项目全局路线：**大里程碑**。状态：`未开始` / `进行中` / `已完成` / `挂起`。细碎轨迹见 `docs\diary\`；方案详情见 `docs\proven\`。
+项目全局路线：**大里程碑**。状态：`未开始` / `进行中` / `已完成` / `排后`。细碎轨迹见 `docs/diary/`；方案详情见 `docs/proven/`。
 
 ## 阶段总览
 
 | 阶段 | 目标 | 状态 |
 | --- | --- | --- |
-| 0 | 基础设施：个人 fork 分支维护 + 项目结构对齐 | 已完成 |
-| 1 | Windows 测试：doctor + 冒烟 + 单元 190/190 | 进行中 |
-| 2 | macOS 接管：mac-approve + 冒烟 + 单元/集成 | 未开始 |
-| 3 | Linux（可选）+ 按需扩展 | 未开始 |
+| 0 | 基础设施：fork 分支维护 + 项目结构对齐 | 已完成 |
+| 1 | 核心应用：X 监控 + 网页正文 + 搜索引擎 | 已完成 |
+| 2 | 资源隔离：用户/agent 浏览器分离 + rmux 原子隔离 + 资源视图 | 已完成 |
+| 3 | 打包与文档：uv tool install + 应用集成主包 + 文档体系对齐 | 已完成 |
+| 4 | 跨平台接管（Linux/macOS）+ 站点专用提取 + MCP | 排后 |
 
 ## 阶段 0：基础设施
 
-个人 fork 远程（origin/mine）、`dev/work` 分支、三原语与总索引、docs 六目录。
+个人 fork 远程（origin/mine）、`dev/work` 分支、三原语 + INDEX + docs 六目录。
 
-## 阶段 1：Windows 测试
+## 阶段 1：核心应用
 
-`./browser-harness --doctor` + 真实 Chrome 冒烟（`print(page_info())` 复用会话）+ 单元测试 190/190（修 9 个 Windows 环境用例）。
+X 监控（rmux 自愈 supervisor + worker + 空闲门控刷新 + SQLite）、`web-fetch` 正文提取（defuddle + 站点选择器 + 反爬升级）、`google-search`/`bing-search`（搜索→正文 + 翻页）。
 
-## 阶段 2：macOS 接管
+## 阶段 2：资源隔离
 
-`./browser-harness mac-approve`（Accessibility 授权）+ doctor + 冒烟 + 单元/集成全绿。
+用户/agent 浏览器分离（独立 profile + BU_CDP_URL，S004）、应用 tab 精确域名绑定互斥、rmux label 原子隔离（kill-server）、`browsers`/`current` 资源视图。
 
-## 阶段 3：扩展
+## 阶段 3：打包与文档
 
-Linux 冒烟（Snap CDP 阻断见 `docs\snap-linux-headless.md`）+ 按需扩充 `agent-workspace\` / `examples\` / `.tools\`。
+`uv tool install git+...` 安装、应用集成进 `browser_harness` 主包、`AGENTS/GOAL/PLAN/TODO/ROADMAP` + `G002/G003` 对齐 ohmyagents。
+
+## 阶段 4：扩展
+
+Linux/macOS 接管、站点专用提取规则扩充（domain-skills）、MCP 集成。
