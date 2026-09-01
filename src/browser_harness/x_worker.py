@@ -24,14 +24,8 @@ def _clean(s):
     return re.sub(r"[\ud800-\udfff]", "?", str(s or ""))
 
 
-_HERE = os.path.dirname(os.path.abspath(__file__))
-
-
 def _data_dir():
-    """Repo agent-workspace (dev) else per-user workspace dir (global install)."""
-    repo = os.path.normpath(os.path.join(_HERE, "..", "..", "agent-workspace"))
-    if os.path.isdir(repo):
-        return repo
+    """Per-user workspace dir under the app data dir (BH_HOME)."""
     from browser_harness.paths import workspace_dir
 
     return str(workspace_dir())
@@ -47,7 +41,7 @@ IDLE_THRESHOLD = float(os.environ.get("X_IDLE_THRESHOLD") or "10")
 IDLE_WAIT = float(os.environ.get("X_IDLE_WAIT") or "60")
 
 
-EXTRACT = r"""Array.from(document.querySelectorAll('article[data-testid="tweet"]')).map(t => ({name:(t.querySelector('[data-testid="User-Name"]')?.innerText||'').trim(), text:(t.querySelector('[data-testid="tweetText"]')?.innerText||'').trim(), time:(t.querySelector('time')?.getAttribute('datetime')||''), link:(t.querySelector('a[href*="/status/"]')?.getAttribute('href')||'')}))"""
+EXTRACT = r"""Array.from(document.querySelectorAll('article[data-testid="tweet"]')).map(t => {var n=(t.querySelector('[data-testid="User-Name"]')?.innerText||'');var m=n.match(/@([A-Za-z0-9_]+)/);return {name:n.split('\n')[0].trim(),handle:m?m[1]:'',text:(t.querySelector('[data-testid="tweetText"]')?.innerText||'').trim(),time:(t.querySelector('time')?.getAttribute('datetime')||''),link:(t.querySelector('a[href*="/status/"]')?.getAttribute('href')||'')}})"""
 
 FIND = r"""(function(){var els=Array.from(document.querySelectorAll('a,[role="button"],div,span'));for(var i=0;i<els.length;i++){var el=els[i];var t=(el.innerText||'').trim();if(t&&t.length<40&&/\u65b0\u63a8\u6587|\u65b0\u5e16\u5b50|new posts|new Tweets/i.test(t)&&el.querySelectorAll('*').length<=3){return t;}}return null;})()"""
 
@@ -82,16 +76,18 @@ def _init(con):
 def _store(con, tweets):
     now = datetime.datetime.now().isoformat(timespec="seconds")
     for t in tweets:
-        name = _clean(t.get("name"))
+        # User-Name innerText is "display name\n@handle\n·\n<rel time>";
+        # keep only the display-name line, handle comes from JS extraction.
+        name = _clean(t.get("name")).split("\n")[0].strip()
         text = _clean(t.get("text"))
         if not text and not name:
             continue
         url = _clean(t.get("link"))
         posted = _clean(t.get("time"))
-        handle = ""
-        m = re.search(r"@([A-Za-z0-9_]+)", name)
-        if m:
-            handle = m.group(1)
+        handle = _clean(t.get("handle"))
+        if not handle:
+            m = re.search(r"@([A-Za-z0-9_]+)", name)
+            handle = m.group(1) if m else ""
         key = url if url else (name + "|" + text)
         con.execute(
             "INSERT OR IGNORE INTO tweets(author,handle,text,posted_at,url,dedup_key,first_seen_at,last_seen_at) VALUES(?,?,?,?,?,?,?,?)",

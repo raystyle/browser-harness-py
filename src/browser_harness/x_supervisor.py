@@ -23,10 +23,7 @@ WORKER = os.path.join(_HERE, "x_worker.py")
 
 
 def _data_dir():
-    """Repo agent-workspace (dev) else per-user workspace dir (global install)."""
-    repo = os.path.normpath(os.path.join(_HERE, "..", "..", "agent-workspace"))
-    if os.path.isdir(repo):
-        return repo
+    """Per-user workspace dir under the app data dir (BH_HOME)."""
     from browser_harness.paths import workspace_dir
 
     return str(workspace_dir())

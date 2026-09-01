@@ -223,7 +223,7 @@ browser-harness bing-search <query>
 ### rmux 会话管理
 
 ```powershell
-browser-harness rmux list|new|ensure|send|keys|capture|kill|kill-server|version
+browser-harness rmux list|status|new|ensure|send|keys|capture|kill|kill-server|version
 ```
 
 `kill-server` 只销毁本项目 `browser-harness` label 的 daemon，不碰其他程序的 rmux 服务。

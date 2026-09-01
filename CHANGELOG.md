@@ -2,6 +2,22 @@
 
 版本里程碑：本 fork 相对上游的本地改动记录。
 
+## v0.2.4 — 2026-09-01
+
+- **默认 daemon 永久钉住 agent Chrome**：`<BH_HOME>/.env` 写入 `BU_CDP_URL=http://127.0.0.1:9223`。根因实证：用户 Chrome 的 chrome://inspect 调试开关（DevToolsActivePort=9222）会被 daemon 发现链优先命中（Chrome 147+ /json 404 时走 WS 绕行），导致默认 daemon 连上用户浏览器。
+- `ensure_daemon`：BU_CDP_URL 钉住 9223 且 agent Chrome 未运行时自动拉起（仅此端点允许自动启动，绝不启动用户浏览器）。
+- `browsers` 新增 `[inspect-toggle]` 段：列出标准 profile 目录的 DevToolsActivePort 及 TCP 探活结果，修复"命令行解析看不到 inspect 开关端口"的诊断盲区。
+- 修复 `browser-harness skill` 打印 `../../SKILL.md` 占位符：包内 SKILL.md 改为真实内容并加防漂移测试；`--help` 的 rmux 行补 `status` / `kill-server`。
+- SKILL.md 修订：连接模型（默认钉 9223）、workspace 恒在应用数据目录、X 区路径、inspect-toggle gotcha、wizard 脚本标注 repo-only。
+
+## v0.2.3 — 2026-09-01
+
+- 运行时数据默认全部收敛到应用数据目录（`BH_HOME`，默认 `~/.config/browser-harness`）：agent Chrome profile 不再优先落在 repo 的 `agent-chrome-profile/`（`xapps._agent_profile` 移除 repo 分支）；`AGENT_WORKSPACE` 不再优先用 repo 的 `agent-workspace/`（`helpers.py`）。
+- `.env` 读取位置从 repo 根改为 `<BH_HOME>/.env` 与 `<BH_HOME>/agent-workspace/.env`（原 repo 根路径在 uv 安装环境下会解析到 site-packages 的无意义目录）。
+- 既有 repo 内 profile/workspace 数据已迁移至应用数据目录（profile 保留 X 登录态）。
+- X 抓取栈（`x_search` / `x_worker` / `x_supervisor`）的 `_data_dir()` 移除 repo 优先分支，统一落 `<BH_HOME>/agent-workspace`。
+- 修复推文 `author` 字段污染：`User-Name` innerText 原样入库（"名字\n@handle\n·\n相对时间"），现只存显示名，`handle` 由 JS 单独提取；存量 696 行已回填清洗。
+
 ## v0.2.2 — 2026-09-01
 
 - 移除 `browser-harness telemetry` 及 `telemetry.py`，CLI 不再上报匿名事件。

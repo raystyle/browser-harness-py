@@ -57,7 +57,7 @@ Commands:
   browser-harness video init <recording>      prepare a recording for editing
   browser-harness video review <recording>    compile and review the video
   browser-harness video export <recording> --reviewed   export a verified MP4
-  browser-harness rmux list|new|ensure|send|keys|capture|kill|version
+  browser-harness rmux list|status|new|ensure|send|keys|capture|kill|kill-server|version
                                     drive rmux sessions/panes for multiplexed browser scripts
   browser-harness browsers           list Chrome instances, tabs, and app-tab binding
   browser-harness current            show the tab/app the daemon is operating on now

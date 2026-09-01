@@ -36,14 +36,8 @@ for _s in (sys.stdout, sys.stderr):
         pass
 
 
-_HERE = os.path.dirname(os.path.abspath(__file__))
-
-
 def _data_dir():
-    """Repo agent-workspace (dev) else per-user workspace dir (global install)."""
-    repo = os.path.normpath(os.path.join(_HERE, "..", "..", "agent-workspace"))
-    if os.path.isdir(repo):
-        return repo
+    """Per-user workspace dir under the app data dir (BH_HOME)."""
     from browser_harness.paths import workspace_dir
 
     return str(workspace_dir())

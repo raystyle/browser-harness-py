@@ -100,9 +100,8 @@ def _process_start_time(pid):
 
 
 def _load_env():
-    repo_root = Path(__file__).resolve().parents[2]
     workspace = paths.workspace_dir()
-    for p in (repo_root / ".env", workspace / ".env"):
+    for p in (paths.home_dir() / ".env", workspace / ".env"):
         if not p.exists():
             continue
         _load_env_file(p)
@@ -173,6 +172,25 @@ def _is_local_chrome_mode(env=None):
         or os.environ.get("BU_CDP_WS")
         or os.environ.get("BU_CDP_URL")
     )
+
+
+def _pinned_agent_cdp(env=None):
+    """True when BU_CDP_URL pins the isolated agent Chrome (loopback:9223).
+
+    Only this endpoint may be auto-launched by ensure_daemon; any other CDP
+    endpoint is externally provisioned and must not be probed or started.
+    """
+    env = env or {}
+    raw = env.get("BU_CDP_URL") or os.environ.get("BU_CDP_URL")
+    if not raw:
+        return False
+    from urllib.parse import urlparse
+
+    try:
+        parsed = urlparse(raw if "//" in raw else f"http://{raw}")
+        return parsed.hostname in ("127.0.0.1", "localhost", "::1") and parsed.port == 9223
+    except ValueError:
+        return False
 
 
 def daemon_alive(name=None):
@@ -352,6 +370,13 @@ def ensure_daemon(wait=60.0, name=None, env=None):
 
     import subprocess, sys
     local = _is_local_chrome_mode(env)
+    if not local and _pinned_agent_cdp(env):
+        # The pinned agent Chrome is the only browser this daemon may touch;
+        # start it up front instead of letting get_ws_url dead-wait 30s.
+        from .xapps import _agent_chrome_running, _launch_agent_chrome
+
+        if not _agent_chrome_running() and _launch_agent_chrome():
+            print("browser-harness: agent Chrome isn't running — launching it.", file=sys.stderr)
     launched_browser = None
     opened_inspect = False
     for _ in range(3):

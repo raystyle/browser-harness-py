@@ -57,6 +57,43 @@ def _tabs_for_port(port: int) -> list[dict] | None:
     return [t for t in r if t.get("type") == "page"]
 
 
+def _port_live(port: int) -> bool:
+    """True when something answers TCP on the port (an HTTP 404 still counts)."""
+    import socket
+
+    s = socket.socket()
+    s.settimeout(0.5)
+    try:
+        s.connect(("127.0.0.1", port))
+        return True
+    except OSError:
+        return False
+    finally:
+        s.close()
+
+
+def _inspect_toggle_ports() -> list[dict]:
+    """DevToolsActivePort files under the standard profile dirs.
+
+    These ports come from the chrome://inspect remote-debugging toggle, not
+    from command-line flags, so ``--remote-debugging-port`` parsing never sees
+    them — the blind spot that makes a toggle-enabled user Chrome look
+    unreachable while a daemon is actually riding it."""
+    from browser_harness.daemon import profile_dirs
+
+    out = []
+    for base in profile_dirs():
+        try:
+            lines = (base / "DevToolsActivePort").read_text(encoding="utf-8", errors="replace").splitlines()
+        except OSError:
+            continue
+        port = lines[0].strip() if lines else ""
+        if not port.isdigit():
+            continue
+        out.append({"profile": str(base), "port": int(port), "live": _port_live(int(port))})
+    return out
+
+
 def _app_for_url(url: str) -> str:
     for key, name in _APP_TABS.items():
         if key in url:
@@ -86,6 +123,12 @@ def run_cli(args: list[str]) -> int:
             title = (t.get("title") or "").strip().replace("\n", " ")
             app = _app_for_url(url)
             print(f"          {i}. [{app}] {title[:40]} — {url[:90]}")
+    toggles = _inspect_toggle_ports()
+    if toggles:
+        print("  [inspect-toggle] DevToolsActivePort files (chrome://inspect toggle; not visible in the command line):")
+        for t in toggles:
+            state = "live" if t["live"] else "stale-file"
+            print(f"        port={t['port']} {state:11s} {t['profile']}")
     # rmux 服务 / 会话 / 窗格
     try:
         from browser_harness.rmux import Rmux

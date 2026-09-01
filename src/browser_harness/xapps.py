@@ -34,9 +34,6 @@ def _agent_profile() -> Path:
     raw = os.environ.get("BH_AGENT_CHROME_PROFILE")
     if raw:
         return Path(raw).expanduser().resolve()
-    repo_profile = Path(__file__).resolve().parents[2] / "agent-chrome-profile"
-    if (repo_profile / "Local State").exists():
-        return repo_profile
     from browser_harness.paths import home_dir
 
     return home_dir() / "agent-chrome-profile"

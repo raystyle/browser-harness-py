@@ -13,15 +13,15 @@ from . import paths
 
 CORE_DIR = Path(__file__).resolve().parent
 REPO_ROOT = CORE_DIR.parent.parent
-# In a repo checkout, prefer the repo's agent-workspace/ (AGENTS.md contract);
-# otherwise fall back to the per-user workspace dir.
-_repo_ws = REPO_ROOT / "agent-workspace"
-AGENT_WORKSPACE = _repo_ws if _repo_ws.is_dir() else paths.workspace_dir()
+# Runtime data (workspace, chrome profile, .env) always lives under the
+# browser-harness app data dir (BH_HOME, default ~/.config/browser-harness).
+# A repo checkout is source only; BH_AGENT_WORKSPACE overrides the location.
+AGENT_WORKSPACE = paths.workspace_dir()
 
 
 def _load_env():
-    paths = [REPO_ROOT / ".env", AGENT_WORKSPACE / ".env"]
-    for p in paths:
+    env_files = [paths.home_dir() / ".env", AGENT_WORKSPACE / ".env"]
+    for p in env_files:
         if not p.exists():
             continue
         _load_env_file(p)

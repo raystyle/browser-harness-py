@@ -10,9 +10,8 @@ from cdp_use.client import CDPClient
 
 
 def _load_env():
-    repo_root = Path(__file__).resolve().parents[2]
     workspace = paths.workspace_dir()
-    for p in (repo_root / ".env", workspace / ".env"):
+    for p in (paths.home_dir() / ".env", workspace / ".env"):
         if not p.exists():
             continue
         _load_env_file(p)

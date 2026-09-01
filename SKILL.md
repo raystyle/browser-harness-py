@@ -42,19 +42,23 @@ print(page_info())
   scroll once, then re-read the scroll position. This visibly switches tabs,
   so do not use it when the user has forbidden foreground changes. Do not
   invent a `Runtime.evaluate` scroll replacement or a cross-frame JS walker.
-- The normal local flow attaches to the running Chrome/Chromium CDP endpoint.
-  For X monitoring the worker is pinned to the isolated agent Chrome via
-  `BU_CDP_URL`; see the X section below.
+- The default daemon is pinned to the isolated agent Chrome via
+  `BU_CDP_URL=http://127.0.0.1:9223` in `<BH_HOME>/.env` — it never attaches
+  to the user's own Chrome, even one with the chrome://inspect remote-debugging
+  toggle enabled (that toggle's DevToolsActivePort would otherwise be
+  discovered first). If the agent Chrome is down, `ensure_daemon` launches it.
+- To drive a different browser for a task, set `BU_CDP_URL`/`BU_CDP_WS` (per
+  call or in `<BH_HOME>/.env`); see the X section below.
 
 ## Agent Workspace
 
 `agent-workspace/` is an **agent-owned runtime directory**, not package source.
 Only add task-specific helpers and data here; do not edit the installed package.
 
-- Default after `uv tool install`:
-  `~/.config/browser-harness/agent-workspace`
-  (Windows: `C:\Users\<user>\.config\browser-harness\agent-workspace`).
-- In a git checkout, the `agent-workspace/` next to `README.md` is used when present.
+- Always under the app data dir (`BH_HOME`, default `~/.config/browser-harness`;
+  Windows: `C:\Users\<user>\.config\browser-harness`) — in every install mode,
+  including a git checkout. The repo's `agent-workspace/` holds tracked
+  reference content only.
 - Override the location with `BH_AGENT_WORKSPACE`.
 - Load order: the active `agent_helpers.py` first, then the packaged
   `browser_harness.agent_helpers` fallback.
@@ -158,8 +162,8 @@ user's own Chrome — via `BU_CDP_URL`.
 - Start (non-blocking; launches the isolated Chrome if needed and the supervisor
   in a rmux pane, then returns):
   `browser-harness x-monitor`
-  -> isolated Chrome on `agent-chrome-profile` + port `9223`; rmux sessions
-     `x-supervisor` (supervisor) and `x-monitor` (worker).
+  -> isolated Chrome on `<BH_HOME>/agent-chrome-profile` + port `9223`; rmux
+     sessions `x-supervisor` (supervisor) and `x-monitor` (worker).
   Windows only for now.
 - Poll status/data anytime:
   `browser-harness rmux status`              # are both sessions alive?
@@ -183,7 +187,8 @@ When the X page is hidden (minimized / background tab) and the user is idle, the
 worker shrinks the window to that docked pane, activates the tab to defeat
 Chrome's intensive throttling, captures, then minimizes it again.
 
-Tweets are stored in `agent-workspace/x_tweets.db` (deduped, WAL, searchable).
+Tweets are stored in `<BH_HOME>/agent-workspace/x_tweets.db` (deduped, WAL,
+searchable). Tweet `author` holds the display name only; `handle` is separate.
 When the user asks to analyze:
 
 - "新推 / 最新推 / 刚抓到的 / 最近 1 小时" → report recent captures without the browser:
@@ -249,17 +254,18 @@ browser-harness doctor --json   # parse daemon.browser_ready / chrome_running
 
 or run the setup wizard — a guided, step-by-step flow that auto-opens Chrome,
 reminds for remote-debugging / Allow, and creates one tab per app (X, Google,
-Bing):
+Bing). These scripts live in a git checkout's `agent-workspace/` and are not
+part of the installed package:
 
 ```powershell
-uv run python agent-workspace/browser_wizard.py
+uv run python agent-workspace/browser_wizard.py   # repo checkout only
 ```
 
 or watch it continuously — this also auto-opens Chrome when none is running,
 then reports when the daemon becomes connected:
 
 ```powershell
-uv run python agent-workspace/browser_watch.py
+uv run python agent-workspace/browser_watch.py     # repo checkout only
 ```
 
 In a browser script, `setup_browser_apps()` ensures X / Google / Bing each have
@@ -348,6 +354,11 @@ If you get stuck on a browser mechanic, check https://github.com/raystyle/browse
 - Omnibox popups are not real work tabs.
 - CDP target order is not Chrome's visible tab-strip order.
 - `BU_CDP_URL` is an HTTP DevTools endpoint; the daemon resolves it to WebSocket.
+- A user Chrome with the chrome://inspect remote-debugging toggle listens on a
+  DevToolsActivePort (e.g. 9222) that command-line parsing cannot see; check
+  the `[inspect-toggle]` section of `browser-harness browsers`. Keep the
+  default daemon pinned via `BU_CDP_URL` so it can never ride the user's
+  browser.
 
 ## Domain Skills
 
