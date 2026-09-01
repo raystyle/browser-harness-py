@@ -47,3 +47,15 @@ def test_packaged_references_match_interaction_skills():
     assert dst_files == src_files, (
         "src/browser_harness/references/interaction/ drifted from interaction-skills/ — recopy it"
     )
+
+
+def test_packaged_references_match_domain_skills():
+    src = _REPO / "agent-workspace" / "domain-skills"
+    dst = _PKG / "references" / "domain-skills"
+    if not src.is_dir():
+        return  # installed (non-repo) environment
+    src_files = {str(p.relative_to(src)): p.read_bytes() for p in src.rglob("*.md")}
+    dst_files = {str(p.relative_to(dst)): p.read_bytes() for p in dst.rglob("*.md")}
+    assert dst_files == src_files, (
+        "src/browser_harness/references/domain-skills/ drifted from agent-workspace/domain-skills/ — recopy it"
+    )

@@ -2,6 +2,11 @@
 
 版本里程碑：本 fork 相对上游的本地改动记录。
 
+## v0.2.9 — 2026-09-01
+
+- **domain skills 打包与铺装**：109 个站点配方（1.3MB）以 `references/domain-skills/` 随 wheel 分发；`browser-harness skills sync` 现在同步三类目标——`~/.claude` 技能目录、`~/.codex` 技能目录、`<BH_HOME>/agent-workspace/domain-skills/`（**增量覆盖、绝不删除**，保护用户自加站点技能）。新装机器不再有 domain skills 空缺。
+- SKILL.md Domain Skills 章节补充 sync 说明；新增 domain-skills 防漂移测试（190 passed）。
+
 ## v0.2.8 — 2026-09-01
 
 - **interaction-skills 十个占位专题全部充实**：uploads（DOM.setFileInputFiles）、cookies（读取/回写与浏览器态 vs 页面态）、iframes（同源穿越 + 帧坐标换算警告）、cross-origin-iframes（OOPIF 独立 target + `js(target_id=)`）、downloads（setDownloadBehavior + .crdownload 轮询）、drag-and-drop（插值鼠标拖拽 + HTML5 DnD DOM 事件两路）、dropdowns（先开后重读坐标 + 原生 select 直设）、network-requests（drain_events 差分 + getResponseBody + 网络空闲）、shadow-dom（合成器坐标穿透 + shadowRoot 递归）、print-as-pdf（printToPDF 参数与坑）。

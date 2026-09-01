@@ -373,4 +373,4 @@ upstream they live at https://github.com/raystyle/browser-harness/tree/dev/work/
 
 Only applies when `BH_DOMAIN_SKILLS=1`. Otherwise ignore domain skills.
 
-When enabled, search `$BH_AGENT_WORKSPACE/domain-skills/<host>/` before inventing an approach. `goto_url(...)` returns up to 10 skill filenames for the navigated host.
+When enabled, search `$BH_AGENT_WORKSPACE/domain-skills/<host>/` before inventing an approach. `goto_url(...)` returns up to 10 skill filenames for the navigated host. `browser-harness skills sync` provisions the packaged site skills into the workspace (additively — locally added site skills are never deleted).

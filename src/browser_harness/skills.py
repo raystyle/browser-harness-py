@@ -51,7 +51,7 @@ def _skill_hash(root: Path) -> str | None:
 
 
 def _sync_tree(dst: Path) -> None:
-    """Mirror packaged SKILL.md + references/ into dst."""
+    """Mirror packaged SKILL.md + references/ into dst (agent CLI skill dirs are pure mirrors)."""
     src = _packaged_skill_dir()
     dst.mkdir(parents=True, exist_ok=True)
     (dst / "SKILL.md").write_text(_skill_text(), encoding="utf-8", newline="\n")
@@ -60,6 +60,49 @@ def _sync_tree(dst: Path) -> None:
         if dst_refs.exists():
             shutil.rmtree(dst_refs)
         shutil.copytree(src_refs, dst_refs)
+
+
+def _domain_src() -> Path:
+    return _packaged_skill_dir() / "references" / "domain-skills"
+
+
+def _domain_dst() -> Path:
+    from .paths import workspace_dir
+
+    return workspace_dir() / "domain-skills"
+
+
+def _domain_diff() -> tuple[int, int, int]:
+    """(packaged total, missing at destination, differing) for domain-skills."""
+    src, dst = _domain_src(), _domain_dst()
+    missing = differing = total = 0
+    for p in sorted(src.rglob("*.md")):
+        total += 1
+        t = dst / p.relative_to(src)
+        if not t.is_file():
+            missing += 1
+        elif t.read_bytes() != p.read_bytes():
+            differing += 1
+    return total, missing, differing
+
+
+def _sync_domain() -> int:
+    """Provision packaged domain-skills into the agent workspace.
+
+    Additive only: overwrite packaged files, never delete — the workspace is
+    agent-owned and may hold site skills the user added locally."""
+    src, dst = _domain_src(), _domain_dst()
+    if not src.is_dir():
+        return 0
+    dst.mkdir(parents=True, exist_ok=True)
+    copied = 0
+    for p in sorted(src.rglob("*.md")):
+        t = dst / p.relative_to(src)
+        if not t.is_file() or t.read_bytes() != p.read_bytes():
+            t.parent.mkdir(parents=True, exist_ok=True)
+            t.write_bytes(p.read_bytes())
+            copied += 1
+    return copied
 
 
 def run_cli(args: list[str]) -> int:
@@ -88,4 +131,14 @@ def run_cli(args: list[str]) -> int:
             continue
         _sync_tree(d)
         print(f"  {tool:8s} synced         {d}  [{len(_skill_files(d))} files]")
+    total, missing, differing = _domain_diff()
+    if total == 0:
+        return 0
+    if not missing and not differing:
+        print(f"  workspace up to date    {_domain_dst()}  [{total} domain skills]")
+    elif do_sync:
+        copied = _sync_domain()
+        print(f"  workspace synced        {_domain_dst()}  [{copied} domain skills copied, {total} packaged]")
+    else:
+        print(f"  workspace OUTDATED      {_domain_dst()}  ({missing} missing, {differing} differ — run: browser-harness skills sync)")
     return 0
