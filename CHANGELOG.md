@@ -2,6 +2,12 @@
 
 版本里程碑：本 fork 相对上游的本地改动记录。
 
+## v0.2.6 — 2026-09-01
+
+- 修复 `x-search --author` 只匹配显示名列：传 handle（`Rainmaker1973` / `@Rainmaker1973`）返回 0 条；现同时匹配显示名与 handle。
+- `x_search` usage 文本从 repo 时代的 `uv run python agent-workspace/x_search.py` 更新为 `browser-harness x-search`。
+- SKILL 全面验收（两个 agent CLI 实际加载；SKILL 内文档的代码片段、flag、链接、幂等声明逐一实测）并补充 `--author` 语义与主模式要求说明。
+
 ## v0.2.5 — 2026-09-01
 
 - 新增 `browser-harness skills [sync]`：把打包的技能（SKILL.md + references/）同步到 agent CLI 技能目录（`~/.claude/skills/browser-harness/`、`~/.codex/skills/browser-harness/`），支持状态查看与内容哈希比对。
