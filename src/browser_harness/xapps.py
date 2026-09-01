@@ -25,10 +25,29 @@ _SCRIPTS = {
 
 
 def _workspace() -> Path:
+    """Locate the agent-workspace: repo checkout > per-user dir (seeded once)."""
+    import shutil
+
     env = os.environ.get("BH_AGENT_WORKSPACE")
     if env:
         return Path(env)
-    return Path(__file__).resolve().parents[2] / "agent-workspace"
+
+    repo_ws = Path(__file__).resolve().parents[2] / "agent-workspace"
+    if (repo_ws / "x_supervisor.py").exists():
+        return repo_ws
+
+    # Global install: seed the per-user workspace from the bundled templates.
+    from browser_harness.paths import workspace_dir
+
+    user_ws = workspace_dir()
+    bundled = Path(__file__).resolve().parent / "_agent_workspace"
+    if bundled.is_dir():
+        try:
+            for p in bundled.glob("*.py"):
+                shutil.copy2(p, user_ws / p.name)
+        except OSError:
+            pass
+    return user_ws
 
 
 def _run_script(cmd: str, rest: list[str]) -> int:
