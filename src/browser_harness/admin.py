@@ -612,7 +612,13 @@ def _latest_release_tag(force=False):
     cache = _cache_read()
     now = time.time()
     if not force and cache.get("tag") and now - cache.get("fetched_at", 0) < VERSION_CACHE_TTL:
-        return cache["tag"]
+        # A cached tag that is not newer than the installed version proves
+        # nothing: the cache may predate both a manual upgrade and a newer
+        # release (verified twice: 0.5.0-cache hid 0.6.1, 0.6.1-cache hid
+        # 0.6.2). Only a tag > installed may short-circuit; else refetch.
+        cur = _version()
+        if not cur or _version_tuple(cache["tag"]) > _version_tuple(cur):
+            return cache["tag"]
     try:
         tag = json.loads(urllib.request.urlopen(GITHUB_RELEASE_API, timeout=5).read()).get("tag_name") or ""
     except Exception:

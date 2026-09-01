@@ -1,6 +1,8 @@
+import io
 import os
 import signal
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -965,3 +967,26 @@ def test_relayed_tool_upgrade_builds_pwsh_wait_and_tail(monkeypatch):
 
     monkeypatch.setattr(admin.shutil, "which", lambda name: None)
     assert admin._relayed_tool_upgrade(had_x_monitor=True) is False
+
+
+def test_latest_release_tag_refetches_when_cache_not_newer(monkeypatch):
+    # fresh cache (0.6.1) but installed is 0.6.1 too -> cache can't prove
+    # "no update"; must refetch and see the newer release.
+    monkeypatch.setattr(admin, "_cache_read", lambda: {"tag": "0.6.1", "fetched_at": time.time()})
+    monkeypatch.setattr(admin, "_version", lambda: "0.6.1")
+    monkeypatch.setattr(admin.urllib.request, "urlopen",
+                        lambda _url, timeout=0: io.BytesIO(b'{"tag_name":"v0.6.3"}'))
+    written = {}
+    monkeypatch.setattr(admin, "_cache_write", lambda c: written.update(c))
+    assert admin._latest_release_tag() == "0.6.3"
+    assert written["tag"] == "0.6.3"
+
+
+def test_latest_release_tag_cache_hits_when_newer_than_installed(monkeypatch, capsys):
+    # cached 0.6.3 > installed 0.6.1: short-circuit without network; even a
+    # dead network must not change the answer.
+    monkeypatch.setattr(admin, "_cache_read", lambda: {"tag": "0.6.3", "fetched_at": time.time()})
+    monkeypatch.setattr(admin, "_version", lambda: "0.6.1")
+    monkeypatch.setattr(admin.urllib.request, "urlopen",
+                        lambda _url, timeout=0: pytest.fail("cache hit must not hit the network"))
+    assert admin._latest_release_tag() == "0.6.3"

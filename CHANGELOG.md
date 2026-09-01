@@ -11,6 +11,10 @@
 - **修复 Windows 下 `--update` 无法原地自替换**（M102 第三形态，本机实证）：`browser-harness` 命令本身跑在工具 venv 的 `Scripts\` 内，停净栈后进程内 `uv tool install` 仍锁目录（os error 5），且失败会半拆安装（shim 存活、包被删 → ModuleNotFoundError，本机中招后外部重装修复）。Windows 下改为**pwsh 接力**：停栈后生成脱离 venv 的 shell（pwsh，回退 powershell），等本进程退出再执行 安装→铺装→按需恢复 x-monitor，本命令打印说明后立即返回；版本缓存在接力前同步失效。非 Windows 保留原进程内路径；接力不可用时回退并提示。
 - 测试 186 passed：新增接力三分支（成功返回/回退原地/脚本构造与 x-monitor 条件尾巴），既有 installed 用例显式固定为非 Windows 路径。
 
+## v0.6.3 — 2026-09-01
+
+- **修复版本缓存劫持升级判定**（同日两次实证：0.5.0 缓存藏住 0.6.1、0.6.1 缓存藏住 0.6.2）：`_latest_release_tag` 原逻辑"缓存新鲜即返回"，但当缓存 tag ≤ 已装版本时它证明不了"没有更新"（缓存可能早于手动升级或新 Release）——现仅当缓存 tag **大于**已装版本才允许短路命中，否则强制重拉（一次 API 调用，离线时仍回退缓存）。doctor 横幅与 `--update` 判定同时受益。
+
 ## v0.6.0 — 2026-09-01
 
 - **`--update` 一条命令无缝升级闭环**（M102 根治 + 消灭"忘记 skills sync"）：installed 模式下自动 **停栈**（rmux kill-server + 停 default/x-monitor 两 daemon，解除 venv 文件锁）→ `uv tool install` @main → **铺装** skills 与 workspace（apps/domain-skills，复用 `skills sync`，只增不删）→ **恢复** x-monitor 栈（升级前在跑才恢复）。uv 失败时提示 M102；up-to-date 路径也执行铺装对齐（版本相同但 workspace 漂移时可修复）。
