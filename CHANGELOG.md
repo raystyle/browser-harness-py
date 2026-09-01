@@ -2,6 +2,10 @@
 
 版本里程碑：本项目版本记录（v0.2.2 起独立维护；v0.1.x 为 browser-use 上游基线历史）。
 
+## v0.6.1 — 2026-09-01
+
+- **升级文档收口（v0.6.0 遗漏面）**：打包 install.md（两副本）"Keeping current" 与根 install.md、README「Skill 与插件安装部署」段统一以 `browser-harness --update -y` 为首选（注明一条命令语义：停栈/升级/铺装/恢复），手动 `uv tool install --upgrade --force` 降为备选并标注 M102 前置；README 升级块补 `--force` 语义；TODO 回填 v0.6.0 升级闭环目标行。
+
 ## v0.6.0 — 2026-09-01
 
 - **`--update` 一条命令无缝升级闭环**（M102 根治 + 消灭"忘记 skills sync"）：installed 模式下自动 **停栈**（rmux kill-server + 停 default/x-monitor 两 daemon，解除 venv 文件锁）→ `uv tool install` @main → **铺装** skills 与 workspace（apps/domain-skills，复用 `skills sync`，只增不删）→ **恢复** x-monitor 栈（升级前在跑才恢复）。uv 失败时提示 M102；up-to-date 路径也执行铺装对齐（版本相同但 workspace 漂移时可修复）。

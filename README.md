@@ -68,8 +68,8 @@ browser-harness rmux status       # 两个 rmux 会话是否存活
 本仓库的 `SKILL.md` 是 agent 操作路由。一条命令完成全部安装（技能进 Claude Code / Codex，插件与站点技能进 workspace）：
 
 ```powershell
-uv tool install --upgrade git+https://github.com/raystyle/browser-harness@main
-browser-harness skills sync     # 状态查看；加 sync 参数执行安装/更新
+browser-harness --update -y     # 升级 CLI 并铺装（停栈 → 升级 → 铺装 → 恢复 x-monitor）
+browser-harness skills sync     # 状态查看；加 sync 参数单独重铺
 ```
 
 `skills sync` 的三个落点：

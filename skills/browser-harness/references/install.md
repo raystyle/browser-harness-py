@@ -53,7 +53,14 @@ If the quick path fails after `--doctor`, inspect `src/browser_harness/admin.py`
 This fork installs from the `main` branch. Upgrade with:
 
 ```powershell
-uv tool install --upgrade --force git+https://github.com/raystyle/browser-harness@main
+browser-harness --update -y
 ```
+
+One command: it stops the running stack (rmux sessions + daemons, which otherwise
+lock the venv on Windows), reinstalls from `main`, re-provisions skills and
+workspace apps (additively — local additions are never deleted), and brings back
+the x-monitor stack if it was running. The manual
+`uv tool install --upgrade --force git+https://github.com/raystyle/browser-harness@main`
+also works but requires stopping the stack first (M102 in the repo docs).
 
 State lives under `C:\Users\<user>\.config\browser-harness` by default on Windows: agent workspace, agent Chrome profile, runtime sockets, logs, screenshots, and temp files. Override with `BH_HOME` or `BROWSER_HARNESS_HOME`.
