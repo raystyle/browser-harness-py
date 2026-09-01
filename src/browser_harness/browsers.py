@@ -113,8 +113,10 @@ def run_current(args: list[str]) -> int:
         cur_id = cur.get("targetId") or cur.get("target_id")
         print(f"  attach: {len(attached)}/{len(pages)} tabs attached")
         for t in pages:
-            marker = "*" if t.get("targetId") == cur_id else " "
-            print(f"    {marker} {t.get('targetId','')[:14]} attached={bool(t.get('attached'))}")
+            tid = t.get("targetId", "")
+            app = _app_for_url(t.get("url") or "")
+            marker = "*" if tid == cur_id else " "
+            print(f"    {marker} {tid[:14]} [{app}] attached={bool(t.get('attached'))}")
     except Exception:
         print("  attach: unavailable")
     return 0
