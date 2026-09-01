@@ -39,11 +39,12 @@ def _data_dir():
 
 DB = os.environ.get("X_DB") or os.path.join(_data_dir(), "x_tweets.db")
 HEARTBEAT = os.environ.get("X_HEARTBEAT") or os.path.join(_data_dir(), "x_worker.heartbeat")
-INTERVAL = float(os.environ.get("X_INTERVAL") or "45")
+INTERVAL = float(os.environ.get("X_INTERVAL") or "600")
 DOCK_W = int(os.environ.get("X_DOCK_W") or "520")
 DOCK_H = int(os.environ.get("X_DOCK_H") or "200")
 FOREGROUND = (os.environ.get("X_FOREGROUND") or "1").strip().lower() in ("1", "true", "yes", "on")
 IDLE_THRESHOLD = float(os.environ.get("X_IDLE_THRESHOLD") or "10")
+IDLE_WAIT = float(os.environ.get("X_IDLE_WAIT") or "60")
 
 
 EXTRACT = r"""Array.from(document.querySelectorAll('article[data-testid="tweet"]')).map(t => ({name:(t.querySelector('[data-testid="User-Name"]')?.innerText||'').trim(), text:(t.querySelector('[data-testid="tweetText"]')?.innerText||'').trim(), time:(t.querySelector('time')?.getAttribute('datetime')||''), link:(t.querySelector('a[href*="/status/"]')?.getAttribute('href')||'')}))"""
@@ -132,6 +133,16 @@ def _idle_seconds():
         return 0.0
 
 
+def _wait_idle(threshold, max_wait):
+    """Wait until the user has been idle >= threshold, up to max_wait seconds."""
+    deadline = time.time() + max_wait
+    while time.time() < deadline:
+        if _idle_seconds() >= threshold:
+            return True
+        time.sleep(2.0)
+    return _idle_seconds() >= threshold
+
+
 def _foreground(target):
     """Bring the X tab to a tiny taskbar-docked window so throttled JS resumes."""
     tid = _tid(target)
@@ -209,9 +220,12 @@ def _round(con):
         x = helpers.new_tab("https://x.com/home")
     helpers.wait_for_load(timeout=20)
     hidden = helpers.js("document.visibilityState") == "hidden"
-    # 定时切一次前台刷新（不因键鼠活跃而跳过，否则 X 隐藏时一直抓不到新帖）。
-    # 窗口会缩成小窗贴任务栏、刷完即最小化，把抢焦点影响压到最低。
+    # 每 X_INTERVAL（默认 10 分钟）才前台刷新一次，且必须键鼠空闲才弹出；
+    # 活跃时最多等 X_IDLE_WAIT 秒，仍活跃则本轮跳过（不抢焦点）。
     do_foreground = FOREGROUND and hidden
+    if do_foreground:
+        _wait_idle(IDLE_THRESHOLD, IDLE_WAIT)
+        do_foreground = _idle_seconds() >= IDLE_THRESHOLD
     if do_foreground:
         _foreground(x)
         time.sleep(1.5)

@@ -178,11 +178,13 @@ user's own Chrome — via `BU_CDP_URL`.
 
 Worker env vars:
 
-- `X_INTERVAL` (default 45) seconds between rounds.
-- `X_IDLE_THRESHOLD` (default 10) seconds of no keyboard/mouse before it will
-  foreground-refresh, so it never steals focus while you are typing.
+- `X_INTERVAL` (default 600) seconds between refresh rounds.
+- `X_IDLE_THRESHOLD` (default 10) seconds of no keyboard/mouse required before a
+  foreground refresh is allowed.
+- `X_IDLE_WAIT` (default 60) max seconds to wait for idle while you are active;
+  if you stay active, that round is skipped (no focus steal).
 - `X_FOREGROUND=0` disables foreground refresh entirely (pure background).
-- `X_DOCK_W` / `X_DOCK_H` (default 300x120) the small taskbar-docked window size.
+- `X_DOCK_W` / `X_DOCK_H` (default 520x200) the small taskbar-docked window size.
 
 When the X page is hidden (minimized / background tab) and the user is idle, the
 worker shrinks the window to that docked pane, activates the tab to defeat
