@@ -18,6 +18,7 @@
 
 | 日期 | 进展 |
 | --- | --- |
+| 2026-09-01 | Windows 无头复测（R004 路径 A）：无头拉起 9223 → doctor 全绿 → x-monitor 接管 → 两轮增量 1062→1064，验收闭环；顺修 M105 单测平台依赖（win32 字符串比对路径失效），双平台复跑绿；v0.6.6 发版材料就绪待发 |
 | 2026-09-01 | 会话 cookie 跨设备迁移（S007）：`cookies export/import` 插件（agent Chrome 间免重登迁移，修正 S004 旧结论的适用边界）；X 登录态 Windows→WSL 无头 Chrome 实测迁移成功 |
 | 2026-09-01 | WSL2 无头适配（S006）：装原生 Linux Chrome 152、launcher 行尾修 LF、agent 端口可配（`BH_AGENT_CDP_PORT`，WSL 用 9224 避开 mirrored 网络下 Windows 侧 9223）、`BH_CHROME_HEADLESS` 无头启动、`browsers` 视图 Linux 枚举（M104 cmdline 重写坑）。本机 WSL `--doctor` 全绿、web-fetch/管道自动化实测通过、单测 207 全绿 |
 | 2026-09-01 | v0.6.1–v0.6.3 升级可靠性三连修：文档统一以 `--update` 为首选；Windows 自更新改 pwsh 接力（原地自替换必败且失败会半拆安装，M102 第三形态）；版本缓存不再劫持升级判定（tag ≤ 已装即强制重拉，两次实证藏更新）。E2E 实证 0.6.2→0.6.3 接力全链路 |

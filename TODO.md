@@ -28,6 +28,8 @@ WSL2 无头接管（对应 `GOAL.md`，队列目标「Linux/macOS 接管」的 L
 | WSL 验证 | 已完成 | 单测 207 全绿 + doctor 全绿 + web-fetch/管道自动化实测 | 2026-09-01 |
 | cookie 跨设备迁移 | 已完成 | cookies export/import 应用（S007），X 登录态 Windows→WSL 实测迁移成功 | 2026-09-01 |
 | WSL x-monitor 登录 | 已完成 | cookie 导入即登录（S007）；Windows 侧停栈后 WSL 侧 x-monitor 已接管实跑（首分钟 24 推入库、11 分钟 +27 推）；验证完成后用户叫停全栈，profile 登录态保留、随起随用 | 2026-09-01 |
+| Windows 无头复测 | 已完成 | R004 路径 A 实证：无头拉起 9223（HeadlessChrome/154 UA）→ doctor 全绿 → x-monitor 直接接管 → 两轮 1062→1064；顺修 M105（单测平台依赖，双平台复跑绿） | 2026-09-01 |
+| v0.6.6 发版材料 | 已完成 | 版本号 + CHANGELOG 就绪（S006 无头适配 + S007 cookies + M105）；push/tag/Release 待用户指示 | 2026-09-01 |
 
 ## 队列目标
 

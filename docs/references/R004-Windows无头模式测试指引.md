@@ -1,6 +1,7 @@
 # R004 Windows 无头模式测试指引
 
 > 开发测试参考（要做什么、怎么做）。登记日 2026-09-01。
+> 路径 A 已实证（同日）：无头拉起 → doctor 全绿（2 连接）→ x-monitor 直接接管 → 20:35/20:45 两轮入库 1062→1064。
 > 背景：WSL2 侧无头全链路已实证（S006/S007）；本文在 Windows 侧复测同一能力。目标机：`C:\Users\ray\.config\browser-harness`（BH_HOME）、Chrome Dev 154（`C:\Program Files\Google\Chrome Dev\Application\chrome.exe`）、已装 browser-harness 0.6.5。
 
 ## 两条路径
