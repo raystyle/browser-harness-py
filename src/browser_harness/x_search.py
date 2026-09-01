@@ -3,16 +3,16 @@
 No browser required; reads the SQLite database directly.
 
 Usage:
-    uv run python agent-workspace/x_search.py <keyword> [--limit N] [--author X]
-    uv run python agent-workspace/x_search.py --recent [--limit N]
-    uv run python agent-workspace/x_search.py --since 1h [--limit N]
-    uv run python agent-workspace/x_search.py --since 2d --group-by day
-    uv run python agent-workspace/x_search.py --stats
-    uv run python agent-workspace/x_search.py <keyword> --csv [--csv-out path.csv]
+    browser-harness x-search <keyword> [--limit N] [--author X]
+    browser-harness x-search --recent [--limit N]
+    browser-harness x-search --since 1h [--limit N]
+    browser-harness x-search --since 2d --group-by day
+    browser-harness x-search --stats
+    browser-harness x-search <keyword> --csv [--csv-out path.csv]
 
 Options:
     --limit N            max rows (default 20)
-    --author X           filter by author text
+    --author X           filter by display name or @handle
     --recent             newest first (no keyword required)
     --since 30s|10m|1h|2d|1w   only tweets captured in the last duration
     --group-by day|hour  group output by capture time
@@ -109,8 +109,10 @@ def _query(kw, limit, author, since):
         where.append("(text LIKE ? OR author LIKE ? OR handle LIKE ?)")
         params += [like, like, like]
     if author:
-        where.append("author LIKE ?")
-        params.append("%" + author + "%")
+        # Users naturally pass either the display name ("Massimo") or the
+        # handle ("Rainmaker1973"); match both columns.
+        where.append("(author LIKE ? OR handle LIKE ?)")
+        params += ["%" + author + "%", "%" + author.lstrip("@") + "%"]
     if since is not None:
         cutoff = (datetime.datetime.now() - datetime.timedelta(seconds=since)).isoformat(timespec="seconds")
         where.append("first_seen_at >= ?")
@@ -201,7 +203,7 @@ def main(argv=None):
         _stats()
         return
     if not kw and not recent and since is None:
-        print("usage: uv run python agent-workspace/x_search.py <keyword>|--recent|--since <dur>|--stats [options]")
+        print("usage: browser-harness x-search <keyword>|--recent|--since <dur>|--stats [options]")
         sys.exit(2)
     rows = _query(kw, limit, author, since)
     if csv_mode:

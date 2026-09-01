@@ -201,8 +201,9 @@ When the user asks to analyze:
   `browser-harness x-search --recent --limit N` or `--since 1h`
   or read the live timeline through the browser when "right now" matters.
 - "存的推 / 搜推 / 关键词 / 谁发的" → query the store without the browser:
-  `browser-harness x-search <keyword>` (`--author X`, `--limit N`,
-  `--group-by day|hour`, `--csv [--csv-out path.csv]`)
+  `browser-harness x-search <keyword>` (`--author X` matches display name or
+  @handle, `--limit N`, `--group-by day|hour`, `--csv [--csv-out path.csv]`).
+  A primary mode is required: `<keyword>`, `--recent`, `--since`, or `--stats`.
 - "存了多少 / 统计 / 谁发得多" → `browser-harness x-search --stats`
   (totals, distinct authors, posted/seen range, top authors)
 
