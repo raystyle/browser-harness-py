@@ -94,6 +94,47 @@ def _chrome_instances_linux() -> list[dict]:
     return sorted(instances, key=lambda i: i["pid"])
 
 
+_MAIN_PROCESS_BASENAMES_DARWIN = (
+    "google chrome", "chrome", "chromium", "microsoft edge", "brave browser",
+)
+
+
+def _chrome_instances_darwin() -> list[dict]:
+    """Return ``[{pid, data_dir, port}]`` for Chrome main processes via ps.
+
+    macOS has no /proc; ``ps -axo pid=,args=`` carries the main process's
+    launch flags verbatim, so the same flag parsing as Windows applies.
+    Helper children all carry ``--type=`` and are skipped, as elsewhere.
+    """
+    try:
+        out = subprocess.run(
+            ["ps", "-axo", "pid=,args="],
+            capture_output=True, text=True, errors="replace", timeout=20,
+        ).stdout
+    except Exception:
+        return []
+    instances = []
+    for line in out.splitlines():
+        line = line.strip()
+        pid_s, _, cmd = line.partition(" ")
+        if not pid_s.isdigit() or not cmd:
+            continue
+        # The macOS executable path itself contains spaces ("Google Chrome.app"),
+        # so argv0 cannot be recovered by splitting; take the binary name from
+        # the head of the line up to the first flag instead.
+        head = cmd.split(" --")[0].rsplit("/", 1)[-1].lower()
+        if head not in _MAIN_PROCESS_BASENAMES_DARWIN:
+            continue
+        if any(a.startswith("--type=") for a in cmd.split()):
+            continue  # renderer/gpu/utility child process
+        m_dir = re.search(r"--user-data-dir=\"([^\"]+)\"|--user-data-dir=([^\s]+)", cmd)
+        data_dir = (m_dir.group(1) or m_dir.group(2)) if m_dir else "default"
+        m_port = re.search(r"--remote-debugging-port=(\d+)", cmd)
+        port = int(m_port.group(1)) if m_port else None
+        instances.append({"pid": int(pid_s), "data_dir": data_dir, "port": port})
+    return sorted(instances, key=lambda i: i["pid"])
+
+
 def _tabs_for_port(port: int) -> list[dict] | None:
     """Return page tabs via ``/json/list``, or ``None`` if unavailable."""
     try:
@@ -153,8 +194,10 @@ def run_cli(args: list[str]) -> int:
         instances = _chrome_instances_windows()
     elif system == "Linux":
         instances = _chrome_instances_linux()
+    elif system == "Darwin":
+        instances = _chrome_instances_darwin()
     else:
-        print("browsers: Windows/Linux enumeration only for now", file=sys.stderr)
+        print("browsers: Windows/Linux/macOS enumeration only for now", file=sys.stderr)
         return 1
     print("browser-harness browsers")
     if not instances:

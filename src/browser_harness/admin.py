@@ -867,6 +867,175 @@ def _launch_agent_chrome() -> bool:
     return False
 
 
+def _agent_chrome_headless() -> bool | None:
+    """Live headless state of the agent Chrome from its UA; None if not running."""
+    try:
+        info = json.load(urllib.request.urlopen(
+            f"http://127.0.0.1:{_AGENT_PORT}/json/version", timeout=2))
+    except Exception:
+        return None
+    return "HeadlessChrome" in (info.get("User-Agent") or "")
+
+
+def _agent_chrome_pids() -> list[int]:
+    """Main-process pids of the isolated agent Chrome — never the user's Chrome.
+
+    Matched by user-data-dir (or CDP port) against the process list, so a flip
+    can stop exactly the agent instance without pkill-style collateral damage.
+    """
+    import platform
+
+    from . import browsers
+
+    system = platform.system()
+    if system == "Windows":
+        instances = browsers._chrome_instances_windows()
+    elif system == "Linux":
+        instances = browsers._chrome_instances_linux()
+    elif system == "Darwin":
+        instances = browsers._chrome_instances_darwin()
+    else:
+        return []
+    profile = _agent_profile()
+    pids = []
+    for inst in instances:
+        data_dir = inst.get("data_dir") or ""
+        if not data_dir or data_dir == "default":
+            continue
+        try:
+            same_dir = Path(data_dir).expanduser().resolve() == profile
+        except OSError:
+            same_dir = False
+        if same_dir or inst.get("port") == _AGENT_PORT:
+            pids.append(inst["pid"])
+    return pids
+
+
+def _stop_agent_chrome(timeout: float = 10.0) -> bool:
+    """Stop the agent Chrome main process(es) only, by pid. True if any stopped."""
+    import signal
+
+    pids = _agent_chrome_pids()
+    if not pids:
+        return False
+    for pid in pids:
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except (ProcessLookupError, PermissionError, OSError):
+            pass
+    deadline = time.time() + timeout
+    while time.time() < deadline and _agent_chrome_running():
+        time.sleep(0.3)
+    if _agent_chrome_running():
+        for pid in pids:
+            try:
+                os.kill(pid, signal.SIGKILL)
+            except (ProcessLookupError, PermissionError, OSError):
+                pass
+    return True
+
+
+def _set_env_value(key: str, value: str) -> None:
+    """Persist key=value in BH_HOME/.env — replace the existing line or append.
+
+    .env stays the single source of truth for the launch mode: the next CLI
+    call (and the daemon it spawns) reloads it via setdefault.
+    """
+    env_path = paths.home_dir() / ".env"
+    try:
+        lines = env_path.read_text(encoding="utf-8-sig", errors="replace").splitlines()
+    except OSError:
+        lines = []
+    prefix = f"{key}="
+    out, replaced = [], False
+    for line in lines:
+        if not replaced and line.strip().startswith(prefix) and not line.strip().startswith("#"):
+            out.append(f"{key}={value}")
+            replaced = True
+        else:
+            out.append(line)
+    if not replaced:
+        out.append(f"{key}={value}")
+    env_path.parent.mkdir(parents=True, exist_ok=True)
+    env_path.write_text("\n".join(out) + "\n", encoding="utf-8")
+
+
+def run_chrome_mode(args: list[str]) -> int:
+    """Show or flip the agent Chrome between headless and headed.
+
+    All apps inherit the mode (they ride the same agent Chrome), which is what
+    makes manual login entry possible: flip headed, log in by hand in the
+    visible window, flip back — cookies persist in the agent profile. The
+    flip rewrites BH_CHROME_HEADLESS in BH_HOME/.env, stops the daemons (they
+    baked the old mode at spawn) and the agent Chrome, and relaunches fresh;
+    a running x-monitor stack is brought back after (idempotent).
+    """
+    mode = args[0] if args else "status"
+    if mode not in ("status", "headed", "headless") or len(args) != 1:
+        print("usage: browser-harness chrome-mode [status|headed|headless]", file=sys.stderr)
+        return 2
+    if mode == "status":
+        raw = (os.environ.get("BH_CHROME_HEADLESS") or "").strip().lower() or "(unset — auto)"
+        live = _agent_chrome_headless()
+        state = "not running" if live is None else ("headless" if live else "headed")
+        print("browser-harness chrome-mode")
+        print(f"  .env BH_CHROME_HEADLESS: {raw}")
+        print(f"  agent Chrome now:        {state}")
+        return 0
+
+    target = mode == "headless"
+    live = _agent_chrome_headless()
+    if live == target:
+        _set_env_value("BH_CHROME_HEADLESS", "1" if target else "0")
+        print(f"agent Chrome already {'headless' if target else 'headed'} — .env aligned")
+        return 0
+    if not _pinned_agent_cdp(None):
+        print(
+            "chrome-mode applies to the isolated agent Chrome model "
+            "(BU_CDP_URL/BU_CDP_WS); this daemon attaches to a user browser",
+            file=sys.stderr,
+        )
+        return 1
+
+    if not target:
+        print("opening a visible agent Chrome window for manual login — "
+              "log in by hand there, then `browser-harness chrome-mode headless`")
+    _set_env_value("BH_CHROME_HEADLESS", "1" if target else "0")
+    os.environ["BH_CHROME_HEADLESS"] = "1" if target else "0"
+
+    had_x_monitor = False
+    try:
+        from .rmux import Rmux
+
+        r = Rmux()
+        if r.server_running():
+            had_x_monitor = r.has_session("x-supervisor")
+    except Exception:
+        pass
+    for nm in (NAME, "x-monitor"):
+        try:
+            if daemon_alive(nm):
+                print(f"stopping {nm} daemon (it baked the old mode)...")
+                restart_daemon(nm)
+        except Exception as exc:
+            print(f"daemon {nm} stop skipped: {exc}")
+    if _agent_chrome_headless() is not None:
+        print("stopping agent Chrome...")
+        _stop_agent_chrome()
+    try:
+        ensure_daemon()  # spawns a fresh daemon that launches Chrome in the new mode
+    except RuntimeError as exc:
+        print(f"browser-harness: {exc}", file=sys.stderr)
+        return 1
+    if had_x_monitor:
+        print("restoring x-monitor...")
+        _restart_x_monitor()
+    live = _agent_chrome_headless()
+    state = "not running" if live is None else ("headless" if live else "headed")
+    print(f"agent Chrome now: {state}")
+    return 0 if live == target else 1
+
+
 def _extra_chrome_flags():
     """Flags appended only when harness itself launches Chrome.
 

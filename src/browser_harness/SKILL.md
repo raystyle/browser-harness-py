@@ -110,6 +110,7 @@ The package is a thin core (daemon, helpers, rmux, diagnostics); applications ar
 | Bing 搜索 | `browser-harness bing-search <query>`（插件） |
 | 网页正文提取 | `browser-harness web-fetch <url>`（插件） |
 | 登录态跨设备迁移 | `browser-harness cookies export\|import`（插件，S007） |
+| 无头/有头切换（登录录入走有头） | `browser-harness chrome-mode status\|headed\|headless`（核心，S008） |
 | rmux 会话管理 | `browser-harness rmux list\|status\|ensure\|capture\|kill\|kill-server`（核心） |
 
 Plugin development & testing spec: `docs/references/R003-插件开发与测试规范.md`.

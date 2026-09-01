@@ -61,6 +61,9 @@ Commands:
   browser-harness rmux list|status|new|ensure|send|keys|capture|kill|kill-server|version
                                     drive rmux sessions/panes for multiplexed browser scripts
   browser-harness browsers           list Chrome instances, tabs, and app-tab binding
+  browser-harness chrome-mode [status|headed|headless]
+                                    show/flip the agent Chrome headless or headed
+                                    (headed = visible window for manual login)
   browser-harness current            show the tab/app the daemon is operating on now
   browser-harness <app> [args...]    run an agent-workspace app (apps/<app>.py):
                                       x-monitor, x-search, web-fetch,
@@ -208,6 +211,10 @@ def _run(args):
         from . import browsers
 
         sys.exit(browsers.run_cli(args[1:]))
+    if args and args[0] == "chrome-mode":
+        from .admin import run_chrome_mode
+
+        sys.exit(run_chrome_mode(args[1:]))
     if args and args[0] == "current":
         from . import browsers
 

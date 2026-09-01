@@ -1,4 +1,5 @@
 import io
+import json
 import os
 import signal
 import sys
@@ -1067,3 +1068,87 @@ def test_launch_agent_chrome_passes_headless_and_extra_flags(monkeypatch, tmp_pa
     assert f"--user-data-dir={tmp_path / 'agent-chrome-profile'}" in argv
     assert "--headless=new" in argv and "--disable-gpu" in argv
     assert "--window-size=1280,800" in argv
+
+
+def _fake_version_endpoint(monkeypatch, payload=None):
+    """Point _agent_chrome_headless's /json/version probe at a fake payload.
+
+    payload=None simulates the endpoint being down (Chrome not running)."""
+
+    def fake_urlopen(url, timeout=0):
+        if payload is None:
+            raise OSError("connection refused")
+        return io.BytesIO(json.dumps(payload).encode())
+
+    monkeypatch.setattr(admin.urllib.request, "urlopen", fake_urlopen)
+
+
+def test_agent_chrome_headless_reads_ua(monkeypatch):
+    _fake_version_endpoint(monkeypatch, {"User-Agent": "x HeadlessChrome/152.0.0.0 y"})
+    assert admin._agent_chrome_headless() is True
+    _fake_version_endpoint(monkeypatch, {"User-Agent": "x Chrome/152.0.0.0 y"})
+    assert admin._agent_chrome_headless() is False
+
+
+def test_agent_chrome_headless_none_when_not_running(monkeypatch):
+    _fake_version_endpoint(monkeypatch, None)
+    assert admin._agent_chrome_headless() is None
+
+
+def test_set_env_value_replaces_existing_line(monkeypatch, tmp_path):
+    monkeypatch.setenv("BH_HOME", str(tmp_path))
+    env = tmp_path / ".env"
+    env.write_text(
+        "# browser-harness env\nBU_CDP_URL=http://127.0.0.1:9223\nBH_CHROME_HEADLESS=1\n",
+        encoding="utf-8",
+    )
+    admin._set_env_value("BH_CHROME_HEADLESS", "0")
+    text = env.read_text(encoding="utf-8")
+    assert "BH_CHROME_HEADLESS=0" in text
+    assert "BH_CHROME_HEADLESS=1" not in text
+    assert "BU_CDP_URL=http://127.0.0.1:9223" in text
+    assert "# browser-harness env" in text
+
+
+def test_set_env_value_appends_when_missing(monkeypatch, tmp_path):
+    monkeypatch.setenv("BH_HOME", str(tmp_path))
+    admin._set_env_value("BH_CHROME_HEADLESS", "1")
+    assert (tmp_path / ".env").read_text(encoding="utf-8") == "BH_CHROME_HEADLESS=1\n"
+
+
+def test_agent_chrome_pids_matches_agent_profile_only(monkeypatch, tmp_path):
+    from browser_harness import browsers
+
+    profile = (tmp_path / "agent-chrome-profile")
+    instances = [
+        {"pid": 10, "data_dir": str(profile), "port": 9223},
+        {"pid": 11, "data_dir": str(tmp_path / "user-profile"), "port": None},
+        {"pid": 12, "data_dir": "default", "port": 9223},
+    ]
+    monkeypatch.setattr(admin, "_agent_profile", lambda: profile)
+    monkeypatch.setattr(browsers, "_chrome_instances_windows", lambda: instances)
+    monkeypatch.setattr(browsers, "_chrome_instances_linux", lambda: instances)
+    monkeypatch.setattr(browsers, "_chrome_instances_darwin", lambda: instances)
+    assert admin._agent_chrome_pids() == [10]
+
+
+def test_chrome_mode_status_reports_env_and_live(monkeypatch, capsys):
+    monkeypatch.setenv("BH_CHROME_HEADLESS", "1")
+    monkeypatch.setattr(admin, "_agent_chrome_headless", lambda: True)
+    assert admin.run_chrome_mode(["status"]) == 0
+    out = capsys.readouterr().out
+    assert "BH_CHROME_HEADLESS: 1" in out
+    assert "agent Chrome now:        headless" in out
+
+
+def test_chrome_mode_rejects_unknown_mode(monkeypatch):
+    assert admin.run_chrome_mode(["fullscreen"]) == 2
+
+
+def test_chrome_mode_already_in_mode_aligns_env(monkeypatch, tmp_path, capsys):
+    monkeypatch.setenv("BH_HOME", str(tmp_path))
+    monkeypatch.setenv("BH_CHROME_HEADLESS", "1")
+    monkeypatch.setattr(admin, "_agent_chrome_headless", lambda: True)
+    assert admin.run_chrome_mode(["headless"]) == 0
+    assert "already headless" in capsys.readouterr().out
+    assert "BH_CHROME_HEADLESS=1" in (tmp_path / ".env").read_text(encoding="utf-8")

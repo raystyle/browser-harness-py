@@ -1,6 +1,6 @@
 import pytest
 
-from browser_harness.browsers import _chrome_instances_linux
+from browser_harness.browsers import _chrome_instances_darwin, _chrome_instances_linux
 
 
 def _write_cmdline(root, pid, raw: bytes):
@@ -66,4 +66,50 @@ def test_main_process_without_flags_defaults(fake_proc):
     _write_cmdline(fake_proc, 400, b"/usr/bin/google-chrome-stable\0")
     assert _chrome_instances_linux() == [
         {"pid": 400, "data_dir": "default", "port": None},
+    ]
+
+
+def _fake_ps(monkeypatch, stdout: str):
+    from browser_harness import browsers
+
+    class FakeCompleted:
+        pass
+
+    FakeCompleted.stdout = stdout
+    monkeypatch.setattr(browsers.subprocess, "run", lambda *a, **k: FakeCompleted())
+
+
+def test_darwin_ps_parses_main_process_with_flags(monkeypatch):
+    _fake_ps(
+        monkeypatch,
+        "  79821 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome "
+        "--user-data-dir=/Users/ray/.config/browser-harness/agent-chrome-profile "
+        "--remote-debugging-port=9223 --headless=new about:blank\n",
+    )
+    assert _chrome_instances_darwin() == [
+        {"pid": 79821,
+         "data_dir": "/Users/ray/.config/browser-harness/agent-chrome-profile",
+         "port": 9223},
+    ]
+
+
+def test_darwin_ps_skips_helpers_and_other_apps(monkeypatch):
+    _fake_ps(
+        monkeypatch,
+        "  79839 /Applications/Google Chrome.app/Contents/Frameworks/Google Chrome "
+        "Helper (Renderer).app/Contents/MacOS/Google Chrome Helper (Renderer) "
+        "--type=renderer --user-data-dir=/Users/ray/.config/browser-harness/agent-chrome-profile\n"
+        "  80001 /Applications/Safari.app/Contents/MacOS/Safari\n"
+        "  80100 login -pf ray\n",
+    )
+    assert _chrome_instances_darwin() == []
+
+
+def test_darwin_ps_main_process_without_flags_defaults(monkeypatch):
+    _fake_ps(
+        monkeypatch,
+        "  80200 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome\n",
+    )
+    assert _chrome_instances_darwin() == [
+        {"pid": 80200, "data_dir": "default", "port": None},
     ]
