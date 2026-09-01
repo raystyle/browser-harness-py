@@ -18,6 +18,7 @@
 
 | 日期 | 进展 |
 | --- | --- |
+| 2026-09-01 | v0.6.0 可靠升级闭环：`--update` 一条命令停栈（rmux+双daemon，M102 根治）→ uv 升级 @main → 铺装 skills/workspace → 恢复 x-monitor；up-to-date 路径同样铺装对齐；本机 E2E 通过 |
 | 2026-09-01 | 独立主仓收官：v0.5.0 摆脱上游（origin 唯一）、v0.5.1 默认分支更名 main（`--update` 源与文档链接同步）、本机升级闭环、M102 落档、diary 补记 |
 | 2026-09-01 | v0.2.0 封版：资源视图对齐——rmux 服务/会话/窗格状态、x-monitor 幂等 + 自愈、10 分钟空闲门控刷新、AGENTS/GOAL/PLAN/TODO/ROADMAP 对齐 ohmyagents 文档体系 |
 | 2026-09-01 | 抓取能力增强：web-fetch 站点选择器 + 反爬自动升级、新 tab 抓完即关（不再污染 tab）、S005 对比研究落档 |
