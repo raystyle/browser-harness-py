@@ -68,6 +68,7 @@ Commands:
   browser-harness rmux list|new|ensure|send|keys|capture|kill|version
                                     drive rmux sessions/panes for multiplexed browser scripts
   browser-harness browsers           list Chrome instances, tabs, and app-tab binding
+  browser-harness current            show the tab/app the daemon is operating on now
   browser-harness x-monitor              start the self-healing X capture supervisor
   browser-harness x-search <...>         query/search stored tweets
   browser-harness page-text <url>        extract clean text/markdown from a URL
@@ -138,7 +139,7 @@ def _telemetry_command(args):
         return "reload"
     if first == "--debug-clicks":
         return "debug-clicks"
-    if first in {"auth", "skill", "mac-approve", "recordings", "telemetry", "video", "rmux", "browsers",
+    if first in {"auth", "skill", "mac-approve", "recordings", "telemetry", "video", "rmux", "browsers", "current",
                  "x-monitor", "x-search", "page-text", "google-search", "bing-search"}:
         return first
     return "usage"
@@ -378,6 +379,10 @@ def _run(args):
         from . import browsers
 
         sys.exit(browsers.run_cli(args[1:]))
+    if args and args[0] == "current":
+        from . import browsers
+
+        sys.exit(browsers.run_current(args[1:]))
     if args and args[0] in {"x-monitor", "x-search", "page-text", "google-search", "bing-search"}:
         from . import xapps
 

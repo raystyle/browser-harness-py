@@ -87,3 +87,23 @@ def run_cli(args: list[str]) -> int:
             app = _app_for_url(url)
             print(f"          {i}. [{app}] {title[:40]} — {url[:90]}")
     return 0
+
+
+def run_current(args: list[str]) -> int:
+    """Show the tab the daemon is currently operating on and its app."""
+    from browser_harness.helpers import current_tab
+
+    try:
+        cur = current_tab()
+    except Exception as e:
+        print(f"browsers current: {e}", file=sys.stderr)
+        return 1
+    url = cur.get("url") or ""
+    title = (cur.get("title") or "").strip().replace("\n", " ")
+    app = _app_for_url(url)
+    print("browser-harness current")
+    print(f"  app:   {app}")
+    print(f"  title: {title}")
+    print(f"  url:   {url}")
+    print(f"  target: {cur.get('targetId') or cur.get('target_id')}")
+    return 0
