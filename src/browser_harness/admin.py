@@ -323,7 +323,7 @@ def _doctor_probe_chrome_binary_for_snap():
 
 
 def _snap_linux_headless_doc_url():
-    return "https://github.com/raystyle/browser-harness/blob/dev/work/docs/snap-linux-headless.md"
+    return "https://github.com/raystyle/browser-harness/blob/main/docs/snap-linux-headless.md"
 
 
 def run_doctor_fix_snap():
@@ -1104,7 +1104,7 @@ def run_update(yes=False):
     elif mode == "installed":
         tool_upgrade = subprocess.run([
             "uv", "tool", "install", "--upgrade", "--force",
-            f"git+{GITHUB_REPO_URL}@dev/work",
+            f"git+{GITHUB_REPO_URL}@main",
         ])
         if tool_upgrade.returncode != 0:
             return tool_upgrade.returncode

@@ -34,7 +34,7 @@ uv sync
 ### 1b. 全局安装成命令行（可选）
 
 ```powershell
-uv tool install git+https://github.com/raystyle/browser-harness@dev/work
+uv tool install git+https://github.com/raystyle/browser-harness@main
 browser-harness --version     # 验证
 browser-harness --doctor      # 依赖/连接自检
 ```
@@ -68,7 +68,7 @@ browser-harness rmux status       # 两个 rmux 会话是否存活
 本仓库的 `SKILL.md` 是 agent 操作路由。一条命令完成全部安装（技能进 Claude Code / Codex，插件与站点技能进 workspace）：
 
 ```powershell
-uv tool install --upgrade git+https://github.com/raystyle/browser-harness@dev/work
+uv tool install --upgrade git+https://github.com/raystyle/browser-harness@main
 browser-harness skills sync     # 状态查看；加 sync 参数执行安装/更新
 ```
 
@@ -277,7 +277,7 @@ $env:X_DB / X_HEARTBEAT / X_SUPERVISOR_LOG   # x-monitor 插件的数据落点
 升级（CLI 与插件一起更新）：
 
 ```powershell
-browser-harness --update -y        # 或 uv tool install --upgrade git+...@dev/work
+browser-harness --update -y        # 或 uv tool install --upgrade git+...@main
 browser-harness skills sync        # 铺装新版插件与技能
 ```
 

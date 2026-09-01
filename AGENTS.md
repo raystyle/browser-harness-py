@@ -25,8 +25,8 @@
    - 唯一索引：`INDEX.md`。
 
 5. **独立主仓工作流**
-   - `origin`（= raystyle/browser-harness，唯一远程）、`dev/work`（开发/发布/默认分支）。
-   - 规则：在 `dev/work` 开发并推 `origin`；发版 = tag + GitHub Release，目标机 `browser-harness --update -y && browser-harness skills sync`；本地验证 `browser-harness --doctor` + `uv run --with pytest python -m pytest tests/unit -q`。
+   - `origin`（= raystyle/browser-harness，唯一远程）、`main`（开发/发布/默认分支）。
+   - 规则：在 `main` 开发并推 `origin`；发版 = tag + GitHub Release，目标机 `browser-harness --update -y && browser-harness skills sync`；本地验证 `browser-harness --doctor` + `uv run --with pytest python -m pytest tests/unit -q`。
 
 ## 二、操作规则
 
@@ -97,7 +97,7 @@
 - **搜索**：`browser-harness google-search|bing-search <query> [--page N]`
 - **rmux 管理**：`browser-harness rmux list|ensure|status|capture|kill|kill-server`
 - **资源视图**：`browser-harness browsers`（浏览器实例 + tab + rmux）、`browser-harness current`（附加状态）
-- **安装**：`uv tool install git+https://github.com/raystyle/browser-harness@dev/work`
+- **安装**：`uv tool install git+https://github.com/raystyle/browser-harness@main`
 - **查文档**：先搜 `INDEX.md` 定位编号，再读文件。
 
 ## 四、资源索引

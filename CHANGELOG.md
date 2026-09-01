@@ -2,6 +2,10 @@
 
 版本里程碑：本项目版本记录（v0.2.2 起独立维护；v0.1.x 为 browser-use 上游基线历史）。
 
+## v0.5.1 — 2026-09-01
+
+- **默认分支更名 `dev/work` → `main`**：独立主仓收敛为标准主干名。旧本地 `main`（browser-use 基线 a9c3192，dev/work 祖先，历史可达）删除后更名；GitHub 默认分支切 `main`、远端 `dev/work` 删除。`--update` 安装源（admin.py）与 README/AGENTS/install.md/SKILL.md（根 + 包内 + 插件三副本）链接同步改指 `@main`；R003 发布清单 push 命令更新。历史记录（diary/proven/CHANGELOG 旧条目/三原语里程碑行）保留原称。
+
 ## v0.5.0 — 2026-09-01
 
 - **摆脱上游，独立主仓库**：移除 browser-use 上游远程，`origin` = `raystyle/browser-harness` 唯一远程；默认分支 `dev/work`。README/AGENTS/CHANGELOG 身份声明更新为独立项目（注明 v0.1.10 基线与致谢），AGENTS 工作流改为独立主仓模式（开发推送 origin、tag+Release 发版）。历史文档（diary/proven/R001）保留原记录。

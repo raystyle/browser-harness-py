@@ -12,7 +12,7 @@ Use once. For browser work, read `SKILL.md`.
 This fork installs from GitHub, not PyPI:
 
 ```powershell
-uv tool install --python 3.12 --upgrade --force git+https://github.com/raystyle/browser-harness@dev/work
+uv tool install --python 3.12 --upgrade --force git+https://github.com/raystyle/browser-harness@main
 ```
 
 Register the Codex skill:
@@ -33,7 +33,7 @@ print(page_info())
 
 If `page_info()` prints, configure recording consent below, then stop.
 
-`--python 3.12` prevents uv from selecting old releases that support older Python versions. `--upgrade --force` replaces any previous `browser-harness` tool install with the latest `dev/work` build.
+`--python 3.12` prevents uv from selecting old releases that support older Python versions. `--upgrade --force` replaces any previous `browser-harness` tool install with the latest `main` build.
 
 For Claude Code or other agents: install `browser-harness`, register a skill named `browser-harness`, use `browser-harness skill` as the body, and use this trigger:
 

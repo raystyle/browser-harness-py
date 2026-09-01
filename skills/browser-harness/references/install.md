@@ -5,11 +5,11 @@ This is a **one-time prerequisite**, not part of the regular AI workflow. Do it 
 ## Install the command
 
 ```powershell
-uv tool install --python 3.12 --upgrade --force git+https://github.com/raystyle/browser-harness@dev/work
+uv tool install --python 3.12 --upgrade --force git+https://github.com/raystyle/browser-harness@main
 browser-harness --version   # should print the version
 ```
 
-`--python 3.12` prevents uv from selecting old releases that support older Python versions. `--upgrade --force` replaces any previous `browser-harness` tool install with the latest `dev/work` build. It does not uninstall unrelated commands such as `browser-use-Browser` or `browser-use-Terminal`.
+`--python 3.12` prevents uv from selecting old releases that support older Python versions. `--upgrade --force` replaces any previous `browser-harness` tool install with the latest `main` build. It does not uninstall unrelated commands such as `browser-use-Browser` or `browser-use-Terminal`.
 
 For browser-harness development, clone the repo into a durable path and run `uv tool install -e .` from the checkout.
 
@@ -50,10 +50,10 @@ If the quick path fails after `--doctor`, inspect `src/browser_harness/admin.py`
 
 ## Keeping current
 
-This fork installs from the `dev/work` branch. Upgrade with:
+This fork installs from the `main` branch. Upgrade with:
 
 ```powershell
-uv tool install --upgrade --force git+https://github.com/raystyle/browser-harness@dev/work
+uv tool install --upgrade --force git+https://github.com/raystyle/browser-harness@main
 ```
 
 State lives under `C:\Users\<user>\.config\browser-harness` by default on Windows: agent workspace, agent Chrome profile, runtime sockets, logs, screenshots, and temp files. Override with `BH_HOME` or `BROWSER_HARNESS_HOME`.

@@ -5,7 +5,7 @@ description: "Always use browser-harness for any web interaction: automation, sc
 
 # browser-harness
 
-Direct browser control via CDP. For task-specific edits, use `agent-workspace/agent_helpers.py`. For setup, install, or connection problems, read https://github.com/raystyle/browser-harness/blob/dev/work/install.md.
+Direct browser control via CDP. For task-specific edits, use `agent-workspace/agent_helpers.py`. For setup, install, or connection problems, read https://github.com/raystyle/browser-harness/blob/main/install.md.
 
 ## When Not to Use
 
@@ -326,7 +326,7 @@ browser-harness recordings --latest
 
 Use it only if timestamps and pages match; otherwise say the work was not
 captured. Never reenact a completed task. For a video, follow
-[make-video.md](https://github.com/raystyle/browser-harness/blob/dev/work/interaction-skills/make-video.md).
+[make-video.md](https://github.com/raystyle/browser-harness/blob/main/interaction-skills/make-video.md).
 If sub-agents are available, they may handle post-production from the exact
 recording path while the main agent returns the task result.
 
@@ -334,7 +334,7 @@ recording path while the main agent returns the task result.
 
 If you get stuck on a browser mechanic, check the interaction skills — when this
 skill is installed they sit right next to this file under `references/interaction/`;
-upstream they live at https://github.com/raystyle/browser-harness/tree/dev/work/interaction-skills.
+upstream they live at https://github.com/raystyle/browser-harness/tree/main/interaction-skills.
 
 - connection.md
 - cookies.md
