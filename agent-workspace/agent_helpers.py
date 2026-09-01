@@ -39,11 +39,20 @@ def _extract_links(limit, exclude):
 
 
 def ensure_app_tab(key, url):
-    """Attach to an existing tab whose URL contains ``key``, else open a new tab."""
+    """Attach to the app's own tab (exact domain match), else open one.
+
+    Idempotent + mutex: one app owns one tab. Repeated calls reuse the existing
+    tab instead of opening duplicates, so apps never race into extra tabs.
+    """
     from browser_harness.helpers import list_tabs, switch_tab, new_tab
 
     for t in list_tabs(include_chrome=False):
-        if key in (t.get("url") or ""):
+        host = ""
+        try:
+            host = urllib.parse.urlparse(t.get("url") or "").hostname or ""
+        except Exception:
+            host = ""
+        if host == key or host.endswith("." + key):
             switch_tab(t, activate=False)
             return t.get("targetId") or t.get("target_id")
     return new_tab(url)
