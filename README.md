@@ -6,9 +6,9 @@
 
 ## 环境要求
 
-- **本项目当前 Windows 专用**（本机 Windows 11 实测；macOS / Linux 待接管，见 `ROADMAP.md` 阶段 4）。
+- **三平台实测**：Windows 11 / WSL2·Linux（S006）/ macOS（S008）；无头/有头双模均可（见下文「无头/有头双模」）。
 - `uv` + Python 3.12。
-- Chrome（本机 Chrome Dev 154 已验证）。
+- Chrome（Windows Chrome Dev 154 / Linux google-chrome-stable 152 / macOS Chrome 均已验证）。
 - rmux 0.10.0（X 监控的多路复用；安装见下）。
 
 ### rmux 安装（Windows）
@@ -22,6 +22,8 @@ Invoke-WebRequest $url -OutFile "$env:TEMP\rmux.zip"
 Expand-Archive "$env:TEMP\rmux.zip" -DestinationPath $dest -Force
 rmux -V   # → rmux 0.10.0
 ```
+
+非 Windows 平台从 [Helvesec/rmux releases](https://github.com/Helvesec/rmux/releases) 取对应包放入 PATH 即可（macOS 已实测 0.10.0）。
 
 ## 部署方法
 
@@ -48,7 +50,7 @@ browser-harness x-monitor
 - 用 `BU_CDP_URL` 让监控 worker 只连这个独立 Chrome。
 - 在 rmux 里以 `x-supervisor`（自愈监督）+ `x-monitor`（抓取 worker）两个会话后台运行。
 
-首次使用需要在弹出的独立 Chrome 窗口里登录一次 X（登录写在独立 profile，不影响你的 Profile 3）。
+首次使用需要在弹出的独立 Chrome 窗口里登录一次 X（登录写在独立 profile，不影响你的 Profile 3）。无头值守场景的登录录入标准姿势见下节 chrome-mode。
 
 ### 3. 查看状态
 
@@ -56,6 +58,20 @@ browser-harness x-monitor
 browser-harness --doctor          # Chrome / daemon / 连接状态
 browser-harness rmux status       # 两个 rmux 会话是否存活
 ```
+
+### 4. 无头/有头双模（chrome-mode）
+
+agent Chrome 支持无头/有头双模，`<BH_HOME>/.env` 是唯一事实源（`BH_CHROME_HEADLESS=1` 无头值守、`=0` 保窗）；翻转自动完成改写 `.env` + 按 pid 精确停 agent Chrome（绝不误伤你日常的 Chrome）+ 双 daemon 重启 + x-monitor 幂等恢复：
+
+```powershell
+browser-harness chrome-mode status     # 当前模式 + agent Chrome 是否在跑
+browser-harness chrome-mode headed     # 翻有头：登录/录入用
+browser-harness chrome-mode headless   # 翻无头：值守用
+```
+
+- **登录录入标准姿势**：`headed` 人工登录一次 → `headless` 翻回值守（S008：macOS 上 CDP 注入的 cookie 不跨重启存活，人工登录落钥匙串才持久；Linux/Windows 无此差异）。
+- **跨设备免重登**（S007 cookies 插件）：`browser-harness cookies export --domain x.com` 导出（默认拒绝全量导，文件 0600）→ 拷到目标机 → `browser-harness cookies import --file <f.json>`。
+- Linux 无 `DISPLAY`/`WAYLAND_DISPLAY` 时自动无头；WSL mirrored 网络可用 `BH_AGENT_CDP_PORT=9224` 避开 Windows 侧端口；`BH_CHROME_EXTRA_FLAGS` 透传任意启动 flag。
 
 ## 更新升级
 
@@ -161,22 +177,22 @@ print(summarize_current_page())
 browser-harness/
 ├── src/browser_harness/          # ★ 包源（与 wheel 内容 1:1，见下节）
 ├── agent-workspace/              # ★ 应用层【源】（git 跟踪；运行时副本在 BH_HOME）
-│   ├── apps/                     #   7 个插件源：x-monitor / x-supervisor / x-worker /
-│   │                             #   x-search / web-fetch / google-search / bing-search
+│   ├── apps/                     #   8 个插件源：x-monitor / x-supervisor / x-worker /
+│   │                             #   x-search / web-fetch / google-search / bing-search / cookies
 │   └── domain-skills/            #   97 个站点配方源（x/、github/、amazon/…106 md + 1 py）
 ├── interaction-skills/           # ★ 17 个浏览器操作专题源（uploads/cookies/iframes/…）
 ├── skills/browser-harness/       # Claude plugin 结构（SKILL.md + references/）
 ├── .claude-plugin/               #   plugin.json + marketplace.json
 ├── SKILL.md                      # ★ 技能正文权威源（≈18KB；包内副本由测试守护同步）
 ├── install.md                    # 一次性安装指引（随包分发为 references/install.md）
-├── tests/unit/                   # 194 个测试：daemon/helpers/admin/rmux/run/js/recorder/
+├── tests/unit/                   # 224 个测试：daemon/helpers/admin/rmux/run/js/recorder/
 │                                 #   skills 防漂移 / 插件合并加载 / app 路由…
 ├── docs/                         # 文档体系（ohmyagents 规范）
 │   ├── guide/                    #   G001-G004：文档/研究/工作流/经验沉淀细则
-│   ├── research/                 #   S001-S005：rmux、defuddle、浏览器隔离等研究
+│   ├── research/                 #   S001-S008：rmux、defuddle、浏览器隔离、无头接管、钥匙串…
 │   ├── proven/                   #   P0001-P0002：已实证方案
-│   ├── mistakes/                 #   M101：user-data-dir 引号导致 profile 污染
-│   ├── references/               #   R001-R003：R003=插件开发与测试规范
+│   ├── mistakes/                 #   M101-M108：profile 污染、升级锁、symlink、CRLF、限流误报…
+│   ├── references/               #   R001-R005：R003=插件开发与测试规范
 │   └── diary/ · assets/          #   日记与截图
 ├── AGENTS.md / INDEX.md / GOAL.md / PLAN.md / ROADMAP.md / TODO.md / CHANGELOG.md
 ├── mcp_server.py                 # 可选 MCP 封装
@@ -206,7 +222,7 @@ browser_harness/                  # 薄核心：框架，不含任何应用逻�
 └── references/       # ★ 分发母本（只读）
     ├── install.md                #   安装指引
     ├── interaction/   (17 文件)  #   操作专题（与 interaction-skills/ 同步守护）
-    ├── apps/          (7 文件)   #   插件母本（与 agent-workspace/apps/ 同步守护）
+    ├── apps/          (8 文件)   #   插件母本（与 agent-workspace/apps/ 同步守护）
     └── domain-skills/ (107 文件) #   站点配方母本（同上；106 md + 1 py）
 ```
 
@@ -226,16 +242,19 @@ D:\ohmyenv\uv-tools\browser-harness\
 BH_HOME/
 ├── .env                    # ★ BU_CDP_URL=http://127.0.0.1:9223 —— 默认 daemon 永久钉住
 │                           #   agent Chrome；用户浏览器即使开了 inspect 开关也不会被连
+│                           #   （BH_CHROME_HEADLESS 等 chrome-mode 管理的键也在此——
+│                           #   勿手改，用 browser-harness chrome-mode 翻转）
 ├── agent-chrome-profile/   # agent 专属 Chrome user-data-dir（X 登录态；调试端口 9223）
 ├── runtime/                # 每 daemon 一对：bu-default.pid/.port、bu-x-monitor.pid/.port
 ├── tmp/                    # bu-*.log（daemon 日志）、shot.png、调试截图/PDF
 └── agent-workspace/        # ★ agent 应用层（活数据；skills sync 只增不删）
-    ├── apps/               #   7 个插件运行时（browser-harness <app名> 即执行）
+    ├── apps/               #   8 个插件运行时（browser-harness <app名> 即执行）
     │   ├── x-monitor.py        # 启动器：拉起 Chrome + 钉 env + rmux ensure（非阻塞）
     │   ├── x-supervisor.py     # 自愈监督：心跳检查 + 异常重拉 worker（会话 x-supervisor）
     │   ├── x-worker.py         # 抓取 worker：空闲门控刷新时间线 → x_tweets.db（BU_NAME=x-monitor）
     │   ├── x-search.py         # 推文库查询（--stats/--recent/--since/--author/--csv…）
     │   ├── web-fetch.py        # defuddle 正文提取（--text/--json/--current/--browser）
+    │   ├── cookies.py          # 会话 cookie 跨设备导出/导入（S007；默认拒全量导、0600 落盘）
     │   └── google-search.py / bing-search.py   # 搜索 → 自动接正文提取
     ├── domain-skills/      #   97 站点配方运行时（BH_DOMAIN_SKILLS=1 时 goto_url 自动匹配）
     ├── x_tweets.db (+wal/shm)  # 推文库（WAL；author=显示名，handle 单列）
@@ -259,7 +278,7 @@ repo 源（git）                wheel references 母本           部署落位
 ──────────────  ──拷贝/发布──▶  ──────────────────  ──sync──▶  ─────────────────
 SKILL.md                       browser_harness/SKILL.md        C 线技能目录（19 文件）
 interaction-skills/    →       references/interaction/    →    （并入技能包）
-agent-workspace/apps/  →       references/apps/           →    B 线 apps/（7 插件）
+agent-workspace/apps/  →       references/apps/           →    B 线 apps/（8 插件）
 agent-workspace/domain-skills/ → references/domain-skills/  →  B 线 domain-skills/
         └── tests/unit/test_skill_packaged.py 逐对守护，漂移即红
 ```
@@ -281,6 +300,9 @@ browser-harness <命令/脚本/插件>
 $env:BH_HOME                 # 根数据目录（全局）
 $env:BH_AGENT_WORKSPACE      # agent workspace 目录
 $env:BH_AGENT_CHROME_PROFILE # agent Chrome profile
+$env:BH_AGENT_CDP_PORT       # agent Chrome 调试端口（默认 9223；WSL mirrored 网络建议 9224）
+$env:BH_CHROME_HEADLESS      # 1=强制无头 0=保窗；不设时无 DISPLAY 的 Linux 自动无头（chrome-mode 管理的键）
+$env:BH_CHROME_EXTRA_FLAGS   # 透传给 agent Chrome 的额外启动 flag
 $env:BU_CDP_URL              # CDP http 地址（钉住浏览器）
 $env:BU_CDP_WS               # CDP websocket 地址
 $env:BU_NAME                 # daemon 名（每个长跑插件应有专属 daemon）
@@ -437,6 +459,7 @@ browser-harness rmux kill x-supervisor      # 停整个监控栈
 ```bash
 git clone https://github.com/raystyle/browser-harness && cd browser-harness
 ./browser-harness --version      # 跑当前工作树（环境自动准备：.venv 优先，否则 uv run 兜底；BH_HOME 隔离在 <repo>/.browser-harness-dev，不污染装机数据）
+# 共享 checkout（同目录多平台/WSL 混用）勿混用同一 .venv——平台不符的残留 venv 会让 uv 报错，整删 .venv 重建即可
 uv run --with pytest python -m pytest tests/unit -q    # 单测（集成测试需 live browser）
 ```
 
