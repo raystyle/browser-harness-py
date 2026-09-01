@@ -27,6 +27,21 @@
 - AI 原生全景图 — browser-harness 条目
   https://landscape.jimmysong.io/zh/projects/browser-harness/
 
+## 抓取 / 内容提取
+
+- Defuddle（正文提取库，本项目 `web-fetch` 的引擎）— kepano/defuddle
+  https://github.com/kepano/defuddle
+- defuddle-fetch-mcp-server — 用 Defuddle 做「抓取网页 → 清洗 → Markdown」的 MCP server
+  https://github.com/domdomegg/defuddle-fetch-mcp-server
+- Defuddle Fetch（MCP Market 收录）
+  https://mcpmarket.com/server/defuddle-fetch-1
+- fetch-use（Browser Use 的「真实浏览器方式抓取」Python SDK，本项目核心依赖之一）
+  https://browser-use.com/posts/fetch-use
+- The Ultimate Guide to Web Scraping (2026) — Browser Use 抓取指南
+  https://browser-use.com/posts/web-scraping-guide-2026
+- browser-use/browser-use 主仓库（网页可访问性 / agent 抓取）
+  https://github.com/browser-use/browser-use
+
 ## 视频
 
 - 《Browser Use Harness Changed AI Agents (Hermes, Claude...)》— YouTube（2026-05-07）
