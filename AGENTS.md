@@ -96,6 +96,7 @@
 - **网页正文**：`browser-harness web-fetch <url> --text|--json|--current`
 - **搜索**：`browser-harness google-search|bing-search <query> [--page N]`
 - **rmux 管理**：`browser-harness rmux list|ensure|status|capture|kill|kill-server`
+- **无头/有头切换**：`browser-harness chrome-mode status|headed|headless`（登录录入走 headed，值守走 headless，S008）
 - **资源视图**：`browser-harness browsers`（浏览器实例 + tab + rmux）、`browser-harness current`（附加状态）
 - **安装**：`uv tool install git+https://github.com/raystyle/browser-harness`
 - **查文档**：先搜 `INDEX.md` 定位编号，再读文件。

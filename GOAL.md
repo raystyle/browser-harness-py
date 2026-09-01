@@ -18,6 +18,7 @@
 
 | 日期 | 进展 |
 | --- | --- |
+| 2026-09-01 | macOS 无头接管收口（R005 四条验收全过）+ 双模切换落地（用户定向）：`chrome-mode` 命令一条完成无头/有头翻转（S008）；实证 macOS 钥匙串加密使 CDP 导入 cookie 不跨重启，登录录入改有头人工登录一次、无头值守可继承；`browsers` 视图补 Darwin 枚举；「Linux/macOS 接管」队列目标整体收口 |
 | 2026-09-01 | Windows 无头复测（R004 路径 A）：无头拉起 9223 → doctor 全绿 → x-monitor 接管 → 两轮增量 1062→1064，验收闭环；顺修 M105 单测平台依赖（win32 字符串比对路径失效），双平台复跑绿；v0.6.6 发版材料就绪待发 |
 | 2026-09-01 | 会话 cookie 跨设备迁移（S007）：`cookies export/import` 插件（agent Chrome 间免重登迁移，修正 S004 旧结论的适用边界）；X 登录态 Windows→WSL 无头 Chrome 实测迁移成功 |
 | 2026-09-01 | WSL2 无头适配（S006）：装原生 Linux Chrome 152、launcher 行尾修 LF、agent 端口可配（`BH_AGENT_CDP_PORT`，WSL 用 9224 避开 mirrored 网络下 Windows 侧 9223）、`BH_CHROME_HEADLESS` 无头启动、`browsers` 视图 Linux 枚举（M104 cmdline 重写坑）。本机 WSL `--doctor` 全绿、web-fetch/管道自动化实测通过、单测 207 全绿 |
@@ -42,6 +43,7 @@
 
 | 日期 | 目标 | 结果 |
 | --- | --- | --- |
+| 2026-09-01 | macOS 无头接管（队列目标「Linux/macOS 接管」的 macOS 半） | 达成：R005 四条验收全过 + 双模切换落地（S008），队列目标整体收口 |
 | 2026-09-01 | WSL2 无头接管（队列目标「Linux/macOS 接管」的 Linux 半） | 达成：WSL 自包含无头栈全链路实测（S006）；macOS 半仍排后 |
 | 2026-09-01 | v0.2.0 封版：X 监控 + web-fetch + 搜索 + rmux 隔离 + 资源视图 + 打包 | 达成：tag v0.2.0 已推 mine/dev/work |
 | 2026-08-31 | 个人 fork 分支维护（deepseek-harness 模式） | 达成：mine 远程 + dev/work 分支 + fork 工作流 |
