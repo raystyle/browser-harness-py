@@ -19,7 +19,7 @@ from browser_harness.rmux import Rmux
 
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-WORKER = os.path.join(_HERE, "x_worker.py")
+WORKER = os.path.join(_HERE, "x-worker.py")
 
 
 def _data_dir():

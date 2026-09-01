@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "browser-harness"
-version = "0.3.0"
+version = "0.4.0"
 description = "The simplest, thinnest, and most powerful harness to control your real browser with your agent."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -46,7 +46,7 @@ package-dir = {"" = "src"}
 where = ["src"]
 
 [tool.setuptools.package-data]
-browser_harness = ["SKILL.md", "video-template.html", "references/*.md", "references/interaction/*.md", "references/domain-skills/**/*.md", "references/domain-skills/**/*.py"]
+browser_harness = ["SKILL.md", "video-template.html", "references/*.md", "references/interaction/*.md", "references/domain-skills/**/*.md", "references/domain-skills/**/*.py", "references/apps/*.py"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

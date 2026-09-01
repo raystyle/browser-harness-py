@@ -2,6 +2,15 @@
 
 版本里程碑：本 fork 相对上游的本地改动记录。
 
+## v0.4.0 — 2026-09-01
+
+- **插件化架构**：X（x-monitor/x-supervisor/x-worker/x-search）、web-fetch、google/bing-search 七个应用从包内抽离为 `agent-workspace/apps/` 插件；包收敛为薄核心（daemon/helpers/admin/rmux/browsers/skills/recordings）。命令入口 `browser-harness <app名>` 自动路由到 `apps/<app名>.py`（参数经 `APP_ARGS` 注入，支持直接 python 调试）。
+- `agent_helpers.py` 改为**合并**加载（包内置打底、workspace 按函数名覆盖），消除"旧 workspace 副本整体遮蔽新版内置"的坑。
+- agent Chrome 生命周期函数（`_launch_agent_chrome` 等）从 xapps 归入核心 `admin.py`，包内删除 xapps/x_worker/x_supervisor/x_search/web_fetch。
+- `skills sync` 铺装面扩展：domain-skills + **apps**（均增量、绝不删除本地内容）。
+- 新增《插件开发与测试规范》（docs/references/R003）；README 全面改写（插件使用、skills sync 三落点、数据目录统一 BH_HOME、升级流程）。
+- 测试 195 passed：新增 apps 防漂移、包内无应用模块、合并加载、app 路由用例。
+
 ## v0.3.0 — 2026-09-01
 
 - **skills sync 目标分治**：CLI 技能目录（claude/codex）只装技能包本体（SKILL.md + install.md + interaction，19 文件）；domain-skills（107 个站点配方，含 `claude-ai/extract-share-transcript.py` 脚本，此前被 `*.md` 打包规则漏掉）只增量铺到 `<BH_HOME>/agent-workspace/domain-skills/`，绝不删除用户自加内容。

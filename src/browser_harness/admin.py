@@ -373,8 +373,6 @@ def ensure_daemon(wait=60.0, name=None, env=None):
     if not local and _pinned_agent_cdp(env):
         # The pinned agent Chrome is the only browser this daemon may touch;
         # start it up front instead of letting get_ws_url dead-wait 30s.
-        from .xapps import _agent_chrome_running, _launch_agent_chrome
-
         if not _agent_chrome_running() and _launch_agent_chrome():
             print("browser-harness: agent Chrome isn't running — launching it.", file=sys.stderr)
     launched_browser = None
@@ -738,6 +736,86 @@ _NO_THROTTLE_FLAGS = (
     "--disable-backgrounding-occluded-windows",
     "--disable-features=IntensiveWakeUpThrottling,CalculateNativeWinOcclusion",
 )
+
+
+_AGENT_PORT = 9223
+
+
+def _agent_profile():
+    """Agent Chrome user-data-dir: BH_AGENT_CHROME_PROFILE or <BH_HOME>/agent-chrome-profile."""
+    raw = os.environ.get("BH_AGENT_CHROME_PROFILE")
+    if raw:
+        return Path(raw).expanduser().resolve()
+    from .paths import home_dir
+
+    return home_dir() / "agent-chrome-profile"
+
+
+def _agent_chrome_running() -> bool:
+    import urllib.request
+
+    try:
+        urllib.request.urlopen(f"http://127.0.0.1:{_AGENT_PORT}/json/version", timeout=2)
+        return True
+    except Exception:
+        return False
+
+
+def _chrome_path():
+    import platform
+    import shutil
+
+    for key in ("BH_CHROME_PATH", "CHROME_PATH"):
+        raw = (os.environ.get(key) or "").strip()
+        if raw and Path(raw).expanduser().is_file():
+            return raw
+    if platform.system() == "Windows":
+        for c in (
+            r"C:\Program Files\Google\Chrome Dev\Application\chrome.exe",
+            r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+            r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+        ):
+            if Path(c).exists():
+                return c
+        return shutil.which("chrome")
+    if platform.system() == "Darwin":
+        p = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+        return p if Path(p).exists() else shutil.which("google-chrome")
+    return shutil.which("google-chrome") or shutil.which("chromium") or shutil.which("chromium-browser")
+
+
+def _launch_agent_chrome() -> bool:
+    """Start the isolated agent Chrome if it is not already up. Blocks up to 20s.
+
+    The user-data-dir flag must stay unquoted (M101: quoting once leaked the
+    launch into the user's default profile)."""
+    import platform
+    import subprocess
+    import time
+
+    if _agent_chrome_running():
+        return True
+    chrome = _chrome_path()
+    if not chrome:
+        return False
+    flags = [
+        f"--user-data-dir={_agent_profile()}",
+        f"--remote-debugging-port={_AGENT_PORT}",
+        *_NO_THROTTLE_FLAGS,
+    ]
+    try:
+        if platform.system() == "Darwin":
+            subprocess.Popen(["open", "-na", "Google Chrome", "--args", *flags])
+        else:
+            subprocess.Popen([chrome, *flags], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except OSError:
+        return False
+    deadline = time.time() + 20
+    while time.time() < deadline:
+        if _agent_chrome_running():
+            return True
+        time.sleep(0.5)
+    return False
 
 
 def _extra_chrome_flags():

@@ -64,8 +64,13 @@ Only add task-specific helpers and data here; do not edit the installed package.
   including a git checkout. The repo's `agent-workspace/` holds tracked
   reference content only.
 - Override the location with `BH_AGENT_WORKSPACE`.
-- Load order: the active `agent_helpers.py` first, then the packaged
-  `browser_harness.agent_helpers` fallback.
+- **Add an app = helper functions + plugin script**: reusable functions go in
+  `agent_helpers.py`, standalone scripts in `apps/<name>.py` — invoked as
+  `browser-harness <name> [args...]` (positional args land in `APP_ARGS`).
+  Long-running plugins get a rmux session (`browser-harness rmux ensure ...`).
+- `agent_helpers.py` loading is a **merge**: packaged helpers fill the defaults,
+  the workspace copy overrides per function — create it only to customize; an
+  absent file always uses the newest packaged helpers.
 - To add a helper, create `agent_helpers.py` in the active workspace. Its public
   functions are imported automatically by the next `browser-harness` script:
 
@@ -90,16 +95,18 @@ print(summarize_current_page())
 
 ## Apps routing
 
-Commands live in the main package; task data lives in `agent-workspace/`. Route by intent:
+The package is a thin core (daemon, helpers, rmux, diagnostics); applications are **workspace plugins** in `agent-workspace/apps/`, provisioned by `browser-harness skills sync`. Route by intent:
 
 | User intent | App / command |
 | --- | --- |
-| X 持续抓推 / 监控新推（自愈） | `browser-harness x-monitor` |
-| X 已存推的查询 / 搜索 / 统计 | `browser-harness x-search ...` |
-| Google 搜索 | `browser-harness google-search <query>` |
-| Bing 搜索 | `browser-harness bing-search <query>` |
-| 网页正文提取 | `browser-harness web-fetch <url>` |
-| rmux 会话管理 | `browser-harness rmux list\|status\|ensure\|capture\|kill\|kill-server` |
+| X 持续抓推 / 监控新推（自愈） | `browser-harness x-monitor`（插件） |
+| X 已存推的查询 / 搜索 / 统计 | `browser-harness x-search ...`（插件） |
+| Google 搜索 | `browser-harness google-search <query>`（插件） |
+| Bing 搜索 | `browser-harness bing-search <query>`（插件） |
+| 网页正文提取 | `browser-harness web-fetch <url>`（插件） |
+| rmux 会话管理 | `browser-harness rmux list\|status\|ensure\|capture\|kill\|kill-server`（核心） |
+
+Plugin development & testing spec: `docs/references/R003-插件开发与测试规范.md`.
 
 ## Local Chrome
 
@@ -158,8 +165,9 @@ After the user clicks Allow, verify with `browser-harness --doctor` that
 
 ## X (Twitter) Monitoring via rmux
 
-Two pieces: `x_supervisor.py` (self-healing loop) plus `x_worker.py` (the capture
-worker it spawns into a rmux pane). Agent-operated, no autostart.
+Two pieces: the `x-supervisor` workspace app (self-healing loop) plus the
+`x-worker` app it spawns into a rmux pane. Agent-operated, no autostart;
+`browser-harness skills sync` installs them.
 
 Run as rmux background sessions (reuse one shell; poll on demand — no blocking
 command). The worker runs against an **isolated agent Chrome** — never the

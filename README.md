@@ -41,9 +41,10 @@ browser-harness --doctor      # 依赖/连接自检
 
 安装后全局 `browser-harness` 命令可用；`pydefuddle`（网页正文提取）已作为核心依赖随包安装，无需额外 `[content]`。
 
-### 2. 启动 agent 专属 Chrome + X 监控
+### 2. 安装技能与插件，启动 agent 专属 Chrome + X 监控
 
 ```powershell
+browser-harness skills sync     # 一次性：装技能到 Claude/Codex + 铺装插件与站点技能到 workspace
 browser-harness x-monitor
 ```
 
@@ -62,39 +63,30 @@ browser-harness --doctor          # Chrome / daemon / 连接状态
 browser-harness rmux status       # 两个 rmux 会话是否存活
 ```
 
-## Skill 安装部署
+## Skill 与插件安装部署
 
-本仓库的 `SKILL.md` 是 agent 操作路由；`browser-harness skill` 会把安装包内的同一份 SKILL.md 输出到 stdout。先把 CLI 升级到本仓库最新版，再注册 skill：
+本仓库的 `SKILL.md` 是 agent 操作路由。一条命令完成全部安装（技能进 Claude Code / Codex，插件与站点技能进 workspace）：
 
 ```powershell
 uv tool install --upgrade git+https://github.com/raystyle/browser-harness@dev/work
+browser-harness skills sync     # 状态查看；加 sync 参数执行安装/更新
 ```
 
-### Codex
+`skills sync` 的三个落点：
 
-```powershell
-$skillDir = "$env:USERPROFILE\.codex\skills\browser-harness"
-New-Item -ItemType Directory -Force $skillDir | Out-Null
-browser-harness skill | Set-Content -LiteralPath "$skillDir\SKILL.md" -Encoding utf8
-```
+| 目标 | 内容 |
+| --- | --- |
+| `~/.claude/skills/browser-harness/` | 技能包（SKILL.md + install.md + 17 个 interaction 专题） |
+| `~/.codex/skills/browser-harness/` | 同上 |
+| `~/.config/browser-harness/agent-workspace/{apps,domain-skills}/` | 插件脚本 + 站点技能（**增量覆盖，绝不删除**本地自加内容） |
 
-注册后 skill 名称为 `browser-harness`，触发器使用 SKILL frontmatter 里的 description：
+注册后 skill 名称为 `browser-harness`，触发器是 SKILL frontmatter 里的 description：
 
 ```text
 Always use browser-harness for any web interaction: automation, scraping, testing, or site/app work.
 ```
 
-### Claude Code / 其他 agent
-
-本仓库同时提供 Claude plugin 结构：
-
-- `.claude-plugin/plugin.json`：plugin 元数据。
-- `.claude-plugin/marketplace.json`：marketplace 索引。
-- `skills/browser-harness/`：skill 目录，其中 `references/install.md` 是 CLI 安装前置说明。
-
-也可以用和 Codex 相同的方式手动注册：skill 名 `browser-harness`，skill body 由 `browser-harness skill` 生成，trigger 同上。
-
-如果旧的用户级 `browser` 或 `browser-use` skill 抢占了同名意图，手动删除那个 stale skill 目录；不要改 bundled/vendor plugin cache。
+本仓库同时提供 Claude plugin 结构（`.claude-plugin/` + `skills/browser-harness/`），供 marketplace 方式安装。如果旧的用户级 `browser` / `browser-use` skill 抢占了同名意图，手动删除那个 stale skill 目录；不要改 bundled/vendor plugin cache。
 
 ## 自由执行指定代码
 
@@ -120,113 +112,95 @@ print(setup_browser_apps())
 
 上面的代码会经 daemon 连上当前绑定的 Chrome，并把结果打印到 stdout。脚本执行失败会以非 0 退出码返回，适合被 agent 或 CI 直接调用。
 
-## agent-workspace（agent 临时/运行目录）
+## agent-workspace（agent 运行目录 + 应用层）
 
-`agent-workspace` 不是源码开发目录，而是 agent 运行时的**临时开发目录**。agent 只在这个目录里放自己的辅助函数、技能和数据，不改主包代码。
+`agent-workspace` 是 agent 运行时的**应用层**，恒位于 `<BH_HOME>`（默认 `~/.config/browser-harness/agent-workspace`，repo checkout 不再特殊化）。结构：
 
-加载优先级：
-
-1. `agent-workspace/agent_helpers.py`（存在时优先加载）。
-2. 包内置 `browser_harness.agent_helpers`（没有 workspace 文件时回退）。
-
-全局 `uv tool install` 后的默认位置：
-
-```powershell
-$ws = "$env:USERPROFILE\.config\browser-harness\agent-workspace"
-New-Item -ItemType Directory -Force $ws | Out-Null
+```text
+agent-workspace/
+├── agent_helpers.py   # 可选：函数合并层（包内置打底，本文件按函数名覆盖）
+├── apps/              # 插件：browser-harness <app名> 即调用 apps/<app名>.py
+└── domain-skills/     # 站点技能（BH_DOMAIN_SKILLS=1 时 goto_url 自动匹配）
 ```
 
-在该目录创建 `agent_helpers.py`：
+`agent_helpers.py` 是**合并**加载：包内置版填充默认函数，workspace 版按函数名覆盖 —— 只在想自定义时创建它；不存在则永远用最新内置版。
 
 ```powershell
+# 在 ~/.config/browser-harness/agent-workspace/agent_helpers.py 里写：
 def summarize_current_page():
     info = page_info() or {}
     body = js("(document.body && document.body.innerText || '').slice(0, 3000)")
     return {"url": info.get("url"), "title": info.get("title"), "body": body}
-```
 
-然后直接调用：
-
-```powershell
+# 然后任何管道脚本里直接调：
 @'
 print(summarize_current_page())
 '@ | browser-harness
 ```
 
-开发仓库 checkout 下同名目录 `D:\browser-harness\agent-workspace\` 也会被优先使用；如果要强制指向其他目录，设置 `BH_AGENT_WORKSPACE`。
-
-站点技能放在 `agent-workspace/domain-skills/<host>/`，设置 `BH_DOMAIN_SKILLS=1` 后 `goto_url` 会把当前域名匹配到的技能文件一并返回。核心应用已经迁入主包：`web_fetch.py`、`x_search.py`、`x_worker.py`、`x_supervisor.py`。
+插件开发与测试规范见 [docs/references/R003-插件开发与测试规范.md](docs/references/R003-插件开发与测试规范.md)。
 
 ## 部署细节与数据目录
 
-开发仓库和全局 `uv tool install` 会使用不同位置：
+v0.2.3 起**所有运行时数据统一在 `<BH_HOME>`**（默认 `~/.config/browser-harness`，Windows 即 `C:\Users\<user>\.config\browser-harness`，不走 `%APPDATA%`）；repo checkout 只是源码：
 
-| 内容 | 开发仓库 | 全局安装 |
-| --- | --- | --- |
-| 推文 DB / 心跳 / 日志 | `agent-workspace/`（`x_tweets.db` 等） | `~/.config/browser-harness/agent-workspace/` |
-| agent 专属 Chrome profile | `agent-chrome-profile/` | `~/.config/browser-harness/agent-chrome-profile/` |
-| daemon 配置 / 运行时 / 临时文件 | `.browser-harness-dev/`（仓库 launcher）；否则 `~/.config/browser-harness` | `~/.config/browser-harness/{runtime,tmp}/` |
-| agent Chrome 调试端口 | `9223` | `9223` |
+| 内容 | 位置 |
+| --- | --- |
+| 推文 DB / 心跳 / 日志 / 插件 / 站点技能 | `<BH_HOME>/agent-workspace/` |
+| agent 专属 Chrome profile | `<BH_HOME>/agent-chrome-profile/`（调试端口 `9223`） |
+| daemon 配置 / 运行时 / 临时文件 | `<BH_HOME>/{.env,runtime/,tmp/}` |
 
-在 Windows 上 `~/.config/browser-harness` 实际为 `C:\Users\<user>\.config\browser-harness`（不走 `%APPDATA%`）。开发仓库的 `./browser-harness` launcher 会把 daemon 状态额外隔离到仓库内 `.browser-harness-dev/`，便于本地测试时不污染全局目录；如果直接使用 `uv run python -m browser_harness.run`，则 daemon 状态沿用 `~/.config/browser-harness`。
+默认 daemon 由 `<BH_HOME>/.env` 的 `BU_CDP_URL=http://127.0.0.1:9223` 永久钉在 agent Chrome 上 —— 用户日常浏览器（即使开了 chrome://inspect 调试开关）永远不会被连上。
 
 可用环境变量覆盖默认位置：
 
 ```powershell
 $env:BH_HOME                 # browser-harness 根数据目录（全局）
-$env:X_DB                    # 推文 SQLite 路径
-$env:X_HEARTBEAT             # 心跳文件
-$env:X_SUPERVISOR_LOG        # supervisor 日志
 $env:BH_AGENT_WORKSPACE      # agent workspace 目录
 $env:BH_AGENT_CHROME_PROFILE # agent Chrome profile
-$env:BU_CDP_URL              # CDP http 地址
+$env:BU_CDP_URL              # CDP http 地址（钉住浏览器）
 $env:BU_CDP_WS               # CDP websocket 地址
+$env:BU_NAME                 # daemon 名（每个长跑插件应有专属 daemon）
+$env:X_DB / X_HEARTBEAT / X_SUPERVISOR_LOG   # x-monitor 插件的数据落点
 ```
 
-小版本升级（例如本机从 0.2.0 升到 0.2.1）：
+升级（CLI 与插件一起更新）：
 
 ```powershell
-uv tool install --upgrade git+https://github.com/raystyle/browser-harness@dev/work
-browser-harness --version
+browser-harness --update -y        # 或 uv tool install --upgrade git+...@dev/work
+browser-harness skills sync        # 铺装新版插件与技能
 ```
 
 ## 命令使用
 
-### X 监控
+### 插件（workspace apps，`skills sync` 安装后可用）
 
 ```powershell
-browser-harness x-monitor                    # 启动自愈监控（非阻塞）
+browser-harness x-monitor                    # 启动自愈 X 监控（非阻塞）
 browser-harness x-search --stats             # 统计已存推
 browser-harness x-search --recent --limit 10 # 最近推
 browser-harness x-search <关键词> --limit 10  # 关键词搜索
 browser-harness x-search --since 1h --group-by hour
-browser-harness rmux capture x-monitor       # 看 worker 输出
-browser-harness rmux kill x-monitor          # 停 worker（supervisor 会自愈重拉）
+browser-harness web-fetch <url>              # 网页正文提取（--text/--json/--current/--browser）
+browser-harness google-search <query>        # Google 搜索（自动接正文提取）
+browser-harness bing-search <query>          # Bing 搜索
 ```
 
-### 网页正文提取
+未安装插件时命令会报 usage —— 先跑 `browser-harness skills sync`。
 
-```powershell
-browser-harness web-fetch <url>          # markdown
-browser-harness web-fetch <url> --text   # 纯文本
-browser-harness web-fetch <url> --json   # 完整元数据
-browser-harness web-fetch --current      # 当前标签
-```
-
-### 搜索引擎搜索（搜索后自动接正文提取）
-
-```powershell
-browser-harness google-search <query>
-browser-harness bing-search <query>
-```
-
-### rmux 会话管理
+### rmux 会话管理（框架核心）
 
 ```powershell
 browser-harness rmux list|status|new|ensure|send|keys|capture|kill|kill-server|version
+browser-harness rmux capture x-supervisor   # 看 x-monitor 监督输出
+browser-harness rmux kill x-monitor         # 停抓取 worker（supervisor 自愈重拉）
 ```
 
 `kill-server` 只销毁本项目 `browser-harness` label 的 daemon，不碰其他程序的 rmux 服务。
+
+## 插件开发
+
+包是**薄核心**（daemon / helpers / rmux / 诊断 / skills），应用一律做成 `agent-workspace/apps/` 下的插件。开发、测试、发布规范见 [docs/references/R003-插件开发与测试规范.md](docs/references/R003-插件开发与测试规范.md)。
 
 ## 文档
 

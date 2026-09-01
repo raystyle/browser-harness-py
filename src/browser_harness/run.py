@@ -62,11 +62,10 @@ Commands:
                                     drive rmux sessions/panes for multiplexed browser scripts
   browser-harness browsers           list Chrome instances, tabs, and app-tab binding
   browser-harness current            show the tab/app the daemon is operating on now
-  browser-harness x-monitor              start the self-healing X capture supervisor
-  browser-harness x-search <...>         query/search stored tweets
-  browser-harness web-fetch <url>         extract clean text/markdown from a URL
-  browser-harness google-search <query>  search Google in the logged-in browser
-  browser-harness bing-search <query>    search Bing in the logged-in browser
+  browser-harness <app> [args...]    run an agent-workspace app (apps/<app>.py):
+                                      x-monitor, x-search, web-fetch,
+                                      google-search, bing-search — installed by
+                                      `browser-harness skills sync`
   browser-harness --update [-y]    pull the latest version (agents: pass -y)
   browser-harness --reload         stop the daemon so next call picks up code changes
 """
@@ -75,6 +74,8 @@ USAGE = """Usage:
   @'
   print(page_info())
   '@ | browser-harness
+
+  browser-harness <app> [args...]       run agent-workspace/apps/<app>.py (APP_ARGS holds args)
 """
 
 
@@ -83,6 +84,16 @@ def _print_skill():
 
     # SKILL.md is UTF-8 (contains emoji); locale-codec read crashes on gbk Windows
     print(resources.files("browser_harness").joinpath("SKILL.md").read_text(encoding="utf-8"), end="")
+
+
+def workspace_app(name: str):
+    """Path to agent-workspace/apps/<name>.py — the plugin-script entry, or None."""
+    from .helpers import AGENT_WORKSPACE
+
+    if not name or "/" in name or "\\" in name or name.startswith("-"):
+        return None
+    app = AGENT_WORKSPACE / "apps" / f"{name}.py"
+    return app if app.is_file() else None
 
 
 def _exit_code(result) -> int:
@@ -201,10 +212,6 @@ def _run(args):
         from . import browsers
 
         sys.exit(browsers.run_current(args[1:]))
-    if args and args[0] in {"x-monitor", "x-search", "web-fetch", "google-search", "bing-search"}:
-        from . import xapps
-
-        sys.exit(xapps.run_cli(args))
     if args and args[0] == "--update":
         yes = any(a in {"-y", "--yes"} for a in args[1:])
         sys.exit(run_update(yes=yes))
@@ -215,11 +222,20 @@ def _run(args):
     if args and args[0] == "--debug-clicks":
         os.environ["BH_DEBUG_CLICKS"] = "1"
         args = args[1:]
+    code = None
     if not args and not sys.stdin.isatty():
         code = sys.stdin.read()
         if not code.strip():
             sys.exit(USAGE)
-    else:
+    elif args:
+        app = workspace_app(args[0])
+        if app is not None:
+            code = app.read_text(encoding="utf-8")
+            globals()["APP_ARGS"] = args[1:]
+            # The exec'd app's __file__ would be THIS module's path; expose the
+            # app's own location for sibling lookups (APP_FILE).
+            globals()["APP_FILE"] = str(app)
+    if code is None:
         sys.exit(USAGE)
     print_update_banner()
     require_existing = os.environ.get("BH_REQUIRE_EXISTING_DAEMON") == "1"

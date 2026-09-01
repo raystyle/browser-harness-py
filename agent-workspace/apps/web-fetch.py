@@ -22,6 +22,10 @@ from browser_harness.agent_helpers import extract_page_content, extract_url_cont
 
 
 def main(argv=None):
+    if argv is None:
+        # Invoked as a workspace app: APP_ARGS holds the CLI args after the
+        # app name; direct `python web-fetch.py` falls back to sys.argv.
+        argv = globals().get("APP_ARGS", sys.argv[1:])
     parser = argparse.ArgumentParser(description="Extract clean text/markdown from a web page")
     parser.add_argument("url", nargs="?", help="URL to fetch (omit with --current)")
     parser.add_argument("--current", action="store_true", help="parse the current browser page")
@@ -48,5 +52,7 @@ def main(argv=None):
     return 0
 
 
-if __name__ == "__main__":
-    raise SystemExit(main())
+# Entry: unguarded. Under app routing the code is exec'd with __name__ set to
+# the runner module, so an `if __name__ == "__main__"` guard would silently
+# skip execution.
+raise SystemExit(main())

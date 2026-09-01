@@ -1,4 +1,5 @@
-"""Sync the packaged skill (SKILL.md + references/) into agent CLI skill dirs."""
+"""Sync the packaged skill (SKILL.md + references/) into agent CLI skill dirs
+and provision workspace payload dirs (domain-skills/, apps/) additively."""
 
 from __future__ import annotations
 
@@ -12,6 +13,11 @@ _SKILL_DIRS = {
     "claude": Path.home() / ".claude" / "skills" / "browser-harness",
     "codex": Path.home() / ".codex" / "skills" / "browser-harness",
 }
+
+# Workspace payload dirs provisioned from packaged references/ (same name).
+# Additive sync only — the workspace is agent-owned and may hold content the
+# user or agent added locally; provisioning never deletes.
+_PROVISION_DIRS = ("domain-skills", "apps")
 
 
 def _packaged_skill_dir() -> Path:
@@ -79,26 +85,28 @@ def _sync_tree(dst: Path) -> None:
             shutil.copy2(s, d)
 
 
-def _domain_src() -> Path:
-    return _packaged_skill_dir() / "references" / "domain-skills"
+# --- workspace provisioning (domain-skills / apps) ---
+
+def _provision_src(name: str) -> Path:
+    return _packaged_skill_dir() / "references" / name
 
 
-def _domain_dst() -> Path:
+def _provision_dst(name: str) -> Path:
     from .paths import workspace_dir
 
-    return workspace_dir() / "domain-skills"
+    return workspace_dir() / name
 
 
-def _domain_files(root: Path) -> list[Path]:
-    """Site-skill payload files: markdown plus bundled helper scripts (no .gitkeep)."""
+def _provision_files(root: Path) -> list[Path]:
+    """Payload files: markdown plus bundled helper scripts (no .gitkeep)."""
     return sorted(p for p in root.rglob("*") if p.is_file() and p.suffix in (".md", ".py"))
 
 
-def _domain_diff() -> tuple[int, int, int]:
-    """(packaged total, missing at destination, differing) for domain-skills."""
-    src, dst = _domain_src(), _domain_dst()
+def _provision_diff(name: str) -> tuple[int, int, int]:
+    """(packaged total, missing at destination, differing)."""
+    src, dst = _provision_src(name), _provision_dst(name)
     missing = differing = total = 0
-    for p in _domain_files(src):
+    for p in _provision_files(src):
         total += 1
         t = dst / p.relative_to(src)
         if not t.is_file():
@@ -108,17 +116,13 @@ def _domain_diff() -> tuple[int, int, int]:
     return total, missing, differing
 
 
-def _sync_domain() -> int:
-    """Provision packaged domain-skills into the agent workspace.
-
-    Additive only: overwrite packaged files, never delete — the workspace is
-    agent-owned and may hold site skills the user added locally."""
-    src, dst = _domain_src(), _domain_dst()
+def _provision_sync(name: str) -> int:
+    src, dst = _provision_src(name), _provision_dst(name)
     if not src.is_dir():
         return 0
     dst.mkdir(parents=True, exist_ok=True)
     copied = 0
-    for p in _domain_files(src):
+    for p in _provision_files(src):
         t = dst / p.relative_to(src)
         if not t.is_file() or t.read_bytes() != p.read_bytes():
             t.parent.mkdir(parents=True, exist_ok=True)
@@ -153,14 +157,16 @@ def run_cli(args: list[str]) -> int:
             continue
         _sync_tree(d)
         print(f"  {tool:8s} synced         {d}  [{len(_skill_files(d))} files]")
-    total, missing, differing = _domain_diff()
-    if total == 0:
-        return 0
-    if not missing and not differing:
-        print(f"  workspace up to date    {_domain_dst()}  [{total} domain skills]")
-    elif do_sync:
-        copied = _sync_domain()
-        print(f"  workspace synced        {_domain_dst()}  [{copied} domain skills copied, {total} packaged]")
-    else:
-        print(f"  workspace OUTDATED      {_domain_dst()}  ({missing} missing, {differing} differ — run: browser-harness skills sync)")
+    for name in _PROVISION_DIRS:
+        total, missing, differing = _provision_diff(name)
+        if total == 0:
+            continue
+        dst = _provision_dst(name)
+        if not missing and not differing:
+            print(f"  workspace up to date    {dst}  [{total} {name}]")
+        elif do_sync:
+            copied = _provision_sync(name)
+            print(f"  workspace synced        {dst}  [{copied}/{total} {name} copied]")
+        else:
+            print(f"  workspace OUTDATED      {dst}  ({missing} missing, {differing} differ — run: browser-harness skills sync)")
     return 0

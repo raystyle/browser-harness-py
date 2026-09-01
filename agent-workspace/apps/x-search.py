@@ -198,7 +198,11 @@ def _stats():
 
 
 def main(argv=None):
-    kw, limit, author, recent, since, group_by, csv_mode, csv_path, stats = _parse(argv if argv is not None else sys.argv[1:])
+    if argv is None:
+        # Invoked as a workspace app: APP_ARGS holds the CLI args after the
+        # app name; direct `python x-search.py` falls back to sys.argv.
+        argv = globals().get("APP_ARGS", sys.argv[1:])
+    kw, limit, author, recent, since, group_by, csv_mode, csv_path, stats = _parse(list(argv))
     if stats:
         _stats()
         return
@@ -216,5 +220,7 @@ def main(argv=None):
         _print_flat(rows)
 
 
-if __name__ == "__main__":
-    main()
+# Entry: unguarded. Under app routing the code is exec'd with __name__ set to
+# the runner module, so an `if __name__ == "__main__"` guard would silently
+# skip execution.
+raise SystemExit(main())

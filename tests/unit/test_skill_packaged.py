@@ -59,3 +59,21 @@ def test_packaged_references_match_domain_skills():
     assert dst_files == src_files, (
         "src/browser_harness/references/domain-skills/ drifted from agent-workspace/domain-skills/ — recopy it"
     )
+
+
+def test_packaged_references_match_workspace_apps():
+    src = _REPO / "agent-workspace" / "apps"
+    dst = _PKG / "references" / "apps"
+    if not src.is_dir():
+        return  # installed (non-repo) environment
+    src_files = {str(p.relative_to(src)): p.read_bytes() for p in src.glob("*.py")}
+    dst_files = {str(p.relative_to(dst)): p.read_bytes() for p in dst.glob("*.py")}
+    assert dst_files == src_files, (
+        "src/browser_harness/references/apps/ drifted from agent-workspace/apps/ — recopy it"
+    )
+
+
+def test_no_app_modules_left_in_package():
+    """X/search/fetch moved to workspace apps; the package must not carry them."""
+    for gone in ("xapps.py", "x_worker.py", "x_supervisor.py", "x_search.py", "web_fetch.py"):
+        assert not (_PKG / gone).is_file(), f"{gone} should live in agent-workspace/apps/, not the package"
