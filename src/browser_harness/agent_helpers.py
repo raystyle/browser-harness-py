@@ -198,6 +198,29 @@ def scan_tabs_for_blocks():
     return out
 
 
+_SITE_SELECTORS = {
+    "github.com": "article.markdown-body",
+    "stackoverflow.com": "#answers, .s-prose, .question .s-prose",
+    "wikipedia.org": "#mw-content-text",
+    "medium.com": "article",
+    "news.ycombinator.com": ".commtext",
+    "reddit.com": ".usertext-body, [data-testid='comment']",
+    "docs.python.org": "div.body",
+}
+
+
+def _site_selector(url=""):
+    """Return a site-specific content selector for ``url``, or ``None``."""
+    try:
+        host = (urllib.parse.urlparse(url or "").hostname or "").lower()
+    except Exception:
+        host = ""
+    for domain, selector in _SITE_SELECTORS.items():
+        if host == domain or host.endswith("." + domain):
+            return selector
+    return None
+
+
 def _html_to_text(html):
     """Best-effort plain text from an HTML fragment (prefers bs4 when present)."""
     if not html:
@@ -220,7 +243,11 @@ def _pydefuddle_parse(html, url=""):
         from pydefuddle import defuddle as _df
     except Exception:
         return None
-    r = _df(html, url=url, markdown=True)
+    kwargs = {"markdown": True}
+    selector = _site_selector(url)
+    if selector:
+        kwargs["content_selector"] = selector
+    r = _df(html, url=url, **kwargs)
     return {
         "title": getattr(r, "title", "") or "",
         "url": url or "",
@@ -250,7 +277,11 @@ def _fallback_parse(html, url=""):
         title = (soup.title.get_text(" ", strip=True) if soup.title else "").strip()
         for tag in soup(["script", "style", "noscript", "nav", "footer", "header", "aside", "form"]):
             tag.decompose()
-        content_el = soup.find("main") or soup.find("article") or soup.body or soup
+        selector = _site_selector(url)
+        content_el = None
+        if selector:
+            content_el = soup.select_one(selector.split(",")[0].strip())
+        content_el = content_el or soup.find("main") or soup.find("article") or soup.body or soup
         content_html = str(content_el)
     except Exception:
         pass
@@ -336,12 +367,32 @@ def _http_get(url, timeout=30):
     return raw.decode(charset, "replace")
 
 
+def _looks_blocked(html):
+    """True when the fetched HTML looks like a bot wall (Cloudflare / captcha)."""
+    if not html:
+        return True
+    low = html.lower()
+    return any(
+        phrase in low
+        for phrase in (
+            "just a moment",
+            "challenges.cloudflare.com",
+            "cf-chl",
+            "verify you are human",
+            "access denied",
+            "enable javascript and cookies",
+            "captcha",
+        )
+    )
+
+
 def extract_url_content(url, markdown=True, use_browser=True):
     """Fetch ``url`` and extract clean text/markdown + metadata.
 
     ``use_browser=True`` navigates the attached (logged-in) browser, so cookies
     and JS-rendered pages work. ``use_browser=False`` does a plain HTTP GET with
-    no browser and no JavaScript.
+    no browser and no JavaScript, then auto-upgrades to the browser when the
+    response looks like a bot wall or the extracted text is suspiciously short.
     """
     if use_browser:
         from browser_harness.helpers import goto_url, wait_for_load
@@ -349,7 +400,21 @@ def extract_url_content(url, markdown=True, use_browser=True):
         goto_url(url)
         wait_for_load(timeout=30)
         return extract_page_content(markdown=markdown)
-    result = _defuddle_html(_http_get(url), url)
+    try:
+        html = _http_get(url)
+    except Exception:
+        html = ""
+    result = _defuddle_html(html, url)
+    if (not html or _looks_blocked(html) or (result.get("word_count") or 0) < 20):
+        try:
+            from browser_harness.helpers import goto_url, wait_for_load
+
+            goto_url(url)
+            wait_for_load(timeout=30)
+            result = extract_page_content(markdown=True)
+            result["engine"] = result.get("engine", "") + "+browser-retry"
+        except Exception:
+            pass
     if not markdown:
         result["markdown"] = ""
     return result
