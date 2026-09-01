@@ -325,7 +325,8 @@ text: Kubernetes pods run 24/7 but many APIs sit idle most of the time...
 # 最近抓取 / 时间窗 / 按作者过滤（--author 匹配显示名或 @handle，需搭配主模式）
 PS> browser-harness x-search --recent --limit 5
 PS> browser-harness x-search --since 1h --group-by hour
-PS> browser-harness x-search rust --author Rainmaker --limit 3
+PS> browser-harness x-search --recent --author Rainmaker --limit 2
+author: Massimo | @Rainmaker1973 | posted: 2026-09-01T04:00:00.000Z
 
 # 网页正文提取（默认 markdown；另有 --text / --json / --current / --browser）
 PS> browser-harness web-fetch https://example.com
