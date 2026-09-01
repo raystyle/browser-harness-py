@@ -381,4 +381,15 @@ upstream they live at https://github.com/raystyle/browser-harness/tree/dev/work/
 
 Only applies when `BH_DOMAIN_SKILLS=1`. Otherwise ignore domain skills.
 
-When enabled, search `$BH_AGENT_WORKSPACE/domain-skills/<host>/` before inventing an approach. `goto_url(...)` returns up to 10 skill filenames for the navigated host. `browser-harness skills sync` provisions the packaged site skills into the workspace (additively — locally added site skills are never deleted).
+When enabled, look up `$BH_AGENT_WORKSPACE/domain-skills/<dir>/` before
+inventing an approach. **Directory name = the hostname's first label after
+stripping a leading `www.`**: `github.com` → `github/`, `www.bing.com` →
+`bing/`. Subdomains are their own site — `maps.google.com` → `maps/` (not
+`google/`); that is why `gmail` is a directory of its own.
+
+`goto_url(...)` returns up to 10 `.md` filenames for the navigated host (set
+`BH_DOMAIN_SKILLS=1` in the same process for the hint). Bundled helper
+scripts (e.g. `claude-ai/extract-share-transcript.py`) are not listed — list
+the directory itself to find them. `browser-harness skills sync` provisions
+the packaged site skills into the workspace (additively — locally added site
+skills are never deleted).

@@ -281,6 +281,30 @@ browser-harness --update -y        # 或 uv tool install --upgrade git+...@dev/w
 browser-harness skills sync        # 铺装新版插件与技能
 ```
 
+## 技能路由链（安装的 SKILL → domain-skills 加载）
+
+从 Claude Code / Codex 装载的 SKILL.md 到真正读取站点配方，是一条"文档指路 + 运行时提示"的双通道链路：
+
+```text
+① 技能触发                 ② SKILL.md 文本指路                ③ agent 解析路径              ④ 读取执行
+─────────                ─────────────────                 ──────────────               ──────────
+任务涉及网页               三处接力指令：                      $BH_AGENT_WORKSPACE          通读该目录全部 .md
+→ frontmatter            · 开头强制令：BH_DOMAIN_SKILLS=1    的解析规则写在 Workspace      → 按 "Do this first"
+  description 命中          时先读 domain-skills/<dir>/      章节：<BH_HOME>/agent-       工作流动手
+→ SKILL.md 全文注入       · Workspace 章节：$BH_AGENT_       workspace（BH_HOME 默认
+  上下文                    WORKSPACE = <BH_HOME>/agent-     ~/.config/browser-harness）
+· 底部 Domain Skills        workspace                       → agent 拼出绝对路径
+  章节：<dir> 命名规则 +     （BH_AGENT_WORKSPACE 环境变量
+  goto_url 动态提示          可覆盖）
+```
+
+关键事实：
+
+- **`$BH_AGENT_WORKSPACE` 不是变量插值，是 agent 读文档自己拼的**；技能副本里故意不含 domain-skills 实体（只有路由说明），实体永远在 workspace。
+- **目录命名 = hostname 去掉 `www.` 后的首标签**：`github.com` → `github/`，`www.bing.com` → `bing/`；**子域名自成一站** —— `maps.google.com` → `maps/`（不是 `google/`），所以 `gmail` 是独立目录。
+- **动态通道**：设 `BH_DOMAIN_SKILLS=1` 后 `goto_url()` 返回值带 `domain_skills: [文件名…最多10个 .md]`；配套 `.py` 脚本不在提示里，需列目录发现。
+- **默认关闭**：未设 `BH_DOMAIN_SKILLS=1` 时 SKILL 明令 "ignore domain skills"；该变量只硬控 goto_url 提示，"读文件"靠指令约束 agent 行为。
+
 ## 命令使用
 
 以下示例的输出均为 v0.4.0 实机验收时截取（非虚构）。
