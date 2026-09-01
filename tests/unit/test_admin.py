@@ -187,49 +187,6 @@ def test_require_existing_daemon_probes_cdp(monkeypatch):
     assert sock.closed is True
 
 
-def test_strict_remote_stop_propagates_daemon_error(monkeypatch):
-    sock = FakeSocket(response=b'{"error":"billing stop failed"}\n')
-    monkeypatch.setattr(admin.ipc, "identify", lambda _name, timeout: 123)
-    monkeypatch.setattr(admin, "_process_start_time", lambda _pid: 1)
-    monkeypatch.setattr(admin.ipc, "connect", lambda _name, timeout: (sock, None))
-
-    with pytest.raises(RuntimeError, match="billing stop failed"):
-        admin.stop_remote_daemon("scoped")
-
-    assert sock.closed is True
-
-
-def test_remote_start_retries_cleanup_and_preserves_both_failures(monkeypatch):
-    attempts = []
-    monkeypatch.setattr(admin, "daemon_alive", lambda _name: False)
-    monkeypatch.setattr(
-        admin,
-        "_browser_use",
-        lambda path, method, body=None: (
-            {"id": "browser-1", "cdpUrl": "https://cdp.example.test"}
-            if method == "POST"
-            else attempts.append((path, method, body))
-            or (_ for _ in ()).throw(OSError("billing stop failed"))
-        ),
-    )
-    monkeypatch.setattr(admin, "_cdp_ws_from_url", lambda _url: "wss://cdp.example.test/ws")
-    monkeypatch.setattr(
-        admin,
-        "ensure_daemon",
-        lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("daemon start failed")),
-    )
-    monkeypatch.setattr(admin.time, "sleep", lambda _seconds: None)
-
-    with pytest.raises(BaseExceptionGroup) as exc_info:
-        admin.start_remote_daemon("scoped")
-
-    assert [str(error) for error in exc_info.value.exceptions] == [
-        "daemon start failed",
-        "failed to stop remote browser browser-1: billing stop failed",
-    ]
-    assert len(attempts) == 3
-
-
 def test_local_chrome_mode_is_false_when_process_env_provides_remote_cdp(monkeypatch):
     monkeypatch.setenv("BU_CDP_WS", "ws://example.test/devtools/browser/1")
 
@@ -463,24 +420,6 @@ def test_run_doctor_skips_snap_detect_on_non_linux(monkeypatch, capsys):
     assert "[snap-detect]" not in out
 
 
-def test_run_doctor_reports_bad_stored_cloud_auth_without_crashing(monkeypatch, capsys):
-    monkeypatch.setattr(admin, "_version", lambda: "0.1.0")
-    monkeypatch.setattr(admin, "_install_mode", lambda: "git")
-    monkeypatch.setattr(admin, "_chrome_running", lambda: True)
-    monkeypatch.setattr(admin, "daemon_alive", lambda: True)
-    monkeypatch.setattr(admin, "browser_connections", lambda: [])
-    monkeypatch.setattr(admin, "_latest_release_tag", lambda: "0.1.0")
-    monkeypatch.setattr(admin, "_doctor_probe_chrome_binary_for_snap", lambda: (None, None))
-    monkeypatch.setattr("platform.system", lambda: "Darwin")
-    monkeypatch.setattr(admin.auth, "auth_status", lambda: (_ for _ in ()).throw(admin.auth.AuthError("auth file is not valid JSON")))
-
-    assert admin.run_doctor() == 0
-
-    out = capsys.readouterr().out
-    assert "Browser Use cloud auth" in out
-    assert "auth file is not valid JSON" in out
-
-
 def test_run_doctor_fix_snap_prints_steps(capsys):
     assert admin.run_doctor_fix_snap() == 0
     out = capsys.readouterr().out
@@ -539,89 +478,6 @@ def test_doctor_page_output_truncates_long_text(monkeypatch, capsys):
     assert "A very long page ..." in out
     assert "https://example.t..." in out
 
-
-def test_start_remote_daemon_stops_created_browser_when_daemon_start_fails(monkeypatch):
-    calls = []
-    browser = {"id": "browser-123", "cdpUrl": "http://127.0.0.1:9333", "liveUrl": "https://live.example"}
-
-    def fake_browser_use(path, method, body=None):
-        calls.append((path, method, body))
-        if (path, method) == ("/browsers", "POST"):
-            return browser
-        if (path, method) == ("/browsers/browser-123", "PATCH"):
-            return {}
-        raise AssertionError((path, method, body))
-
-    monkeypatch.setattr(admin, "daemon_alive", lambda name: False)
-    monkeypatch.setattr(admin, "_browser_use", fake_browser_use)
-    monkeypatch.setattr(admin, "_cdp_ws_from_url", lambda url: "ws://example.test/devtools/browser/1")
-    monkeypatch.setattr(admin, "ensure_daemon", lambda **kwargs: (_ for _ in ()).throw(RuntimeError("boom")))
-
-    with pytest.raises(RuntimeError, match="boom"):
-        admin.start_remote_daemon()
-
-    assert calls == [
-        ("/browsers", "POST", {}),
-        ("/browsers/browser-123", "PATCH", {"action": "stop"}),
-    ]
-
-
-@pytest.mark.parametrize("exc_type", [KeyboardInterrupt, SystemExit])
-def test_start_remote_daemon_stops_created_browser_when_daemon_start_is_interrupted(monkeypatch, exc_type):
-    calls = []
-    browser = {"id": "browser-123", "cdpUrl": "http://127.0.0.1:9333", "liveUrl": "https://live.example"}
-
-    def fake_browser_use(path, method, body=None):
-        calls.append((path, method, body))
-        if (path, method) == ("/browsers", "POST"):
-            return browser
-        if (path, method) == ("/browsers/browser-123", "PATCH"):
-            return {}
-        raise AssertionError((path, method, body))
-
-    monkeypatch.setattr(admin, "daemon_alive", lambda name: False)
-    monkeypatch.setattr(admin, "_browser_use", fake_browser_use)
-    monkeypatch.setattr(admin, "_cdp_ws_from_url", lambda url: "ws://example.test/devtools/browser/1")
-    monkeypatch.setattr(admin, "ensure_daemon", lambda **kwargs: (_ for _ in ()).throw(exc_type()))
-
-    with pytest.raises(exc_type):
-        admin.start_remote_daemon()
-
-    assert calls == [
-        ("/browsers", "POST", {}),
-        ("/browsers/browser-123", "PATCH", {"action": "stop"}),
-    ]
-
-
-@pytest.mark.parametrize("exc_type", [KeyboardInterrupt, SystemExit])
-def test_stop_cloud_browser_swallows_baseexception_from_stop_request(monkeypatch, exc_type):
-    monkeypatch.setattr(admin, "_browser_use", lambda *args, **kwargs: (_ for _ in ()).throw(exc_type()))
-
-    admin._stop_cloud_browser("browser-123")
-
-def test_start_remote_daemon_does_not_stop_created_browser_on_success(monkeypatch):
-    calls = []
-    browser = {"id": "browser-123", "cdpUrl": "http://127.0.0.1:9333", "liveUrl": "https://live.example"}
-
-    def fake_browser_use(path, method, body=None):
-        calls.append((path, method, body))
-        if (path, method) == ("/browsers", "POST"):
-            return browser
-        raise AssertionError((path, method, body))
-
-    monkeypatch.setattr(admin, "daemon_alive", lambda name: False)
-    monkeypatch.setattr(admin, "_browser_use", fake_browser_use)
-    monkeypatch.setattr(admin, "_cdp_ws_from_url", lambda url: "ws://example.test/devtools/browser/1")
-    monkeypatch.setattr(admin, "ensure_daemon", lambda **kwargs: None)
-    monkeypatch.setattr(admin, "_show_live_url", lambda url: None)
-
-    assert admin.start_remote_daemon() == browser
-    assert calls == [
-        ("/browsers", "POST", {}),
-    ]
-
-
-# --- restart_daemon: PID-reuse safety ---
 
 def test_restart_daemon_does_not_signal_when_daemon_unreachable(monkeypatch, tmp_path):
     """If ipc.identify() returns None (daemon gone), restart_daemon must NOT

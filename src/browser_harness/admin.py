@@ -9,7 +9,6 @@ import urllib.request
 from pathlib import Path
 
 from . import _ipc as ipc
-from . import auth
 from . import paths
 
 
@@ -55,13 +54,9 @@ def _process_start_time(pid):
         s = out.decode("ascii", errors="replace").strip()
         return s or None
     if sys.platform == "win32":
-        # Windows users running a remote daemon hit the same slow-shutdown
-        # window as POSIX (stop_remote() PATCHes api.browser-use.com after
-        # the IPC socket has been torn down). Without a fingerprint here the
-        # SIGTERM gate can never pass during that window, leaving an orphan
-        # daemon that may continue to hold a billed cloud browser. Use
-        # GetProcessTimes via ctypes to read the kernel-reported creation
-        # time as a 64-bit FILETIME (100-ns intervals since 1601-01-01).
+        # Read the kernel-reported creation time via GetProcessTimes as a
+        # 64-bit FILETIME (100-ns intervals since 1601-01-01) so restart_daemon
+        # can fingerprint the process before SIGTERM.
         try:
             import ctypes
             from ctypes import wintypes
@@ -187,7 +182,7 @@ def daemon_alive(name=None):
 
 
 def daemon_browser_kind(name=None):
-    """'cloud' | 'cdp' | 'local' as self-reported by a live daemon, else None.
+    """'cdp' | 'local' as self-reported by a live daemon, else None.
 
     None covers unreachable daemons and pre-browser_kind daemons still running
     from an older version."""
@@ -196,7 +191,7 @@ def daemon_browser_kind(name=None):
         c, token = ipc.connect(name or NAME, timeout=1.0)
         response = ipc.request(c, token, {"meta": "ping"})
         kind = response.get("browser_kind") if isinstance(response, dict) else None
-        return kind if kind in {"cloud", "cdp", "local"} else None
+        return kind if kind in {"cdp", "local"} else None
     except (FileNotFoundError, ConnectionRefusedError, TimeoutError, socket.timeout, OSError, ValueError):
         return None
     finally:
@@ -353,17 +348,7 @@ def ensure_daemon(wait=60.0, name=None, env=None):
             except Exception:
                 pass
             if not last: time.sleep(0.5)
-        browser_kind = daemon_browser_kind(name)
-        if browser_kind in {"cloud", None}:
-            # A stale Cloud daemon still owns a billable browser. Its shutdown
-            # handler stops that browser before acknowledging, and stays alive
-            # when the Cloud stop fails so a later call can retry cleanup. Treat
-            # an unknown kind the same way: the health failure that made the
-            # daemon stale may also prevent classification, and replacing an
-            # unclassified daemon best-effort could orphan a Cloud browser.
-            stop_remote_daemon(name or NAME)
-        else:
-            restart_daemon(name)
+        restart_daemon(name)
 
     import subprocess, sys
     local = _is_local_chrome_mode(env)
@@ -475,20 +460,6 @@ def require_existing_daemon(name=None):
         raise RuntimeError(f"required daemon {daemon_name!r} failed its CDP health check")
 
 
-def stop_remote_daemon(name="remote"):
-    """Stop a remote daemon and its backing Browser Use cloud browser.
-
-    Triggers the daemon's clean shutdown, which PATCHes
-    /browsers/{id} {"action":"stop"} so billing ends and any profile
-    state in the session is persisted."""
-    # restart_daemon is misnamed — it only stops the daemon (sends
-    # shutdown, SIGTERMs if needed, unlinks socket+pid). It never
-    # restarts anything on its own; a follow-up `browser-harness`
-    # call would auto-spawn a fresh one via ensure_daemon(). That
-    # "run-it-again-to-restart" workflow is why it was named that way.
-    restart_daemon(name, require_clean=True)
-
-
 def restart_daemon(name=None, require_clean=False):
     """Best-effort daemon shutdown + socket/pid cleanup.
 
@@ -509,25 +480,10 @@ def restart_daemon(name=None, require_clean=False):
     name = name or NAME
     pid_path = str(ipc.pid_path(name))
 
-    # Two pieces of information are tracked separately:
-    #   - daemon_pid: the daemon's self-reported PID, or None. Only daemons
-    #     running this version (or newer) include `pid` in the ping response;
-    #     pre-upgrade daemons return {pong: True} only and yield None here.
-    #   - daemon_alive: whether ANY daemon answers ping. Keeps the shutdown
-    #     IPC path working across upgrades — without it, a still-running
-    #     pre-upgrade daemon would have its socket deleted out from under it
-    #     while the process stayed alive.
     daemon_pid = ipc.identify(name, timeout=5.0)
     daemon_alive = daemon_pid is not None or ipc.ping(name, timeout=1.0)
     if require_clean and not daemon_alive:
         raise RuntimeError(f"daemon {name!r} is unavailable for required clean shutdown")
-    # Snapshot the daemon's process start-time as a secondary identity check.
-    # The IPC socket can disappear before the process exits (e.g. the shutdown
-    # path tears down the socket and then waits on a slow remote `stop` PATCH),
-    # so identify() going None partway through is not proof of process death.
-    # Comparing start-time before SIGTERM lets us recover the original
-    # force-kill behavior for slow shutdowns without re-opening the
-    # PID-reuse hole — a reused PID would have a different start-time.
     daemon_start = _process_start_time(daemon_pid)
 
     if daemon_alive:
@@ -563,14 +519,6 @@ def restart_daemon(name=None, require_clean=False):
             except (ProcessLookupError, OSError, SystemError, OverflowError):
                 break
         else:
-            # Re-verify identity before escalating to SIGTERM. Two acceptable
-            # signals, in priority order:
-            #   1. ipc.identify() still returns the same PID — daemon's IPC is
-            #      live, daemon is wedged. Safe to kill.
-            #   2. start-time fingerprint of the original PID is unchanged —
-            #      same process, just slow to exit (e.g. stuck in remote stop).
-            #      The IPC may already be gone; that's expected.
-            # If neither holds, the PID may have been reused; skip SIGTERM.
             verified_pid = ipc.identify(name, timeout=1.0)
             same_process = verified_pid == daemon_pid or (
                 daemon_start is not None
@@ -587,214 +535,6 @@ def restart_daemon(name=None, require_clean=False):
         os.unlink(pid_path)
     except FileNotFoundError:
         pass
-
-
-def _browser_use(path, method, body=None):
-    key = auth.get_browser_use_api_key()
-    req = urllib.request.Request(
-        f"{BU_API}{path}",
-        method=method,
-        data=(json.dumps(body).encode() if body is not None else None),
-        headers={"X-Browser-Use-API-Key": key, "Content-Type": "application/json"},
-    )
-    return json.loads(urllib.request.urlopen(req, timeout=60).read() or b"{}")
-
-
-def _stop_cloud_browser(browser_id, strict=False):
-    if not browser_id:
-        return True
-    last_error = None
-    for attempt in range(3):
-        try:
-            _browser_use(f"/browsers/{browser_id}", "PATCH", {"action": "stop"})
-            return True
-        except BaseException as exc:
-            last_error = exc
-            if attempt < 2:
-                time.sleep(0.5 * (attempt + 1))
-    if strict:
-        raise RuntimeError(f"failed to stop remote browser {browser_id}: {last_error}")
-    return False
-
-
-def _cdp_ws_from_url(cdp_url):
-    return json.loads(urllib.request.urlopen(f"{cdp_url}/json/version", timeout=15).read())["webSocketDebuggerUrl"]
-
-
-def _has_local_gui():
-    """True when this machine plausibly has a browser we can open. False on headless servers."""
-    import platform
-    system = platform.system()
-    if system in ("Darwin", "Windows"):
-        return True
-    if system == "Linux":
-        return bool(os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
-    return False
-
-
-def _show_live_url(url):
-    """Print liveUrl and auto-open it locally if there's a GUI."""
-    import sys, webbrowser
-    if not url: return
-    print(url)
-    if not _has_local_gui():
-        print("(no local GUI — share the liveUrl with the user)", file=sys.stderr)
-        return
-    try:
-        webbrowser.open(url, new=2)
-        print("(opened liveUrl in your default browser)", file=sys.stderr)
-    except Exception as e:
-        print(f"(couldn't auto-open: {e} — share the liveUrl with the user)", file=sys.stderr)
-
-
-def _should_show_remote_live_view():
-    """Whether Cloud provisioning should print and open its interactive live view."""
-    raw = os.environ.get("BH_OPEN_LIVE_URL")
-    if raw is None:
-        return True
-    value = raw.strip().lower()
-    if value in {"0", "false", "no", "off"}:
-        return False
-    if value in {"1", "true", "yes", "on"}:
-        return True
-    raise ValueError("BH_OPEN_LIVE_URL must be one of: 1, true, yes, on, 0, false, no, off")
-
-
-def list_cloud_profiles():
-    """List cloud profiles under the current API key.
-
-    Returns [{id, name, userId, cookieDomains, lastUsedAt}, ...]. `cookieDomains`
-    is the array of domain strings the cloud profile has cookies for — use
-    `len(cookieDomains)` as a cheap 'how much is logged in' summary. Per-cookie
-    detail on a *local* profile before sync: `profile-use inspect --profile <name>`.
-
-    Paginates through all pages — the API caps `pageSize` at 100."""
-    out, page = [], 1
-    while True:
-        listing = _browser_use(f"/profiles?pageSize=100&pageNumber={page}", "GET")
-        items = listing.get("items") if isinstance(listing, dict) else listing
-        if not items:
-            break
-        for p in items:
-            detail = _browser_use(f"/profiles/{p['id']}", "GET")
-            out.append({
-                "id": detail["id"],
-                "name": detail.get("name"),
-                "userId": detail.get("userId"),
-                "cookieDomains": detail.get("cookieDomains") or [],
-                "lastUsedAt": detail.get("lastUsedAt"),
-            })
-        if isinstance(listing, dict) and len(out) >= listing.get("totalItems", len(out)):
-            break
-        page += 1
-    return out
-
-
-def _resolve_profile_name(profile_name):
-    """Find a single cloud profile by exact name; raise if 0 or >1 match."""
-    matches = [p for p in list_cloud_profiles() if p.get("name") == profile_name]
-    if not matches:
-        raise RuntimeError(f"no cloud profile named {profile_name!r} -- call list_cloud_profiles() or sync_local_profile() first")
-    if len(matches) > 1:
-        raise RuntimeError(f"{len(matches)} cloud profiles named {profile_name!r} -- pass profileId=<uuid> instead")
-    return matches[0]["id"]
-
-
-def start_remote_daemon(name="remote", profileName=None, **create_kwargs):
-    """Provision a Browser Use cloud browser and start a daemon attached to it.
-
-    kwargs forwarded to `POST /browsers` (camelCase):
-      profileId        — cloud profile UUID; start already-logged-in. Default: none (clean browser).
-      profileName      — cloud profile name; resolved client-side to profileId via list_cloud_profiles().
-      proxyCountryCode — ISO2 country code (default "us"); pass None to disable the BU proxy.
-      timeout          — minutes, 1..240.
-      customProxy      — {host, port, username, password, ignoreCertErrors}.
-      browserScreenWidth / browserScreenHeight, allowResizing, enableRecording.
-
-    Returns the full browser dict including `liveUrl`. By default, prints that
-    URL and opens it locally when a GUI is detected. Set BH_OPEN_LIVE_URL to
-    0, false, no, or off (case-insensitive) to suppress only those display side
-    effects; the returned URL remains present."""
-    show_live_view = _should_show_remote_live_view()
-    if daemon_alive(name):
-        raise RuntimeError(f"daemon {name!r} already alive -- restart_daemon({name!r}) first")
-    if profileName:
-        if "profileId" in create_kwargs:
-            raise RuntimeError("pass profileName OR profileId, not both")
-        create_kwargs["profileId"] = _resolve_profile_name(profileName)
-    browser = _browser_use("/browsers", "POST", create_kwargs)
-    try:
-        ensure_daemon(
-            name=name,
-            env={"BU_CDP_WS": _cdp_ws_from_url(browser["cdpUrl"]), "BU_BROWSER_ID": browser["id"]},
-        )
-    except BaseException as start_error:
-        try:
-            _stop_cloud_browser(browser.get("id"), strict=True)
-        except BaseException as cleanup_error:
-            raise BaseExceptionGroup(
-                "remote daemon startup and cloud browser cleanup both failed",
-                [start_error, cleanup_error],
-            )
-        raise
-    if show_live_view:
-        _show_live_url(browser.get("liveUrl"))
-    return browser
-
-
-def list_local_profiles():
-    """Detected local browser profiles on this machine. Shells out to `profile-use list --json`."""
-    import json, shutil, subprocess
-    if not shutil.which("profile-use"):
-        raise RuntimeError("profile-use not installed -- curl -fsSL https://browser-use.com/profile.sh | sh")
-    return json.loads(subprocess.check_output(["profile-use", "list", "--json"], text=True, encoding="utf-8", errors="replace"))
-
-
-def sync_local_profile(profile_name, browser=None, cloud_profile_id=None,
-                        include_domains=None, exclude_domains=None):
-    """Sync a local profile's cookies to a cloud profile. Returns the cloud UUID.
-
-    Shells out to `profile-use sync` (v1.0.5+). Requires BROWSER_USE_API_KEY.
-    profile-use copies the profile dir to a temp and syncs from the copy, so Chrome
-    can stay open.
-
-    Args:
-      profile_name:       local Chrome profile name (as shown by `list_local_profiles`).
-      browser:            disambiguate when multiple browsers have profiles of the
-                          same name (e.g. "Google Chrome"). Default: any match.
-      cloud_profile_id:   push cookies into this existing cloud profile instead of
-                          creating a new one. Idempotent — call again to refresh
-                          the same profile. Default: create new.
-      include_domains:    only sync cookies for these domains (and subdomains).
-                          Leading dot is optional. Example: ["google.com", "stripe.com"].
-      exclude_domains:    drop cookies for these domains (and subdomains). Applied
-                          before `include_domains` so exclude wins on overlap."""
-    import shutil, subprocess, sys
-    if not shutil.which("profile-use"):
-        raise RuntimeError("profile-use not installed -- curl -fsSL https://browser-use.com/profile.sh | sh")
-    key = auth.get_browser_use_api_key()
-    cmd = ["profile-use", "sync", "--profile", profile_name]
-    if browser:
-        cmd += ["--browser", browser]
-    if cloud_profile_id:
-        cmd += ["--cloud-profile-id", cloud_profile_id]
-    for d in include_domains or []:
-        cmd += ["--domain", d]
-    for d in exclude_domains or []:
-        cmd += ["--exclude-domain", d]
-    r = subprocess.run(cmd, text=True, encoding="utf-8", errors="replace", capture_output=True, env={**os.environ, "BROWSER_USE_API_KEY": key})
-    sys.stdout.write(r.stdout)
-    sys.stderr.write(r.stderr)
-    if r.returncode != 0:
-        raise RuntimeError(f"profile-use sync failed (exit {r.returncode})")
-    # With --cloud-profile-id the tool prints "♻️ Using existing cloud profile"
-    # instead of "Profile created: <uuid>", so we already know the UUID.
-    if cloud_profile_id:
-        return cloud_profile_id
-    m = re.search(r"Profile created:\s+([0-9a-f-]{36})", r.stdout)
-    if not m:
-        raise RuntimeError(f"profile-use did not report a profile UUID (exit {r.returncode})")
-    return m.group(1)
 
 
 def _version():
@@ -1127,11 +867,6 @@ def run_doctor():
     chrome = _chrome_running()
     daemon = daemon_alive()
     connections = browser_connections()
-    try:
-        auth_state = auth.auth_status()
-    except (auth.AuthError, OSError) as e:
-        auth_state = {"status": "error", "source": None, "reason": str(e)}
-    cloud_auth = auth_state.get("status") == "authenticated"
     latest = _latest_release_tag()
     # Only claim an update when we know the installed version — `cur or "(unknown)"`
     # for display would otherwise be parsed as (0,) and flag every latest as newer.
@@ -1175,8 +910,7 @@ def run_doctor():
     except Exception:
         rmux_det = None
     row("rmux", bool(rmux_det), f"{rmux_det[1]} ({rmux_det[0]})" if rmux_det else "not installed (needed by x-monitor)")
-    row("Browser Use cloud auth", cloud_auth, auth_state.get("source") or auth_state.get("reason") or "optional: browser-harness auth login")
-    # Core health = chrome + daemon. Cloud auth is optional.
+    # Core health = chrome + daemon.
     return 0 if (chrome and daemon) else 1
 
 

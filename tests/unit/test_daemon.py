@@ -21,41 +21,6 @@ def test_safe_connection_label_removes_credentials_paths_and_queries(url, label)
     assert daemon._safe_connection_label(url) == label
 
 
-def test_remote_stop_retries_and_succeeds(monkeypatch):
-    attempts = []
-    monkeypatch.setattr(daemon, "REMOTE_ID", "browser-1")
-    monkeypatch.setattr(daemon, "_REMOTE_STOPPED", False)
-    monkeypatch.setattr(daemon.auth, "get_browser_use_api_key", lambda: "key")
-    monkeypatch.setattr(daemon.time, "sleep", lambda _seconds: None)
-
-    def urlopen(_request, timeout):
-        attempts.append(timeout)
-        if len(attempts) < 3:
-            raise OSError("temporary")
-        return type("Response", (), {"read": lambda self: b""})()
-
-    monkeypatch.setattr(daemon.urllib.request, "urlopen", urlopen)
-
-    assert daemon.stop_remote(strict=True) is True
-    assert attempts == [15, 15, 15]
-    assert daemon._REMOTE_STOPPED is True
-
-
-def test_shutdown_keeps_daemon_alive_when_cloud_stop_fails(monkeypatch):
-    d = daemon.Daemon()
-    d.stop = asyncio.Event()
-    monkeypatch.setattr(
-        daemon,
-        "stop_remote",
-        lambda strict=False: (_ for _ in ()).throw(RuntimeError("billing stop failed")),
-    )
-
-    response = asyncio.run(d.handle({"meta": "shutdown"}))
-
-    assert response == {"error": "billing stop failed"}
-    assert d.stop.is_set() is False
-
-
 class _FakeCDP:
     """Records send_raw calls so tests can assert which CDP methods fired."""
 
@@ -379,7 +344,6 @@ class _AttachCDP(_FakeCDP):
 def test_named_daemon_creates_dedicated_tab(monkeypatch):
     """Named local/CDP daemons must not fight over the first existing tab."""
     monkeypatch.setattr(daemon, "NAME", "worker-a")
-    monkeypatch.setattr(daemon, "REMOTE_ID", None)
     monkeypatch.setattr(daemon, "BROWSER_KIND", "cdp")
     existing = [{"targetId": "someone-elses-tab", "url": "https://example.com/", "type": "page"}]
     d = daemon.Daemon()
@@ -402,7 +366,6 @@ def test_named_daemon_creates_dedicated_tab(monkeypatch):
 def test_default_daemon_still_attaches_first_page(monkeypatch):
     """The default daemon keeps reusing the user's first real page."""
     monkeypatch.setattr(daemon, "NAME", "default")
-    monkeypatch.setattr(daemon, "REMOTE_ID", None)
     existing = [{"targetId": "user-tab", "url": "https://example.com/", "type": "page"}]
     d = daemon.Daemon()
     d.cdp = _AttachCDP(existing)
@@ -417,7 +380,6 @@ def test_default_daemon_still_attaches_first_page(monkeypatch):
 def test_default_daemon_creates_missing_page_in_background(monkeypatch):
     """Fallback tabs must not steal the user's foreground Chrome tab."""
     monkeypatch.setattr(daemon, "NAME", "default")
-    monkeypatch.setattr(daemon, "REMOTE_ID", None)
     monkeypatch.setattr(daemon, "BROWSER_KIND", "cdp")
     d = daemon.Daemon()
     d.cdp = _AttachCDP()
@@ -429,26 +391,9 @@ def test_default_daemon_creates_missing_page_in_background(monkeypatch):
     assert create_calls == [{"url": "about:blank", "background": True}]
 
 
-def test_named_remote_daemon_keeps_first_page_attach(monkeypatch):
-    """A cloud browser is exclusive, so a named cloud daemon needs no extra tab."""
-    monkeypatch.setattr(daemon, "NAME", "r7k2")
-    monkeypatch.setattr(daemon, "REMOTE_ID", "remote-browser-id")
-    monkeypatch.setattr(daemon, "BROWSER_KIND", "cloud")
-    existing = [{"targetId": "cloud-blank", "url": "about:blank", "type": "page"}]
-    d = daemon.Daemon()
-    d.cdp = _AttachCDP(existing)
-
-    page = asyncio.run(d.attach_first_page())
-
-    assert page["targetId"] == "cloud-blank"
-    assert d.dedicated_target_id is None
-    assert d.cdp.created == 0
-
-
 def test_named_reattach_reuses_dedicated_tab(monkeypatch):
     """A stale CDP session should not replace a tab that still exists."""
     monkeypatch.setattr(daemon, "NAME", "worker-a")
-    monkeypatch.setattr(daemon, "REMOTE_ID", None)
     monkeypatch.setattr(daemon, "BROWSER_KIND", "cdp")
     d = daemon.Daemon()
     d.cdp = _AttachCDP()
@@ -465,7 +410,6 @@ def test_named_reattach_reuses_dedicated_tab(monkeypatch):
 def test_named_reattach_keeps_selected_tab_when_it_still_exists(monkeypatch):
     """A deliberate switch_tab remains the active tab after session recovery."""
     monkeypatch.setattr(daemon, "NAME", "worker-a")
-    monkeypatch.setattr(daemon, "REMOTE_ID", None)
     monkeypatch.setattr(daemon, "BROWSER_KIND", "cdp")
     d = daemon.Daemon()
     d.cdp = _AttachCDP()
@@ -485,7 +429,6 @@ def test_named_reattach_keeps_selected_tab_when_it_still_exists(monkeypatch):
 def test_named_reattach_creates_replacement_only_when_tab_is_gone(monkeypatch):
     """If the user closes the dedicated tab, the daemon creates one replacement."""
     monkeypatch.setattr(daemon, "NAME", "worker-a")
-    monkeypatch.setattr(daemon, "REMOTE_ID", None)
     monkeypatch.setattr(daemon, "BROWSER_KIND", "cdp")
     d = daemon.Daemon()
     d.cdp = _AttachCDP()
@@ -527,7 +470,6 @@ def test_concurrent_named_reattach_creates_one_replacement(monkeypatch):
         return d, pages
 
     monkeypatch.setattr(daemon, "NAME", "worker-a")
-    monkeypatch.setattr(daemon, "REMOTE_ID", None)
     monkeypatch.setattr(daemon, "BROWSER_KIND", "cdp")
     d, pages = asyncio.run(run())
 
@@ -553,7 +495,6 @@ def test_named_attach_failure_reuses_created_tab_on_retry(monkeypatch):
             return await super().send_raw(method, params, session_id)
 
     monkeypatch.setattr(daemon, "NAME", "worker-a")
-    monkeypatch.setattr(daemon, "REMOTE_ID", None)
     monkeypatch.setattr(daemon, "BROWSER_KIND", "cdp")
     d = daemon.Daemon()
     d.cdp = _FailOnceAttachCDP()
@@ -571,7 +512,6 @@ def test_named_attach_failure_reuses_created_tab_on_retry(monkeypatch):
 def test_named_local_attach_cleans_inspect_tabs_before_return(monkeypatch):
     """The named-daemon early path must retain local inspect-tab cleanup."""
     monkeypatch.setattr(daemon, "NAME", "worker-a")
-    monkeypatch.setattr(daemon, "REMOTE_ID", None)
     monkeypatch.setattr(daemon, "BROWSER_KIND", "local")
     monkeypatch.setattr(daemon, "harness_opened_inspect", lambda: True)
     inspect = {"targetId": "inspect-tab", "url": "chrome://inspect/#remote-debugging", "type": "page"}

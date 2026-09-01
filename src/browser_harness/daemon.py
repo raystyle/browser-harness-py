@@ -5,7 +5,6 @@ from collections import deque
 from pathlib import Path
 
 from . import _ipc as ipc
-from . import auth
 from . import paths
 from cdp_use.client import CDPClient
 
@@ -85,10 +84,7 @@ def profile_dirs(system=None):
 
 PROFILES = profile_dirs()
 INTERNAL = ("chrome://", "chrome-untrusted://", "devtools://", "chrome-extension://", "about:")
-BU_API = "https://api.browser-use.com/api/v3"
-REMOTE_ID = os.environ.get("BU_BROWSER_ID")
-_REMOTE_STOPPED = False
-BROWSER_KIND = "cloud" if REMOTE_ID else ("cdp" if (os.environ.get("BU_CDP_WS") or os.environ.get("BU_CDP_URL")) else "local")
+BROWSER_KIND = "cdp" if (os.environ.get("BU_CDP_WS") or os.environ.get("BU_CDP_URL")) else "local"
 # Chrome 144+ shows a per-connection popup. Keep popup open enough to click.
 LOCAL_HANDSHAKE_TIMEOUT = 45
 # How long get_ws_url() keeps waiting for DevToolsActivePort before giving up
@@ -306,36 +302,6 @@ def get_ws_url():
     raise RuntimeError(f"DevToolsActivePort not found in {[str(p) for p in PROFILES]} — enable chrome://inspect/#remote-debugging, or set BU_CDP_WS for a remote browser")
 
 
-def stop_remote(strict=False):
-    global _REMOTE_STOPPED
-    if not REMOTE_ID:
-        return True
-    if _REMOTE_STOPPED:
-        return True
-    last_error = None
-    for attempt in range(3):
-        try:
-            key = auth.get_browser_use_api_key()
-            req = urllib.request.Request(
-                f"{BU_API}/browsers/{REMOTE_ID}",
-                data=json.dumps({"action": "stop"}).encode(),
-                method="PATCH",
-                headers={"X-Browser-Use-API-Key": key, "Content-Type": "application/json"},
-            )
-            urllib.request.urlopen(req, timeout=15).read()
-            _REMOTE_STOPPED = True
-            log(f"stopped remote browser {REMOTE_ID}")
-            return True
-        except Exception as e:
-            last_error = e
-            log(f"stop_remote attempt {attempt + 1}/3 failed ({REMOTE_ID}): {e}")
-            if attempt < 2:
-                time.sleep(0.5 * (attempt + 1))
-    if strict:
-        raise RuntimeError(f"failed to stop remote browser {REMOTE_ID}: {last_error}")
-    return False
-
-
 def is_real_page(t):
     return t["type"] == "page" and not t.get("url", "").startswith(INTERNAL)
 
@@ -409,9 +375,8 @@ class Daemon:
         # Named daemons (BU_NAME != "default") share one browser with other
         # daemons — attaching to the first page makes parallel daemons fight
         # over a single tab (navigations clobber each other). Give each named
-        # daemon its own dedicated tab instead. REMOTE_ID (cloud) browsers are
-        # already exclusive to this daemon, so first-page attach stays.
-        if NAME != "default" and not REMOTE_ID:
+        # daemon its own dedicated tab instead.
+        if NAME != "default":
             # The permission recovery flow can leave chrome://inspect open.
             # Clean it up before returning from this early path as well.
             if BROWSER_KIND == "local":
@@ -588,8 +553,7 @@ class Daemon:
             if os.environ.get("BU_CDP_WS"):
                 raise RuntimeError(
                     f"CDP WS handshake failed: {e} -- remote browser WebSocket connection failed. "
-                    "This can happen when network policy blocks the connection, the WS URL is wrong or expired, or the remote endpoint is down. "
-                    "If you use Browser Use cloud, verify auth and get a fresh URL via start_remote_daemon()."
+                    "This can happen when network policy blocks the connection, the WS URL is wrong or expired, or the remote endpoint is down."
                 )
             if BROWSER_KIND == "local" and ("timed out" in str(e).lower() or "403" in str(e)) and remote_debugging_user_enabled():
                 raise RuntimeError(
@@ -705,14 +669,6 @@ class Daemon:
                 # strict caller will leave its endpoint and PID file intact.
                 self._shutting_down = False
                 return {"error": "stale-session recovery did not stop"}
-            try:
-                stop_remote(strict=True)
-            except Exception as e:
-                # A failed Cloud stop must leave the daemon usable so a later
-                # shutdown request can retry the billable-browser cleanup.
-                async with self._session_state_lock:
-                    self._shutting_down = False
-                return {"error": str(e)}
             self.stop.set()
             return {"ok": True}
 
@@ -785,7 +741,7 @@ async def serve(d):
     serve_task = asyncio.create_task(ipc.serve(NAME, handler))
     stop_task = asyncio.create_task(d.stop.wait())
     await asyncio.sleep(0.05)  # let serve() bind so sock_addr() resolves to the live endpoint
-    log(f"listening on {ipc.sock_addr(NAME)} (name={NAME}, remote={REMOTE_ID or 'local'})")
+    log(f"listening on {ipc.sock_addr(NAME)} (name={NAME})")
     try:
         await asyncio.wait({serve_task, stop_task}, return_when=asyncio.FIRST_COMPLETED)
         if serve_task.done(): await serve_task  # surfaces a serve crash
@@ -845,6 +801,5 @@ if __name__ == "__main__":
         log(f"fatal: {e}")
         sys.exit(1)
     finally:
-        stop_remote()
         try: os.unlink(PID)
         except FileNotFoundError: pass
