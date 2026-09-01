@@ -6,10 +6,22 @@
 
 ## 环境要求
 
-- Windows 11（当前开发环境）；macOS / Linux 部分能力可用。
+- **本项目当前 Windows 专用**（本机 Windows 11 实测；macOS / Linux 待接管，见 `ROADMAP.md` 阶段 4）。
 - `uv` + Python 3.12。
 - Chrome（本机 Chrome Dev 154 已验证）。
-- rmux 0.10.0（X 监控的多路复用）。
+- rmux 0.10.0（X 监控的多路复用；安装见下）。
+
+### rmux 安装（Windows）
+
+从 Helvesec/rmux 下载 release zip 解压到 `%LOCALAPPDATA%\rmux`（`browser-harness` 会自动检测该目录，无需加 PATH）：
+
+```powershell
+$url = "https://github.com/Helvesec/rmux/releases/download/v0.10.0/rmux-0.10.0-windows-x86_64.zip"
+$dest = "$env:LOCALAPPDATA\rmux"
+Invoke-WebRequest $url -OutFile "$env:TEMP\rmux.zip"
+Expand-Archive "$env:TEMP\rmux.zip" -DestinationPath $dest -Force
+rmux -V   # → rmux 0.10.0
+```
 
 ## 部署方法
 
@@ -32,10 +44,10 @@ browser-harness --doctor      # 依赖/连接自检
 ### 2. 启动 agent 专属 Chrome + X 监控
 
 ```powershell
-agent-workspace\start-x-monitor.ps1
+browser-harness x-monitor
 ```
 
-该脚本会：
+该命令会：
 
 - 启动**独立的 agent Chrome**（`agent-chrome-profile` + 端口 `9223` + anti-throttle flags），不影响你日常用的 Chrome（`Profile 3`）。
 - 用 `BU_CDP_URL` 让监控 worker 只连这个独立 Chrome。
