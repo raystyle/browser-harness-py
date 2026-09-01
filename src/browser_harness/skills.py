@@ -27,15 +27,22 @@ def _skill_text() -> str:
 
 
 def _skill_files(root: Path) -> list[Path]:
-    """SKILL.md plus every file under references/, or [] when not installed."""
+    """The skill bundle: SKILL.md + references/install.md + references/interaction/.
+
+    domain-skills are deliberately NOT part of the CLI skill bundle — they are
+    workspace-only (goto_url and agents read them from the agent workspace)."""
     files: list[Path] = []
     skill = root / "SKILL.md"
     if not skill.is_file():
         return files
     files.append(skill)
     refs = root / "references"
-    if refs.is_dir():
-        files.extend(sorted(p for p in refs.rglob("*") if p.is_file()))
+    for name in ("install.md", "interaction"):
+        p = refs / name
+        if p.is_file():
+            files.append(p)
+        elif p.is_dir():
+            files.extend(sorted(q for q in p.rglob("*") if q.is_file()))
     return files
 
 
@@ -51,15 +58,25 @@ def _skill_hash(root: Path) -> str | None:
 
 
 def _sync_tree(dst: Path) -> None:
-    """Mirror packaged SKILL.md + references/ into dst (agent CLI skill dirs are pure mirrors)."""
+    """Mirror the skill bundle (SKILL.md + install.md + interaction/) into dst."""
     src = _packaged_skill_dir()
     dst.mkdir(parents=True, exist_ok=True)
     (dst / "SKILL.md").write_text(_skill_text(), encoding="utf-8", newline="\n")
     src_refs, dst_refs = src / "references", dst / "references"
-    if src_refs.is_dir():
-        if dst_refs.exists():
-            shutil.rmtree(dst_refs)
-        shutil.copytree(src_refs, dst_refs)
+    dst_refs.mkdir(parents=True, exist_ok=True)
+    for name in ("install.md", "interaction"):
+        s = src_refs / name
+        if not s.exists():
+            continue
+        d = dst_refs / name
+        if d.is_dir():
+            shutil.rmtree(d)
+        elif d.exists():
+            d.unlink()
+        if s.is_dir():
+            shutil.copytree(s, d)
+        else:
+            shutil.copy2(s, d)
 
 
 def _domain_src() -> Path:
@@ -72,11 +89,16 @@ def _domain_dst() -> Path:
     return workspace_dir() / "domain-skills"
 
 
+def _domain_files(root: Path) -> list[Path]:
+    """Site-skill payload files: markdown plus bundled helper scripts (no .gitkeep)."""
+    return sorted(p for p in root.rglob("*") if p.is_file() and p.suffix in (".md", ".py"))
+
+
 def _domain_diff() -> tuple[int, int, int]:
     """(packaged total, missing at destination, differing) for domain-skills."""
     src, dst = _domain_src(), _domain_dst()
     missing = differing = total = 0
-    for p in sorted(src.rglob("*.md")):
+    for p in _domain_files(src):
         total += 1
         t = dst / p.relative_to(src)
         if not t.is_file():
@@ -96,7 +118,7 @@ def _sync_domain() -> int:
         return 0
     dst.mkdir(parents=True, exist_ok=True)
     copied = 0
-    for p in sorted(src.rglob("*.md")):
+    for p in _domain_files(src):
         t = dst / p.relative_to(src)
         if not t.is_file() or t.read_bytes() != p.read_bytes():
             t.parent.mkdir(parents=True, exist_ok=True)

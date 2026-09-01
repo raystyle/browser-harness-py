@@ -2,6 +2,11 @@
 
 版本里程碑：本 fork 相对上游的本地改动记录。
 
+## v0.3.0 — 2026-09-01
+
+- **skills sync 目标分治**：CLI 技能目录（claude/codex）只装技能包本体（SKILL.md + install.md + interaction，19 文件）；domain-skills（107 个站点配方，含 `claude-ai/extract-share-transcript.py` 脚本，此前被 `*.md` 打包规则漏掉）只增量铺到 `<BH_HOME>/agent-workspace/domain-skills/`，绝不删除用户自加内容。
+- 打包规则补 `**/*.py`；`_skill_files` 哈希范围同步收窄，CLI 目录不再出现 107 个无关站点文件。
+
 ## v0.2.9 — 2026-09-01
 
 - **domain skills 打包与铺装**：109 个站点配方（1.3MB）以 `references/domain-skills/` 随 wheel 分发；`browser-harness skills sync` 现在同步三类目标——`~/.claude` 技能目录、`~/.codex` 技能目录、`<BH_HOME>/agent-workspace/domain-skills/`（**增量覆盖、绝不删除**，保护用户自加站点技能）。新装机器不再有 domain skills 空缺。

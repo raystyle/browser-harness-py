@@ -22,6 +22,8 @@ def test_sync_creates_and_updates(tmp_path, monkeypatch):
     assert skills._skill_hash(fake["codex"]) == want
     assert (fake["claude"] / "SKILL.md").is_file()
     assert (fake["codex"] / "references" / "interaction" / "tabs.md").is_file()
+    # Domain skills are workspace-only; they never land in CLI skill dirs.
+    assert not (fake["codex"] / "references" / "domain-skills").exists()
 
     # Domain skills land in the workspace, additively.
     total, missing, _ = skills._domain_diff()
