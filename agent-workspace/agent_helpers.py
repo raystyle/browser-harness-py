@@ -58,13 +58,16 @@ def setup_browser_apps():
     }
 
 
-def google_search(query, limit=10):
+def google_search(query, limit=10, page=1):
     """Search Google in its own tab (reused) and return ``[{title, url}, ...]``."""
     from browser_harness.helpers import goto_url, wait_for_load, wait_for_element, switch_tab
 
     tid = ensure_app_tab("google.com", "https://www.google.com")
     switch_tab(tid, activate=False)  # re-attach in case the X worker moved it
-    goto_url("https://www.google.com/search?q=" + urllib.parse.quote(query))
+    url = "https://www.google.com/search?q=" + urllib.parse.quote(query)
+    if page > 1:
+        url += f"&start={(page - 1) * 10}"
+    goto_url(url)
     wait_for_load(timeout=20)
     try:
         wait_for_element('a[href^="http"]', timeout=10)
@@ -74,20 +77,44 @@ def google_search(query, limit=10):
     return _extract_links(limit, "google.")
 
 
-def bing_search(query, limit=10):
-    """Search Bing in its own tab (reused) and return ``[{title, url}, ...]``."""
-    from browser_harness.helpers import goto_url, wait_for_load, wait_for_element, switch_tab
+def bing_search(query, limit=10, page=1):
+    """Search Bing in its own tab (reused) and return ``[{title, url, description}, ...]``."""
+    from browser_harness.helpers import goto_url, wait_for_load, wait_for_element, switch_tab, js
 
     tid = ensure_app_tab("bing.com", "https://www.bing.com")
     switch_tab(tid, activate=False)  # re-attach in case the X worker moved it
-    goto_url("https://www.bing.com/search?q=" + urllib.parse.quote(query))
+    url = "https://www.bing.com/search?q=" + urllib.parse.quote(query)
+    if page > 1:
+        url += f"&first={(page - 1) * 10 + 1}"
+    goto_url(url)
     wait_for_load(timeout=20)
     try:
-        wait_for_element('a[href^="http"]', timeout=10)
+        wait_for_element("li.b_algo h2 a", timeout=10)
     except Exception:
         pass
     switch_tab(tid, activate=False)  # re-attach before extracting
-    return _extract_links(limit, "bing.")
+    # Bing wraps result links in a JS-only redirect (bing.com/ck/a), so extract
+    # the native b_algo cards (title + link + snippet) instead of generic links.
+    return js(
+        """(function(limit){
+            var out=[], seen={};
+            var items=document.querySelectorAll('li.b_algo');
+            for(var i=0;i<items.length;i++){
+                var li=items[i];
+                var a=li.querySelector('h2 a');
+                var p=li.querySelector('p');
+                var href=a?(a.href||''):'';
+                var title=a?((a.innerText||a.textContent||'')||'').trim():'';
+                var desc=p?((p.innerText||p.textContent||'')||'').trim():'';
+                if(!href||!title)continue;
+                if(seen[href])continue;
+                seen[href]=1;
+                out.push({title:title,url:href,description:desc});
+                if(out.length>=limit)break;
+            }
+            return out;
+        })(%d)""" % int(limit)
+    )
 
 
 def detect_page_blocks():
