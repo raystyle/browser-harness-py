@@ -134,7 +134,7 @@ print(summarize_current_page())
 | daemon 配置 / 运行时 / 临时文件 | `.browser-harness-dev/`（仓库 launcher）；否则 `~/.config/browser-harness` | `~/.config/browser-harness/{runtime,tmp}/` |
 | agent Chrome 调试端口 | `9223` | `9223` |
 
-在 Windows 上 `~/.config/browser-harness` 实际为 `C:\Users\<你>\.config\browser-harness`（不走 `%APPDATA%`）。开发仓库的 `./browser-harness` launcher 会把 daemon 状态额外隔离到仓库内 `.browser-harness-dev/`，便于本地测试时不污染全局目录；如果直接使用 `uv run python -m browser_harness.run`，则 daemon 状态沿用 `~/.config/browser-harness`。
+在 Windows 上 `~/.config/browser-harness` 实际为 `C:\Users\<user>\.config\browser-harness`（不走 `%APPDATA%`）。开发仓库的 `./browser-harness` launcher 会把 daemon 状态额外隔离到仓库内 `.browser-harness-dev/`，便于本地测试时不污染全局目录；如果直接使用 `uv run python -m browser_harness.run`，则 daemon 状态沿用 `~/.config/browser-harness`。
 
 可用环境变量覆盖默认位置：
 

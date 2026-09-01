@@ -50,7 +50,7 @@ Only add task-specific helpers and data here; do not edit the installed package.
 
 - Default after `uv tool install`:
   `~/.config/browser-harness/agent-workspace`
-  (Windows: `C:\Users\<你>\.config\browser-harness\agent-workspace`).
+  (Windows: `C:\Users\<user>\.config\browser-harness\agent-workspace`).
 - In a git checkout, the `agent-workspace/` next to `README.md` is used when present.
 - Override the location with `BH_AGENT_WORKSPACE`.
 - Load order: the active `agent_helpers.py` first, then the packaged
