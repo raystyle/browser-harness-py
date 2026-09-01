@@ -26,7 +26,7 @@
 
 5. **独立主仓工作流**
    - `origin`（= raystyle/browser-harness，唯一远程）、`main`（开发/发布/默认分支）。
-   - 规则：在 `main` 开发并推 `origin`；发版 = tag + GitHub Release，目标机 `browser-harness --update -y && browser-harness skills sync`；本地验证 `browser-harness --doctor` + `uv run --with pytest python -m pytest tests/unit -q`。
+   - 规则：在 `main` 开发并推 `origin`；发版 = tag + GitHub Release，目标机 `browser-harness --update -y`（自动停栈升级、铺装 skills/workspace、恢复 x-monitor）；本地验证 `browser-harness --doctor` + `uv run --with pytest python -m pytest tests/unit -q`。
 
 ## 二、操作规则
 

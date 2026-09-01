@@ -788,3 +788,108 @@ def test_launch_browser_appends_extra_flags(monkeypatch, tmp_path):
     assert "--disable-background-timer-throttling" in seen["cmd"]
     assert "--disable-backgrounding-occluded-windows" in seen["cmd"]
     assert "--disable-features=IntensiveWakeUpThrottling,CalculateNativeWinOcclusion" in seen["cmd"]
+
+
+# --- run_update seamless-upgrade loop (M102 + workspace provisioning) ---
+
+class FakeCompleted:
+    returncode = 0
+
+
+def test_stop_stack_kills_rmux_and_both_daemons(monkeypatch):
+    state = {"killed_server": False}
+
+    class FakeRmux:
+        def __init__(self):
+            pass
+
+        def server_running(self):
+            return True
+
+        def has_session(self, name):
+            return name == "x-supervisor"
+
+        def kill_server(self):
+            state["killed_server"] = True
+
+    stopped = []
+    monkeypatch.setattr("browser_harness.rmux.Rmux", FakeRmux)
+    monkeypatch.setattr(admin, "daemon_alive", lambda name=None: name in ("default", "x-monitor"))
+    monkeypatch.setattr(admin, "restart_daemon", lambda name=None, **_kw: stopped.append(name))
+
+    assert admin._stop_stack_for_upgrade() is True
+    assert state["killed_server"] is True
+    assert stopped == ["default", "x-monitor"]
+
+
+def test_stop_stack_without_rmux_returns_false(monkeypatch):
+    def boom():
+        raise RuntimeError("rmux is not installed")
+
+    monkeypatch.setattr("browser_harness.rmux.Rmux", boom)
+    monkeypatch.setattr(admin, "daemon_alive", lambda name=None: False)
+    monkeypatch.setattr(admin, "restart_daemon", lambda name=None, **_kw: pytest.fail("no daemon to stop"))
+    assert admin._stop_stack_for_upgrade() is False
+
+
+def test_provision_after_update_runs_skills_sync(monkeypatch):
+    seen = []
+    import browser_harness.skills as skills_mod
+    monkeypatch.setattr(skills_mod, "run_cli", lambda args: seen.append(args) or 0)
+    assert admin._provision_after_update() == 0
+    assert seen == [["sync"]]
+
+
+def test_run_update_installed_stops_before_uv_and_restores(monkeypatch):
+    calls = []
+
+    monkeypatch.setattr(admin, "check_for_update", lambda: ("0.5.1", "0.6.0", True))
+    monkeypatch.setattr(admin, "_install_mode", lambda: "installed")
+    monkeypatch.setattr(admin, "_stop_stack_for_upgrade", lambda: calls.append("stop") or True)
+    monkeypatch.setattr(admin, "_provision_after_update", lambda: calls.append("provision") or 0)
+    monkeypatch.setattr(admin, "_restart_x_monitor", lambda: calls.append("restart") or 0)
+    monkeypatch.setattr(admin, "_cache_read", lambda: {"banner_shown_on": "x", "tag": "0.5.1", "fetched_at": 1})
+    written = {}
+    monkeypatch.setattr(admin, "_cache_write", lambda c: written.update(c))
+
+    def fake_run(argv, **_kw):
+        calls.append(("uv", tuple(argv[:2])))
+        return FakeCompleted()
+
+    monkeypatch.setattr(admin.subprocess, "run", fake_run)
+    monkeypatch.setattr(admin, "daemon_alive", lambda name=None: False)
+
+    assert admin.run_update(yes=True) == 0
+    # order: stack stopped BEFORE uv replaces the venv; provision+restart after.
+    assert calls[0] == "stop"
+    assert calls[1] == ("uv", ("uv", "tool"))
+    assert "provision" in calls and "restart" in calls
+    assert calls.index("provision") < calls.index("restart")
+    # tag cache invalidated so doctor shows the fresh release immediately
+    assert "tag" not in written and "fetched_at" not in written and "banner_shown_on" not in written
+
+
+def test_run_update_installed_uv_failure_hints_m102(monkeypatch, capsys):
+    monkeypatch.setattr(admin, "check_for_update", lambda: ("0.5.1", "0.6.0", True))
+    monkeypatch.setattr(admin, "_install_mode", lambda: "installed")
+    monkeypatch.setattr(admin, "_stop_stack_for_upgrade", lambda: True)
+    monkeypatch.setattr(admin, "_provision_after_update", lambda: pytest.fail("must not provision a failed update"))
+
+    class Fail:
+        returncode = 5
+
+    monkeypatch.setattr(admin.subprocess, "run", lambda argv, **_kw: Fail())
+    assert admin.run_update(yes=True) == 5
+    assert "M102" in capsys.readouterr().err
+
+
+def test_run_update_uptodate_still_provisions(monkeypatch, capsys):
+    monkeypatch.setattr(admin, "check_for_update", lambda: ("0.6.0", "0.6.0", False))
+    monkeypatch.setattr(admin, "_install_mode", lambda: pytest.fail("must short-circuit before install mode"))
+    provided = []
+    monkeypatch.setattr(admin, "_provision_after_update", lambda: provided.append(1) or 0)
+    monkeypatch.setattr(admin.subprocess, "run", lambda argv, **_kw: pytest.fail("no uv call when up to date"))
+
+    assert admin.run_update(yes=True) == 0
+    assert provided == [1]
+    assert "up to date" in capsys.readouterr().out

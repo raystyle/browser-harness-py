@@ -2,6 +2,13 @@
 
 版本里程碑：本项目版本记录（v0.2.2 起独立维护；v0.1.x 为 browser-use 上游基线历史）。
 
+## v0.6.0 — 2026-09-01
+
+- **`--update` 一条命令无缝升级闭环**（M102 根治 + 消灭"忘记 skills sync"）：installed 模式下自动 **停栈**（rmux kill-server + 停 default/x-monitor 两 daemon，解除 venv 文件锁）→ `uv tool install` @main → **铺装** skills 与 workspace（apps/domain-skills，复用 `skills sync`，只增不删）→ **恢复** x-monitor 栈（升级前在跑才恢复）。uv 失败时提示 M102；up-to-date 路径也执行铺装对齐（版本相同但 workspace 漂移时可修复）。
+- 修复升级缓存失效不完整：注释称 invalidate tag cache 但只 pop 了 banner —— 现连同 `tag`/`fetched_at` 一起失效，升级后 doctor 立即显示新 Release（此前最长滞后 24h，本机实证 0.5.1 装完仍显示 0.5.0）。
+- git 模式（repo checkout）同样在 pull 后执行铺装。
+- 测试 183 passed：新增 6 例覆盖停栈顺序（先停栈后 uv）、失败提示、up-to-date 铺装、停栈各分支、provision 转发。
+
 ## v0.5.1 — 2026-09-01
 
 - **默认分支更名 `dev/work` → `main`**：独立主仓收敛为标准主干名。旧本地 `main`（browser-use 基线 a9c3192，dev/work 祖先，历史可达）删除后更名；GitHub 默认分支切 `main`、远端 `dev/work` 删除。`--update` 安装源（admin.py）与 README/AGENTS/install.md/SKILL.md（根 + 包内 + 插件三副本）链接同步改指 `@main`；R003 发布清单 push 命令更新。历史记录（diary/proven/CHANGELOG 旧条目/三原语里程碑行）保留原称。

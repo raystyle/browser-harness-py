@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import shutil
 import socket
 import subprocess
 import sys
@@ -1069,16 +1070,72 @@ def _prompt_yes(question, default_yes=True, yes=False):
     return ans.startswith("y")
 
 
-def run_update(yes=False):
-    """Pull the latest version and (after prompt) restart the daemon so it picks up changed code.
+def _stop_stack_for_upgrade():
+    """Best-effort stop of the running stack (rmux sessions + daemons) before
+    replacing the tool venv. Windows refuses to delete files a running process
+    holds, so both rmux-spawned workers and the daemons lock ``Scripts\\``
+    (M102, twice verified).
 
-    Exit 0 on success, non-zero on failure."""
+    Returns True when the x-monitor supervisor session was running, so the
+    caller can bring the monitoring stack back after the upgrade."""
+    had_x_monitor = False
+    try:
+        from .rmux import Rmux
+        r = Rmux()
+        if r.server_running():
+            had_x_monitor = r.has_session("x-supervisor")
+            print("stopping rmux sessions (x-supervisor/x-worker)...")
+            r.kill_server()
+    except Exception as exc:
+        print(f"rmux stop skipped: {exc}")
+    for nm in (NAME, "x-monitor"):
+        try:
+            if daemon_alive(nm):
+                print(f"stopping {nm} daemon...")
+                restart_daemon(nm)
+        except Exception as exc:
+            print(f"daemon {nm} stop skipped: {exc}")
+    return had_x_monitor
+
+
+def _restart_x_monitor():
+    """Bring the x-monitor stack back after an upgrade (idempotent app)."""
+    exe = shutil.which("browser-harness")
+    if exe:
+        argv = [exe, "x-monitor"]
+    else:
+        argv = [sys.executable, "-c",
+                "import sys; sys.argv = ['browser-harness', 'x-monitor']; "
+                "from browser_harness.run import main; main()"]
+    return subprocess.run(argv).returncode
+
+
+def _provision_after_update():
+    """Sync packaged skills + workspace payload (apps, domain-skills) so the
+    machine matches the repo without a separate `skills sync` step."""
+    try:
+        from . import skills
+        return skills.run_cli(["sync"])
+    except Exception as exc:
+        print(f"warning: skills/workspace sync failed: {exc} — run `browser-harness skills sync`",
+              file=sys.stderr)
+        return 1
+
+
+def run_update(yes=False):
+    """Upgrade to the latest release and realign the machine with the repo.
+
+    Installed mode is seamless: stop the running stack (rmux + daemons, so the
+    venv is replaceable — M102), `uv tool install` the @main head, re-provision
+    skills + workspace apps, and bring the x-monitor stack back if it was
+    running. Exit 0 on success, non-zero on failure."""
     import subprocess, sys
     cur, latest, newer = check_for_update()
     # Only short-circuit as "up to date" when we actually know the installed
     # version. Otherwise `newer=False` just means "couldn't compare" — proceed.
     if cur and latest and not newer:
         print(f"browser-harness is up to date ({cur}).")
+        _provision_after_update()  # realign skills/workspace even when the version matches
         return 0
     if cur and latest:
         print(f"updating browser-harness: {cur} -> {latest}")
@@ -1088,6 +1145,7 @@ def run_update(yes=False):
         print("could not reach GitHub releases; will try to update anyway.")
 
     mode = _install_mode()
+    restart_stack = False
     if mode == "git":
         repo = _repo_dir()
         status = subprocess.run(["git", "-C", str(repo), "status", "--porcelain"], capture_output=True, text=True)
@@ -1102,22 +1160,36 @@ def run_update(yes=False):
         if r.returncode != 0:
             return r.returncode
     elif mode == "installed":
+        restart_stack = _stop_stack_for_upgrade()
         tool_upgrade = subprocess.run([
             "uv", "tool", "install", "--upgrade", "--force",
             f"git+{GITHUB_REPO_URL}@main",
         ])
         if tool_upgrade.returncode != 0:
+            print("hint: a running browser-harness process can lock the venv on Windows (M102); close it and retry.",
+                  file=sys.stderr)
             return tool_upgrade.returncode
     else:
         print("unknown install mode; can't auto-update.", file=sys.stderr)
         return 1
 
-    # Invalidate banner/tag cache so the new version doesn't keep nagging.
+    # Invalidate banner/tag cache so doctor reflects the new release immediately
+    # (the tag cache otherwise lags up to VERSION_CACHE_TTL).
     cache = _cache_read()
     cache.pop("banner_shown_on", None)
+    cache.pop("tag", None)
+    cache.pop("fetched_at", None)
     _cache_write(cache)
 
-    if daemon_alive():
+    _provision_after_update()
+    if mode == "installed":
+        if restart_stack:
+            print("restarting x-monitor...")
+            if _restart_x_monitor() != 0:
+                print("x-monitor restart failed; run `browser-harness x-monitor`.", file=sys.stderr)
+        else:
+            print("daemon stopped; it will auto-restart on next `browser-harness` call.")
+    elif daemon_alive():
         if _prompt_yes("restart the running daemon so it picks up the new code?", default_yes=True, yes=yes):
             restart_daemon()
             print("daemon stopped; it will auto-restart on next `browser-harness` call.")

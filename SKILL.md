@@ -95,7 +95,7 @@ print(summarize_current_page())
 
 ## Apps routing
 
-The package is a thin core (daemon, helpers, rmux, diagnostics); applications are **workspace plugins** in `agent-workspace/apps/`, provisioned by `browser-harness skills sync`. Route by intent:
+The package is a thin core (daemon, helpers, rmux, diagnostics); applications are **workspace plugins** in `agent-workspace/apps/`, provisioned by `browser-harness --update` (or `skills sync`). Route by intent:
 
 | User intent | App / command |
 | --- | --- |
@@ -167,7 +167,7 @@ After the user clicks Allow, verify with `browser-harness --doctor` that
 
 Two pieces: the `x-supervisor` workspace app (self-healing loop) plus the
 `x-worker` app it spawns into a rmux pane. Agent-operated, no autostart;
-`browser-harness skills sync` installs them.
+`browser-harness --update` (or `skills sync`) installs them.
 
 Run as rmux background sessions (reuse one shell; poll on demand — no blocking
 command). The worker runs against an **isolated agent Chrome** — never the
@@ -390,6 +390,6 @@ stripping a leading `www.`**: `github.com` → `github/`, `www.bing.com` →
 `goto_url(...)` returns up to 10 `.md` filenames for the navigated host (set
 `BH_DOMAIN_SKILLS=1` in the same process for the hint). Bundled helper
 scripts (e.g. `claude-ai/extract-share-transcript.py`) are not listed — list
-the directory itself to find them. `browser-harness skills sync` provisions
+the directory itself to find them. `browser-harness skills sync` (also run by `--update`) provisions
 the packaged site skills into the workspace (additively — locally added site
 skills are never deleted).

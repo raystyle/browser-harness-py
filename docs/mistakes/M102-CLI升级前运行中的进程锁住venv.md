@@ -25,6 +25,7 @@ uv tool install --upgrade --force git+https://github.com/raystyle/browser-harnes
 ```
 
 升级后恢复：`browser-harness x-monitor`（幂等重拉 Chrome 附着 + rmux 栈 + daemon）。
+- v0.6.0 起 `--update` 内置上述停栈/升级/铺装/恢复闭环；仅手动 `uv tool install` 时需按本条操作。[实证: 单元测试覆盖顺序，0.6.0 发版后本机验证]
 
 ## 教训
 

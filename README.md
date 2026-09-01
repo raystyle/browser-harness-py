@@ -274,12 +274,14 @@ $env:BU_NAME                 # daemon 名（每个长跑插件应有专属 daemo
 $env:X_DB / X_HEARTBEAT / X_SUPERVISOR_LOG   # x-monitor 插件的数据落点
 ```
 
-升级（CLI 与插件一起更新）：
+升级（CLI 与插件一起更新，一条命令闭环）：
 
 ```powershell
-browser-harness --update -y        # 或 uv tool install --upgrade git+...@main
-browser-harness skills sync        # 铺装新版插件与技能
+browser-harness --update -y        # 停栈 → 升级 → 铺装插件/技能 → 恢复 x-monitor
+browser-harness skills sync        # 独立铺装（--update 已内置，单独重铺时用）
 ```
+
+手动 `uv tool install` 前需先停运行栈（rmux + daemon，见 M102）；`--update` 自 v0.6.0 起自动处理。
 
 ## 技能路由链（安装的 SKILL → domain-skills 加载）
 
