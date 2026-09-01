@@ -63,14 +63,33 @@ browser-harness --doctor          # Chrome / daemon / 连接状态
 browser-harness rmux status       # 两个 rmux 会话是否存活
 ```
 
-## Skill 与插件安装部署
+## 更新升级
 
-本仓库的 `SKILL.md` 是 agent 操作路由。一条命令完成全部安装（技能进 Claude Code / Codex，插件与站点技能进 workspace）：
+日常升级一条命令（CLI、技能、workspace 插件一起到最新）：
 
 ```powershell
-browser-harness --update -y     # 升级 CLI 并铺装（停栈 → 升级 → 铺装 → 恢复 x-monitor）
-browser-harness skills sync     # 状态查看；加 sync 参数单独重铺
+browser-harness --update -y
 ```
+
+它自动完成四步，无需人工干预：
+
+| 步骤 | 做什么 |
+| --- | --- |
+| 1 停栈 | `rmux kill-server` + 停 default/x-monitor 两个 daemon（解除 Windows venv 文件锁） |
+| 2 升级 | `uv tool install --upgrade --force` @main（单 venv 原地替换，不累积旧版本） |
+| 3 铺装 | `skills sync`：Claude/Codex 技能 + workspace apps/domain-skills（增量；并清扫本项目退役的旧文件名，自加内容永不删除） |
+| 4 恢复 | 升级前 x-monitor 在跑则自动重拉；尾部输出落地版本 |
+
+- **Windows 细节**：升级命令自身跑在 venv 里无法原地替换自己，实际安装由脱离 venv 的 pwsh 接力进程在本命令退出后执行（同控制台可见输出）。
+- **版本相同也会铺装**：`--update` 在 up-to-date 时仍执行第 3 步，修复"版本没变但 workspace 漂移"的机器。
+- **手动路线**（备选）：`uv tool install --upgrade --force git+...@main` —— 前置要求先停栈（rmux + daemon，见 M102），且需另跑 `skills sync`。
+- **动过 uv 工具层（装/卸/升级）前后**各跑一次 `browser-harness --version` 确认链路完整（M103：清理 uv 注册残留曾连带删掉 shim 目录）。
+
+升级后验证：`browser-harness --version`（新版本号）+ `--doctor` 全绿 + `rmux list` 两会话。
+
+## Skill 与插件安装部署
+
+本仓库的 `SKILL.md` 是 agent 操作路由。升级与铺装一条命令见上节「更新升级」；单独查看/重铺用 `browser-harness skills sync`（不带参数只看状态）。
 
 `skills sync` 的三个落点：
 
@@ -409,9 +428,28 @@ browser-harness rmux kill x-supervisor      # 停整个监控栈
 
 `kill-server` 只销毁本项目 `browser-harness` label 的 rmux 服务，不碰其他程序。
 
-## 插件开发
+## 二次开发
 
-包是**薄核心**（daemon / helpers / rmux / 诊断 / skills），应用一律做成 `agent-workspace/apps/` 下的插件。开发、测试、发布规范见 [docs/references/R003-插件开发与测试规范.md](docs/references/R003-插件开发与测试规范.md)。
+包是**薄核心**（daemon / helpers / rmux / 诊断 / skills），应用一律做成 `agent-workspace/apps/` 下的插件。按改动深度分三层：
+
+| 层 | 改哪里 | 谁生效 / 怎么生效 |
+| --- | --- | --- |
+| **不改代码** | `<BH_HOME>/agent-workspace/` 下自加：新 app 文件、新 domain-skill 站点、`agent_helpers.py` 里按函数名覆盖内置 helper | 即写即用；`skills sync` 只增不删，永不覆盖你的自加内容 |
+| **改插件** | repo `agent-workspace/apps/<app>.py`（git 源） | 拷入 `src/browser_harness/references/apps/` → 测试 → 发版 → 目标机 `--update` 铺装生效 |
+| **改核心** | repo `src/browser_harness/`（daemon/helpers/admin 等） | 走同一发版链路；CDP 面与安全约束见 `AGENTS.md`（最小改动、不扩大攻击面） |
+
+**开发环境**：
+
+```bash
+git clone https://github.com/raystyle/browser-harness && cd browser-harness
+uv sync
+./browser-harness --version      # 跑当前工作树（隔离 BH_HOME=<repo>/.browser-harness-dev，不污染装机数据）
+uv run --with pytest python -m pytest tests/unit -q    # 单测（集成测试需 live browser）
+```
+
+**发版闭环**（完整清单见 R003）：改源 → 拷包（防漂移测试锁着这步）→ 测试全绿 → 版本 +1 + CHANGELOG → `git push origin main` + tag + Release → 发版机跑 `--update -y` 自验（接力路径 + doctor + 栈恢复）。
+
+规范细节（插件类型、入口约定、测试门槛、已知边界）：[docs/references/R003-插件开发与测试规范.md](docs/references/R003-插件开发与测试规范.md)。
 
 ## 文档
 
