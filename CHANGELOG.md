@@ -7,7 +7,7 @@
 - **升级即清理历史老版本**（用户定向）：
   - `skills sync`（`--update` 内置）新增**退役文件清扫**：精确剔除本项目 v0.4.0 前铺到 workspace 根的旧文件（`x_worker.py`/`x_supervisor.py`/`x_search.py`/`x_monitor.py`/`page_text.py`/`browser_watch.py`/`browser_wizard.py`/`start-x-monitor.ps1`，清单 `skills.py::_RETIRED_WORKSPACE_FILES`）；用户/agent 自加文件与 `agent_helpers.py` 覆盖永不触碰。经历过老版本的机器升级后自动落干净。
   - 接力升级尾部追加 `browser-harness --version` 输出，升级完成即见落地版本。
-  - uv 工具层单 venv 原地替换（`--force`），不累积旧版本；本机顺带清除 uv 注册表悬空残留 `bin`（历史安装事故，`uv tool uninstall bin`）。
+  - uv 工具层单 venv 原地替换（`--force`），不累积旧版本。⚠️ 同日实证：按 uv 提示 `uv tool uninstall bin` 清除悬空注册项会**连带删除 shim 目录**（该目录被历史事故注册为 tool 环境），CLI 直接失联 —— 恢复 = 外部重装 `uv tool install --force`；已记 M103。
 
 ## v0.6.3 — 2026-09-01
 
