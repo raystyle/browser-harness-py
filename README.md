@@ -140,22 +140,132 @@ print(summarize_current_page())
 
 插件开发与测试规范见 [docs/references/R003-插件开发与测试规范.md](docs/references/R003-插件开发与测试规范.md)。
 
-## 部署细节与数据目录
+## 完整结构与数据目录
 
-v0.2.3 起**所有运行时数据统一在 `<BH_HOME>`**（默认 `~/.config/browser-harness`，Windows 即 `C:\Users\<user>\.config\browser-harness`，不走 `%APPDATA%`）；repo checkout 只是源码：
+### 1. 仓库结构（D:\browser-harness\，git 源）
 
-| 内容 | 位置 |
-| --- | --- |
-| 推文 DB / 心跳 / 日志 / 插件 / 站点技能 | `<BH_HOME>/agent-workspace/` |
-| agent 专属 Chrome profile | `<BH_HOME>/agent-chrome-profile/`（调试端口 `9223`） |
-| daemon 配置 / 运行时 / 临时文件 | `<BH_HOME>/{.env,runtime/,tmp/}` |
+```text
+browser-harness/
+├── src/browser_harness/          # ★ 包源（与 wheel 内容 1:1，见下节）
+├── agent-workspace/              # ★ 应用层【源】（git 跟踪；运行时副本在 BH_HOME）
+│   ├── apps/                     #   7 个插件源：x-monitor / x-supervisor / x-worker /
+│   │                             #   x-search / web-fetch / google-search / bing-search
+│   └── domain-skills/            #   97 个站点配方源（x/、github/、amazon/…106 md + 1 py）
+├── interaction-skills/           # ★ 17 个浏览器操作专题源（uploads/cookies/iframes/…）
+├── skills/browser-harness/       # Claude plugin 结构（SKILL.md + references/）
+├── .claude-plugin/               #   plugin.json + marketplace.json
+├── SKILL.md                      # ★ 技能正文权威源（≈18KB；包内副本由测试守护同步）
+├── install.md                    # 一次性安装指引（随包分发为 references/install.md）
+├── tests/unit/                   # 194 个测试：daemon/helpers/admin/rmux/run/js/recorder/
+│                                 #   skills 防漂移 / 插件合并加载 / app 路由…
+├── docs/                         # 文档体系（ohmyagents 规范）
+│   ├── guide/                    #   G001-G004：文档/研究/工作流/经验沉淀细则
+│   ├── research/                 #   S001-S005：rmux、defuddle、浏览器隔离等研究
+│   ├── proven/                   #   P0001-P0002：已实证方案
+│   ├── mistakes/                 #   M101：user-data-dir 引号导致 profile 污染
+│   ├── references/               #   R001-R003：R003=插件开发与测试规范
+│   └── diary/ · assets/          #   日记与截图
+├── AGENTS.md / INDEX.md / GOAL.md / PLAN.md / ROADMAP.md / TODO.md / CHANGELOG.md
+├── mcp_server.py                 # 可选 MCP 封装
+├── browser-harness               # repo 内开发用 launcher（uv run 包装）
+└── pyproject.toml / uv.lock      # 版本、依赖、package-data（references 三类）
+```
 
-默认 daemon 由 `<BH_HOME>/.env` 的 `BU_CDP_URL=http://127.0.0.1:9223` 永久钉在 agent Chrome 上 —— 用户日常浏览器（即使开了 chrome://inspect 调试开关）永远不会被连上。
+### 2. pip 包结构（wheel = src/browser_harness/）
+
+```text
+browser_harness/                  # 薄核心：框架，不含任何应用逻辑
+├── run.py            # CLI 入口：子命令分发；管道执行；插件路由（注入 APP_ARGS/APP_FILE）
+├── daemon.py         # CDP WS 持有 + IPC 中继（TCP loopback；每 BU_NAME 一个 daemon）
+├── helpers.py        # 预导入助手（page_info/js/cdp/click_at_xy/scroll/wait_*）
+│                     #   + agent_helpers 合并加载（包内置打底、workspace 按函数覆盖）
+├── admin.py          # ensure_daemon 自愈（agent Chrome 冷启动自动拉起）+ Chrome 生命周期
+│                     #   + doctor / --update / .env 加载（<BH_HOME>/.env 优先）
+├── _ipc.py           # IPC 帧协议 + 端口/pid/日志路径（TCP token 防护）
+├── paths.py          # BH_HOME 路径体系（BH_HOME/BH_CONFIG_DIR/BH_RUNTIME_DIR/BH_TMP_DIR…）
+├── browsers.py       # browsers / current 资源视图 + [inspect-toggle] 盲区探测
+├── rmux.py           # rmux 会话管理（label 原子隔离、kill-server）——框架核心
+├── skills.py         # skills [sync]：三落位分发器 + 内容哈希比对
+├── recorder.py / video.py / video_render.py / video-template.html   # 录制与视频导出
+├── agent_helpers.py  # 内置应用函数：google/bing_search、extract_*_content、setup_browser_apps
+├── macos.py          # macOS 远程调试权限批准
+├── SKILL.md          # 技能正文（test_skill_packaged 守护 == repo 根）
+└── references/       # ★ 分发母本（只读）
+    ├── install.md                #   安装指引
+    ├── interaction/   (17 文件)  #   操作专题（与 interaction-skills/ 同步守护）
+    ├── apps/          (7 文件)   #   插件母本（与 agent-workspace/apps/ 同步守护）
+    └── domain-skills/ (107 文件) #   站点配方母本（同上；106 md + 1 py）
+```
+
+### 3. 部署后的磁盘结构（三线落位）
+
+**A. 包本体**（uv tool 安装，只读）
+
+```text
+D:\ohmyenv\uv-tools\browser-harness\
+├── browser-harness.exe                     # 全局命令
+└── Lib\site-packages\browser_harness\      # 与上节 wheel 1:1
+```
+
+**B. 运行时数据**（`BH_HOME` = `C:\Users\<user>\.config\browser-harness\`）
+
+```text
+BH_HOME/
+├── .env                    # ★ BU_CDP_URL=http://127.0.0.1:9223 —— 默认 daemon 永久钉住
+│                           #   agent Chrome；用户浏览器即使开了 inspect 开关也不会被连
+├── agent-chrome-profile/   # agent 专属 Chrome user-data-dir（X 登录态；调试端口 9223）
+├── runtime/                # 每 daemon 一对：bu-default.pid/.port、bu-x-monitor.pid/.port
+├── tmp/                    # bu-*.log（daemon 日志）、shot.png、调试截图/PDF
+└── agent-workspace/        # ★ agent 应用层（活数据；skills sync 只增不删）
+    ├── apps/               #   7 个插件运行时（browser-harness <app名> 即执行）
+    │   ├── x-monitor.py        # 启动器：拉起 Chrome + 钉 env + rmux ensure（非阻塞）
+    │   ├── x-supervisor.py     # 自愈监督：心跳检查 + 异常重拉 worker（会话 x-supervisor）
+    │   ├── x-worker.py         # 抓取 worker：空闲门控刷新时间线 → x_tweets.db（BU_NAME=x-monitor）
+    │   ├── x-search.py         # 推文库查询（--stats/--recent/--since/--author/--csv…）
+    │   ├── web-fetch.py        # defuddle 正文提取（--text/--json/--current/--browser）
+    │   └── google-search.py / bing-search.py   # 搜索 → 自动接正文提取
+    ├── domain-skills/      #   97 站点配方运行时（BH_DOMAIN_SKILLS=1 时 goto_url 自动匹配）
+    ├── x_tweets.db (+wal/shm)  # 推文库（WAL；author=显示名，handle 单列）
+    ├── x_worker.heartbeat      # worker 心跳（supervisor 判活依据）
+    └── x_supervisor{,.stderr,.stdout}.log      # 监督日志
+    （agent_helpers.py 按需创建：想自定义时才建，缺省用包内置最新版）
+```
+
+**C. Agent CLI 技能**（`skills sync` 产物，各 19 文件）
+
+```text
+~\.claude\skills\browser-harness\     ~\.codex\skills\browser-harness\
+└── SKILL.md + references\{install.md, interaction\*.md}
+    # apps 与 domain-skills 故意不进技能目录 —— 它们属于 workspace
+```
+
+### 4. 数据流与防漂移
+
+```text
+repo 源（git）                wheel references 母本           部署落位
+──────────────  ──拷贝/发布──▶  ──────────────────  ──sync──▶  ─────────────────
+SKILL.md                       browser_harness/SKILL.md        C 线技能目录（19 文件）
+interaction-skills/    →       references/interaction/    →    （并入技能包）
+agent-workspace/apps/  →       references/apps/           →    B 线 apps/（7 插件）
+agent-workspace/domain-skills/ → references/domain-skills/  →  B 线 domain-skills/
+        └── tests/unit/test_skill_packaged.py 逐对守护，漂移即红
+```
+
+### 5. 运行时拓扑
+
+```text
+browser-harness <命令/脚本/插件>
+   ├─ default daemon ──┐
+   ├─ x-monitor daemon ─┴─▶ agent Chrome（9223，BH_HOME/.env 钉住）
+   │                        └─ 持有 X 登录态的 profile
+   └─ rmux 会话：x-supervisor（监督）→ x-monitor（worker 抓取）
+日常 Chrome（Profile 3）：无调试端口或 inspect 开关 —— 无论哪种都永不被连
+```
 
 可用环境变量覆盖默认位置：
 
 ```powershell
-$env:BH_HOME                 # browser-harness 根数据目录（全局）
+$env:BH_HOME                 # 根数据目录（全局）
 $env:BH_AGENT_WORKSPACE      # agent workspace 目录
 $env:BH_AGENT_CHROME_PROFILE # agent Chrome profile
 $env:BU_CDP_URL              # CDP http 地址（钉住浏览器）
