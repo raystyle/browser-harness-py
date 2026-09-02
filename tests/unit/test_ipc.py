@@ -1,3 +1,7 @@
+import os
+import subprocess
+import sys
+
 from browser_harness import _ipc as ipc
 
 
@@ -126,3 +130,76 @@ def test_ping_returns_false_when_pong_field_is_missing_or_not_true(monkeypatch):
         assert ipc.ping("default", timeout=0.0) is False, (
             f"ping() should require pong is exactly True; got: {resp!r}"
         )
+
+
+# --- single-instance lock ---
+
+def test_lock_acquire_is_exclusive_and_records_holder(monkeypatch, tmp_path):
+    """Second acquire must fail and report the first holder's pid. flock and
+    LockFileEx are per-handle, so exclusivity holds even within one process —
+    the guard's contention path can be exercised without a subprocess."""
+    monkeypatch.setattr(ipc, "_RUNTIME", tmp_path)
+    fd, holder = ipc.acquire_lock("default")
+    assert fd is not None
+    assert holder is None
+    try:
+        fd2, holder2 = ipc.acquire_lock("default")
+        assert fd2 is None
+        assert holder2.get("pid") == os.getpid()
+    finally:
+        os.close(fd)
+    # The kernel lock dies with the fd: re-acquire must succeed right after.
+    fd3, _ = ipc.acquire_lock("default")
+    assert fd3 is not None
+    os.close(fd3)
+
+
+def test_lock_path_follows_runtime_stem_conventions(monkeypatch, tmp_path):
+    monkeypatch.setattr(ipc, "_RUNTIME", tmp_path)
+    monkeypatch.setattr(ipc, "BH_RUNTIME_DIR", str(tmp_path))
+    monkeypatch.setattr(ipc, "BH_RUNTIME_DIR_SHARED", True)
+    assert ipc.lock_path("work") == tmp_path / "bu-work.lock"
+
+
+def test_lock_is_exclusive_across_processes(monkeypatch, tmp_path):
+    """The guard exists for cross-process contention; prove it with a real
+    second process. The child prints its pid only after acquiring, and holds
+    the lock until the parent closes its stdin — no kill needed, since under
+    `uv run` sys.executable may be a trampoline whose Popen.pid is not the
+    pid of the process actually holding the lock."""
+    monkeypatch.setattr(ipc, "_RUNTIME", tmp_path)
+    script = (
+        "import os, sys\n"
+        "from browser_harness import _ipc as ipc\n"
+        "fd, holder = ipc.acquire_lock('default')\n"
+        "assert fd is not None, holder\n"
+        "print(os.getpid(), flush=True)\n"
+        "sys.stdin.read()  # hold the lock until the parent closes stdin\n"
+        "os.close(fd)\n"
+    )
+    env = {
+        **os.environ,
+        "BH_RUNTIME_DIR": str(tmp_path),
+        "BH_RUNTIME_DIR_SHARED": "1",
+        "BH_TMP_DIR": str(tmp_path),
+    }
+    p = subprocess.Popen([sys.executable, "-c", script], env=env, stdin=subprocess.PIPE,
+                         stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    try:
+        child_pid = p.stdout.readline().strip()
+        assert child_pid.isdigit(), (
+            f"child failed to acquire the lock: {p.stderr.read()}"
+        )
+        fd, holder = ipc.acquire_lock("default")
+        assert fd is None, "lock must be held by the child process"
+        assert holder.get("pid") == int(child_pid), (
+            "holder metadata must name the process that took the lock"
+        )
+    finally:
+        p.stdin.close()
+        p.wait(timeout=10)
+    # The child released by closing its fd; takeover must now succeed.
+    fd2, holder2 = ipc.acquire_lock("default")
+    assert fd2 is not None
+    assert holder2 is None
+    os.close(fd2)

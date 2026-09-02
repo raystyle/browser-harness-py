@@ -796,10 +796,50 @@ def already_running():
     return ipc.ping(NAME, timeout=1.0)
 
 
+# How long a contending start waits for the lock holder before giving up. A
+# starting holder can be ~75s away from binding its IPC endpoint (get_ws_url
+# 30s dead-wait + LOCAL_HANDSHAKE_TIMEOUT 45s), so the grace must out-wait
+# legitimate startup; anything past it is a stuck holder, and the error names
+# its pid for manual cleanup.
+LOCK_GRACE = float(os.environ.get("BH_LOCK_GRACE", "90"))
+
+
+def claim_single_instance():
+    """Single-instance guard: take the per-BU_NAME lock before touching any
+    shared file. Before this existed, concurrent starts each ping-checked,
+    each passed (the first daemon binds up to ~75s after launch), and each
+    clobbered PID/port/log — leaving unreachable zombie daemons that
+    restart_daemon() (which can only reach the last port-file winner) never
+    reaped. With the lock held, those files are single-writer again.
+
+    A holder that answers ping makes this start exit 0 — classic "already
+    running", also covering lock-free daemons from pre-guard versions. A
+    holder that is still starting gets out-waited; if it dies mid-startup the
+    kernel releases its lock and we take over seamlessly.
+    """
+    deadline = time.monotonic() + LOCK_GRACE
+    while True:
+        if already_running():
+            print(f"daemon already running on {SOCK}", file=sys.stderr)
+            sys.exit(0)
+        fd, holder = ipc.acquire_lock(NAME)
+        if fd is not None:
+            return fd
+        if time.monotonic() >= deadline:
+            pid = holder.get("pid")
+            pid = pid if type(pid) is int and pid > 0 else "unknown"
+            print(
+                f"daemon pid {pid} holds the single-instance lock for BU_NAME={NAME}"
+                f" but did not come up within {LOCK_GRACE:.0f}s -- if it is stuck,"
+                f" kill pid {pid} and retry",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        time.sleep(0.5)
+
+
 if __name__ == "__main__":
-    if already_running():
-        print(f"daemon already running on {SOCK}", file=sys.stderr)
-        sys.exit(0)
+    lock_fd = claim_single_instance()
     open(LOG, "w").close()
     open(PID, "w").write(str(os.getpid()))
     try:
@@ -812,3 +852,4 @@ if __name__ == "__main__":
     finally:
         try: os.unlink(PID)
         except FileNotFoundError: pass
+        os.close(lock_fd)  # the kernel would release it at exit; close for symmetry

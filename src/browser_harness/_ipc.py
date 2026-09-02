@@ -51,6 +51,7 @@ def _tmp_stem(name):  # "bu" when BH_TMP_DIR isolates us, else "bu-<NAME>"
 def log_path(name):   return _TMP / f"{_tmp_stem(name)}.log"
 def pid_path(name):   return _RUNTIME / f"{_runtime_stem(name)}.pid"
 def port_path(name):  return _RUNTIME / f"{_runtime_stem(name)}.port"  # Windows-only: holds {"port","token"} JSON
+def lock_path(name):  return _RUNTIME / f"{_runtime_stem(name)}.lock"  # single-instance guard (acquire_lock)
 def _sock_path(name): return _RUNTIME / f"{_runtime_stem(name)}.sock"
 
 
@@ -78,6 +79,49 @@ def spawn_kwargs():  # subprocess.Popen flags so the daemon detaches from this t
         # allocate a fresh console for the (still console-subsystem) python.exe.
         return {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW}
     return {"start_new_session": True}
+
+
+# The lock covers file byte 0 only; holder metadata starts at byte 1.
+# LockFileEx (msvcrt.locking) blocks other processes' reads of the locked byte
+# itself, so parking the payload past it lets a contending starter still read
+# who holds the lock without waiting. flock on POSIX is advisory and blocks
+# nothing, so the same layout works everywhere.
+_LOCK_REGION = 1
+
+
+def acquire_lock(name):
+    """Try to take the per-BU_NAME single-instance lock.
+
+    Returns (fd, holder). fd is an open lock fd the caller must hold for its
+    process lifetime — the kernel releases the lock at process exit, so a
+    crashed holder never leaves a stale lock behind. fd is None when another
+    handle already holds it; holder is then the dict that process recorded
+    under the lock ({} when unreadable) — authoritative, since only the holder
+    can write the locked file. flock and LockFileEx are both per-handle, so a
+    second acquire even inside one process fails.
+    """
+    _check(name)
+    fd = os.open(lock_path(name), os.O_RDWR | os.O_CREAT, 0o600)
+    try:
+        if IS_WINDOWS:
+            import msvcrt
+            msvcrt.locking(fd, msvcrt.LK_NBLCK, _LOCK_REGION)
+        else:
+            import fcntl
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        holder = {}
+        try:
+            os.lseek(fd, _LOCK_REGION, os.SEEK_SET)
+            holder = json.loads(os.read(fd, 4096) or b"{}")
+        except (OSError, ValueError):
+            holder = {}
+        os.close(fd)
+        return None, (holder if isinstance(holder, dict) else {})
+    os.ftruncate(fd, 0)
+    os.lseek(fd, _LOCK_REGION, os.SEEK_SET)
+    os.write(fd, (json.dumps({"pid": os.getpid(), "python": sys.executable}) + "\n").encode("utf-8"))
+    return fd, None
 
 
 def connect(name, timeout=1.0):

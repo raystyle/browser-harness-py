@@ -714,3 +714,54 @@ def test_explicit_stale_session_is_not_redirected():
     assert d.cdp.calls == [
         ("Runtime.evaluate", {"expression": "1"}, "explicit-stale-session")
     ]
+
+
+# --- claim_single_instance(): single-instance guard ---
+
+def test_claim_defers_to_a_daemon_that_answers_ping(monkeypatch, capsys):
+    """A live daemon makes the start exit 0 immediately, lock or no lock —
+    the no-lock half also covers daemons from pre-guard versions."""
+    monkeypatch.setattr(daemon, "already_running", lambda: True)
+
+    def _must_not_acquire(name):
+        raise AssertionError("acquire_lock must not be reached when ping succeeds")
+    monkeypatch.setattr(daemon.ipc, "acquire_lock", _must_not_acquire)
+    with pytest.raises(SystemExit) as exc:
+        daemon.claim_single_instance()
+    assert exc.value.code == 0
+    assert "already running" in capsys.readouterr().err
+
+
+def test_claim_takes_over_when_the_holder_dies(monkeypatch):
+    """Contention with a starting holder: keep waiting, then acquire the lock
+    the moment the kernel releases it."""
+    locks = iter([(None, {"pid": 4242}), (777, None)])
+    pings = iter([False, False])
+    monkeypatch.setattr(daemon, "already_running", lambda: next(pings))
+    monkeypatch.setattr(daemon.ipc, "acquire_lock", lambda name: next(locks))
+    monkeypatch.setattr(daemon.time, "sleep", lambda s: None)
+    assert daemon.claim_single_instance() == 777
+
+
+def test_claim_times_out_and_names_the_holder_pid(monkeypatch, capsys):
+    """A holder that neither binds nor dies past the grace window: exit 1 with
+    its pid in the message so a human can kill it. LOCK_GRACE=0 makes the very
+    first contended acquire hit the deadline."""
+    monkeypatch.setattr(daemon, "LOCK_GRACE", 0.0)
+    monkeypatch.setattr(daemon, "already_running", lambda: False)
+    monkeypatch.setattr(daemon.ipc, "acquire_lock", lambda name: (None, {"pid": 4242}))
+    with pytest.raises(SystemExit) as exc:
+        daemon.claim_single_instance()
+    assert exc.value.code == 1
+    assert "4242" in capsys.readouterr().err
+
+
+def test_claim_timeout_handles_unreadable_holder_metadata(monkeypatch, capsys):
+    """A lock file with garbage/empty content must not crash the timeout path."""
+    monkeypatch.setattr(daemon, "LOCK_GRACE", 0.0)
+    monkeypatch.setattr(daemon, "already_running", lambda: False)
+    monkeypatch.setattr(daemon.ipc, "acquire_lock", lambda name: (None, {}))
+    with pytest.raises(SystemExit) as exc:
+        daemon.claim_single_instance()
+    assert exc.value.code == 1
+    assert "unknown" in capsys.readouterr().err
