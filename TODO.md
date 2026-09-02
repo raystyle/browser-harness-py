@@ -33,13 +33,14 @@ WSL2 无头接管（对应 `GOAL.md`，队列目标「Linux/macOS 接管」的 L
 | macOS 无头接管验收 | 已完成 | R005 四条全过（无头拉起 / cookie 导入登录 / doctor 全绿 / 两轮增量 25→42）；Linux/macOS 接管队列目标收口（S008） | 2026-09-01 |
 | chrome-mode 双模切换 | 已完成 | 用户定向落地：`chrome-mode status\|headed\|headless`，翻转 = .env 重写 + pid 精确停 Chrome + 双 daemon 重启 + x-monitor 恢复；macOS 往返翻转实证；登录录入标准姿势 = headed 人工登录（S008） | 2026-09-01 |
 | browsers 视图 Darwin 枚举 | 已完成 | `ps -axo` 扫描 + 首 flag 前头部识别二进制（路径含空格）；Mac 实测列实例/tab/rmux | 2026-09-01 |
+| daemon 单实例守卫 | 已完成 | Issue #1 / M109：内核锁（flock/LockFileEx，进程死自动释放）+ claim 争抢语义（让位/等待/接管）；单测 222 绿 + 本机 E2E 三分支；启动路径收敛为仅经 CLI | 2026-09-02 |
 
 ## 队列目标
 
 | 目标 | 状态 | 说明 |
 | --- | --- | --- |
 | Linux/macOS 接管 | 已完成 | WSL 半（S006/S007）+ Windows 复测（R004）+ macOS 半（R005 验收全过、S008 钥匙串发现 + chrome-mode 双模）三侧闭环，2026-09-01 收口 |
-| chrome-mode 翻转双拉起竞态 | 待观察 | 首次翻转后偶见 Chrome 二次拉起（flip 与 x-monitor 恢复各自 ensure 疑似竞态），后续翻转未复现；复现则修（S008 遗留） |
+| chrome-mode 翻转双拉起竞态 | 待观察 | 首次翻转后偶见 Chrome 二次拉起（flip 与 x-monitor 恢复各自 ensure 疑似竞态），后续翻转未复现；daemon 侧并发已由 M109 单实例锁根治，Chrome 拉起侧若无复现即收口（S008 遗留） |
 | --update 限流误报 up to date | 排后 | M108：API 403 时缓存回退伪装成"确认无新版"；修复方向 = 显式 --update 失败时告警 + --force 旁路 |
 | agent Chrome 独立应用身份 | 排后 | macOS 同 bundle 双实例 Dock 激活混淆（无头实例顶包用户 Chrome）；候选解 = 独立副本改 CFBundleIdentifier（S008 遗留） |
 | 站点专用提取扩充 | 排后 | domain-skills 按站点定制正文提取 |

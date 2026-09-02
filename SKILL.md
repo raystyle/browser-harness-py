@@ -380,6 +380,11 @@ upstream they live at https://github.com/raystyle/browser-harness/tree/main/inte
 - Omnibox popups are not real work tabs.
 - CDP target order is not Chrome's visible tab-strip order.
 - `BU_CDP_URL` is an HTTP DevTools endpoint; the daemon resolves it to WebSocket.
+- The daemon is single-instance per BU_NAME (kernel lock in the runtime dir).
+  Concurrent starts defer to the live one, out-wait a starting one, or take
+  over if it dies — never spawn a second copy. Always launch via the
+  `browser-harness` CLI, never a bare `python -m browser_harness.daemon`
+  (interpreter-base mixing, M109).
 - A user Chrome with the chrome://inspect remote-debugging toggle listens on a
   DevToolsActivePort (e.g. 9222) that command-line parsing cannot see; check
   the `[inspect-toggle]` section of `browser-harness browsers`. Keep the
