@@ -81,7 +81,7 @@ def _seed_skill(tmp_path):
 
 def test_goto_url_omits_domain_skills_by_default(tmp_path, monkeypatch):
     monkeypatch.delenv("BH_DOMAIN_SKILLS", raising=False)
-    monkeypatch.setattr(helpers, "AGENT_WORKSPACE", tmp_path)
+    monkeypatch.setattr(helpers, "BROWSER_WORKSPACE", tmp_path)
     _seed_skill(tmp_path)
     with patch("browser_harness.helpers.cdp", return_value={"frameId": "f"}):
         result = helpers.goto_url("https://www.example.com/")
@@ -90,7 +90,7 @@ def test_goto_url_omits_domain_skills_by_default(tmp_path, monkeypatch):
 
 def test_goto_url_includes_domain_skills_when_enabled(tmp_path, monkeypatch):
     monkeypatch.setenv("BH_DOMAIN_SKILLS", "1")
-    monkeypatch.setattr(helpers, "AGENT_WORKSPACE", tmp_path)
+    monkeypatch.setattr(helpers, "BROWSER_WORKSPACE", tmp_path)
     _seed_skill(tmp_path)
     with patch("browser_harness.helpers.cdp", return_value={"frameId": "f"}):
         result = helpers.goto_url("https://www.example.com/")

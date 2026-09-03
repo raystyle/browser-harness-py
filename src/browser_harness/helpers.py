@@ -1,7 +1,7 @@
 """Browser control via CDP.
 
 Core helpers live here. Agent-editable helpers live in
-BH_AGENT_WORKSPACE/agent_helpers.py.
+BH_BROWSER_WORKSPACE/browser_helpers.py.
 """
 import base64, importlib.util, json, math, os, time, urllib.request
 from pathlib import Path
@@ -15,12 +15,13 @@ CORE_DIR = Path(__file__).resolve().parent
 REPO_ROOT = CORE_DIR.parent.parent
 # Runtime data (workspace, chrome profile, .env) always lives under the
 # browser-harness app data dir (BH_HOME, default ~/.config/browser-harness).
-# A repo checkout is source only; BH_AGENT_WORKSPACE overrides the location.
-AGENT_WORKSPACE = paths.workspace_dir()
+# A repo checkout is source only; BH_BROWSER_WORKSPACE overrides the location.
+BROWSER_WORKSPACE = paths.workspace_dir()
+AGENT_WORKSPACE = BROWSER_WORKSPACE  # legacy alias, remove after v0.6.8
 
 
 def _load_env():
-    env_files = [paths.home_dir() / ".env", AGENT_WORKSPACE / ".env"]
+    env_files = [paths.home_dir() / ".env", BROWSER_WORKSPACE / ".env"]
     for p in env_files:
         if not p.exists():
             continue
@@ -156,7 +157,7 @@ def goto_url(url):
     r = cdp("Page.navigate", url=url)
     if os.environ.get("BH_DOMAIN_SKILLS") != "1":
         return r
-    d = (AGENT_WORKSPACE / "domain-skills" / (urlparse(url).hostname or "").removeprefix("www.").split(".")[0])
+    d = (BROWSER_WORKSPACE / "domain-skills" / (urlparse(url).hostname or "").removeprefix("www.").split(".")[0])
     return {**r, "domain_skills": sorted(p.name for p in d.rglob("*.md"))[:10]} if d.is_dir() else r
 
 def page_info():
@@ -636,20 +637,25 @@ def run_app(name, *args, json_output=False):
     return json.loads(proc.stdout) if json_output else proc.stdout
 
 
-def _load_agent_helpers():
-    # Merge, not replace: the packaged agent_helpers fills the defaults first,
-    # then the workspace copy overrides per function name. A stale workspace
-    # file can no longer shadow newer packaged helpers wholesale.
-    from . import agent_helpers as _ah
+def _load_browser_helpers():
+    # Merge, not replace: the packaged browser_helpers fills the defaults
+    # first, then the workspace copy overrides per function name. A stale
+    # workspace file can no longer shadow newer packaged helpers wholesale.
+    from . import browser_helpers as _bh
 
-    for name, value in vars(_ah).items():
+    for name, value in vars(_bh).items():
         if name.startswith("_"):
             continue
         globals()[name] = value
-    p = AGENT_WORKSPACE / "agent_helpers.py"
-    if not p.exists():
+    p = None
+    for candidate in ("browser_helpers.py", "agent_helpers.py"):  # legacy name kept readable
+        c = BROWSER_WORKSPACE / candidate
+        if c.exists():
+            p = c
+            break
+    if p is None:
         return
-    spec = importlib.util.spec_from_file_location("browser_harness_agent_helpers", p)
+    spec = importlib.util.spec_from_file_location("browser_harness_browser_helpers", p)
     if not spec or not spec.loader:
         return
     module = importlib.util.module_from_spec(spec)
@@ -660,4 +666,4 @@ def _load_agent_helpers():
         globals()[name] = value
 
 
-_load_agent_helpers()
+_load_browser_helpers()

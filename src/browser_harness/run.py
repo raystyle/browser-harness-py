@@ -90,12 +90,12 @@ def _print_skill():
 
 
 def workspace_app(name: str):
-    """Path to agent-workspace/apps/<name>.py — the plugin-script entry, or None."""
-    from .helpers import AGENT_WORKSPACE
+    """Path to browser-workspace/apps/<name>.py — the plugin-script entry, or None."""
+    from .helpers import BROWSER_WORKSPACE
 
     if not name or "/" in name or "\\" in name or name.startswith("-"):
         return None
-    app = AGENT_WORKSPACE / "apps" / f"{name}.py"
+    app = BROWSER_WORKSPACE / "apps" / f"{name}.py"
     return app if app.is_file() else None
 
 

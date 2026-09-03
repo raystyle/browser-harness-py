@@ -1,4 +1,4 @@
-from browser_harness import agent_helpers
+from browser_harness import browser_helpers
 
 
 HTML = (
@@ -9,23 +9,23 @@ HTML = (
 
 
 def test_html_to_text_strips_markup_and_script():
-    text = agent_helpers._html_to_text("<p>a</p><script>x()</script> b")
+    text = browser_helpers._html_to_text("<p>a</p><script>x()</script> b")
     assert "a" in text
     assert "b" in text
     assert "x()" not in text
 
 
 def test_fallback_parse_extracts_title_and_domain():
-    out = agent_helpers._fallback_parse(HTML, "https://example.com/a")
+    out = browser_helpers._fallback_parse(HTML, "https://example.com/a")
     assert out["title"] == "Example"
     assert out["domain"] == "example.com"
     assert out["word_count"] > 0
-    assert "Hello" in agent_helpers._html_to_text(out["content_html"])
+    assert "Hello" in browser_helpers._html_to_text(out["content_html"])
 
 
 def test_defuddle_html_falls_back_when_engines_missing(monkeypatch):
-    monkeypatch.setattr(agent_helpers, "_pydefuddle_parse", lambda html, url="": None)
-    out = agent_helpers._defuddle_html(HTML, "https://example.com/a")
+    monkeypatch.setattr(browser_helpers, "_pydefuddle_parse", lambda html, url="": None)
+    out = browser_helpers._defuddle_html(HTML, "https://example.com/a")
     assert out["engine"] == "bs4-fallback"
     assert out["title"] == "Example"
     assert out["text"]
