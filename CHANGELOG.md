@@ -2,6 +2,13 @@
 
 版本里程碑：本项目版本记录（v0.2.2 起独立维护；v0.1.x 为 browser-use 上游基线历史）。
 
+## v0.6.9 — 2026-09-03
+
+- **任务生命周期三分类（用户定向）**：任意调用可加前缀旗标——`--once`（一次性）/`--batch`（批量，调用即整批）结束时**只拆自己冷启动的栈**（默认 daemon + agent Chrome，所有权旗标跟踪），已在跑的持久栈/监控永不被动；**持久**（默认）新增闲置看门狗：`BH_IDLE_TIMEOUT`（默认 1800s=30 分钟，0 关闭）内无任何请求则 daemon 优雅自退（与 meta:shutdown 同路径），**末位 daemon 连带关闭 agent Chrome**（先探活其他 daemon；远端/用户浏览器模型跳过）——x-monitor 每 10 分钟轮询自动续活，监控栈不会误退。根治「测试/一次性任务留残余浏览器」一类问题。
+- **chrome-mode 翻转双拉起竞态修复（S008 遗留销项）**：根因两层——翻转只停 x-monitor daemon 而 rmux 里活着的 worker 见 daemon 死即自行 ensure 重生，带旧模式撞翻转停/拉窗口（macOS `open -na` 把二次 Popen 物化成真第二实例）；`_launch_agent_chrome`「端口探测→Popen→等端口」窗口数秒宽无互斥。修复：翻转先静默 rmux x-monitor/x-supervisor 会话再动 daemon/Chrome（恢复仍幂等拉回）；拉起挂 M109 同款内核锁 `agent-chrome-<port>`，并发 ensure 败者等赢者端口就绪绝不二次 Popen。
+- **Windows 存量竞态两修（E2E 现场抓出）**：`os.kill(pid, 0)` 在 Windows 是 `CTRL_C_EVENT`——`restart_daemon` 死等循环对分离态 daemon 误判「已死」致端口文件撞退出中句柄直接抛 `PermissionError`（chrome-mode 翻转当日同款 `WinError 5`），换 `OpenProcess(SYNCHRONIZE)` 探活；`cleanup_endpoint` unlink 增 10×50ms 重试容错（M109 锁下单写者，残留文件无害）。
+- 单测 248（+11：翻转静默序/锁等待/双线程单次 Popen/生命周期/看门狗/探活/unlink 重试），全树 265 passed；dev 真栈全量验收矩阵（生命周期三场景/带栈翻转往返/M109 复用/x-monitor 长跑型结构/七插件 happy-path）全绿。已知边界记档：cookies export 默认 endpoint 硬编码 9223（与 import 的 `BU_CDP_URL` 不一致），挂 TODO。
+
 ## v0.6.8 — 2026-09-03
 
 - **agent-workspace 更名 browser-workspace（用户定向，含运行时自动迁移）**：workspace 一族全套更名——repo 目录 `agent-workspace/`（119 文件）git mv 为 `browser-workspace/`；环境变量 `BH_AGENT_WORKSPACE` → `BH_BROWSER_WORKSPACE`（旧名只读回退保留一版）；模块 `browser_harness/agent_helpers.py` → `browser_helpers.py`（旧名留 `import *` 垫片一版，workspace 覆盖文件优先读 `browser_helpers.py`、回退旧文件名）；常量 `helpers.AGENT_WORKSPACE` → `BROWSER_WORKSPACE`（旧名别名）。**既有机器升级零孤儿**：默认路径首次解析时整目录 `os.rename` 搬家（用户自加文件、`x_tweets.db`、recordings 随迁），Windows 句柄锁失败则回退旧路径一次性警示、`--update` 停栈窗口自然重试。范围裁决：profile 一族（`agent-chrome-profile` / `BH_AGENT_CHROME_PROFILE` / `BH_AGENT_CDP_PORT` / agent Chrome 术语）**不改**。测试面根治存量隐患：`tests/conftest.py` 强制 `BH_HOME` 指测试 scratch 目录（旧单测隐性写真实 `~/.config`）。+7 单测（迁移三分支、env 优先级、双名合并、垫片等价）。
