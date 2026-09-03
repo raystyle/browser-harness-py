@@ -39,6 +39,7 @@ WSL2 无头接管（对应 `GOAL.md`，队列目标「Linux/macOS 接管」的 L
 
 | 目标 | 状态 | 说明 |
 | --- | --- | --- |
+| v0.6.7 发版 | 排后 | 单实例守卫（M109）随版；用户定向暂不封版，待功能/修复聚合发版；Issue #1 已按「随下个 Release 下发」回帖关闭 |
 | Linux/macOS 接管 | 已完成 | WSL 半（S006/S007）+ Windows 复测（R004）+ macOS 半（R005 验收全过、S008 钥匙串发现 + chrome-mode 双模）三侧闭环，2026-09-01 收口 |
 | chrome-mode 翻转双拉起竞态 | 待观察 | 首次翻转后偶见 Chrome 二次拉起（flip 与 x-monitor 恢复各自 ensure 疑似竞态），后续翻转未复现；daemon 侧并发已由 M109 单实例锁根治，Chrome 拉起侧若无复现即收口（S008 遗留） |
 | --update 限流误报 up to date | 排后 | M108：API 403 时缓存回退伪装成"确认无新版"；修复方向 = 显式 --update 失败时告警 + --force 旁路 |
