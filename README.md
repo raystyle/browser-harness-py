@@ -185,7 +185,7 @@ browser-harness/
 ├── .claude-plugin/               #   plugin.json + marketplace.json
 ├── SKILL.md                      # ★ 技能正文权威源（≈18KB；包内副本由测试守护同步）
 ├── install.md                    # 一次性安装指引（随包分发为 references/install.md）
-├── tests/unit/                   # 227 个测试：daemon/helpers/admin/rmux/run/js/recorder/
+├── tests/unit/                   # 234 个测试：daemon/helpers/admin/rmux/run/js/recorder/
 │                                 #   skills 防漂移 / 插件合并加载 / app 路由…
 ├── docs/                         # 文档体系（ohmyagents 规范）
 │   ├── guide/                    #   G001-G004：文档/研究/工作流/经验沉淀细则
