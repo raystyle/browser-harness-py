@@ -48,4 +48,4 @@ WSL2 无头接管（对应 `GOAL.md`，队列目标「Linux/macOS 接管」的 L
 | --update 限流误报 up to date | 排后 | M108：API 403 时缓存回退伪装成"确认无新版"；修复方向 = 显式 --update 失败时告警 + --force 旁路 |
 | agent Chrome 独立应用身份 | 排后 | macOS 同 bundle 双实例 Dock 激活混淆（无头实例顶包用户 Chrome）；候选解 = 独立副本改 CFBundleIdentifier（S008 遗留） |
 | 站点专用提取扩充 | 排后 | domain-skills 按站点定制正文提取 |
-| MCP 集成 | 排后 | web-fetch / 搜索暴露为 MCP 工具 |
+| MCP 集成 | 不做 | 用户定向 2026-09-03 出队；`mcp_server.py` 与 pyproject optional 依赖保留现状不删 |

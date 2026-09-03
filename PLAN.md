@@ -26,4 +26,4 @@
 
 Linux/macOS 接管已整体收口（2026-09-01）：WSL 半（S006/S007）、Windows 复测（R004 路径 A）、macOS 半（R005 验收全过 + S008 钥匙串发现 + `chrome-mode` 双模落地）。三侧同构：专用 agent profile + 显式 `BH_CHROME_HEADLESS` + x-monitor 幂等拉起；macOS 差异两条——拉起必须走 LaunchServices（daemon 即是，勿手动直拉二进制）、登录录入走有头人工登录（S008）。
 
-再下一目标待用户定向。候选：chrome-mode 翻转双拉起竞态观察（TODO 已挂）、agent Chrome 独立应用身份（macOS Dock 顶包）、站点专用提取规则扩充（domain-skills）、MCP 集成、v0.6.6 发版（tag+Release+`--update` 自验链路）。
+再下一目标待用户定向。候选：chrome-mode 翻转双拉起竞态观察（TODO 已挂）、agent Chrome 独立应用身份（macOS Dock 顶包）、站点专用提取规则扩充（domain-skills）；MCP 集成用户定向不做（2026-09-03 出队）。
