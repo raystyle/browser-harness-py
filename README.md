@@ -459,7 +459,7 @@ browser-harness rmux kill x-supervisor      # 停整个监控栈
 
 ```bash
 git clone https://github.com/raystyle/browser-harness && cd browser-harness
-./browser-harness --version      # 跑当前工作树（环境自动准备：.venv 优先，否则 uv run 兜底；BH_HOME 隔离在 <repo>/.browser-harness-dev，不污染装机数据）
+./browser-harness --version      # 跑当前工作树（环境自动准备：.venv 优先，否则 uv run 兜底；BH_HOME 按平台隔离：Windows <repo>/.browser-harness-dev-win、其余 .browser-harness-dev，不污染装机数据，见 R006）
 # 共享 checkout（同目录多平台/WSL 混用）勿混用同一 .venv——平台不符的残留 venv 会让 uv 报错，整删 .venv 重建即可
 uv run --with pytest python -m pytest tests/unit -q    # 单测（集成测试需 live browser）
 ```

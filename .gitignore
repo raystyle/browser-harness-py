@@ -8,7 +8,7 @@ __pycache__/
 .env
 uv.lock
 *.egg-info/
-.browser-harness-dev/
+.browser-harness-dev*/
 build/
 dist/
 .idea/

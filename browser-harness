@@ -12,7 +12,15 @@ case "$NAME" in
     ;;
 esac
 
-export BH_HOME="${BH_HOME:-$ROOT/.browser-harness-dev}"
+# One checkout, several platforms — split the dev data dir so each side gets
+# its own .env/port/profile (a WSL-flavored .env broke Windows-side stdin
+# testing for two days straight; see R006). Windows gets -win; WSL/Linux/mac
+# keep the original dir (existing WSL data stays put).
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*) DEV_DATA=".browser-harness-dev-win" ;;
+  *) DEV_DATA=".browser-harness-dev" ;;
+esac
+export BH_HOME="${BH_HOME:-$ROOT/$DEV_DATA}"
 if [ -z "${BH_RUNTIME_DIR:-}" ]; then
   export BH_RUNTIME_DIR="/tmp/bh-dev-$DEV_ID/runtime"
   export BH_RUNTIME_DIR_SHARED="${BH_RUNTIME_DIR_SHARED:-1}"
