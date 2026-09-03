@@ -1070,6 +1070,58 @@ def test_launch_agent_chrome_passes_headless_and_extra_flags(monkeypatch, tmp_pa
     assert "--window-size=1280,800" in argv
 
 
+def test_launch_agent_chrome_loser_waits_instead_of_double_launch(monkeypatch):
+    """S008 race fix: with the launch lock held by another process, a caller
+    must never Popen — it waits and piggybacks on the holder's Chrome."""
+    import os as _os
+
+    monkeypatch.setattr(admin, "_AGENT_PORT", 9231)
+    fd, _holder = admin.ipc.acquire_lock("agent-chrome-9231")
+    try:
+        checks = iter([False, False, True])
+        monkeypatch.setattr(admin, "_agent_chrome_running", lambda: next(checks, True))
+        popen_calls = []
+        monkeypatch.setattr("subprocess.Popen", lambda *a, **k: popen_calls.append(a))
+        assert admin._launch_agent_chrome() is True
+        assert popen_calls == []  # loser never launches
+    finally:
+        _os.close(fd)
+
+
+def test_launch_agent_chrome_concurrent_callers_launch_once(monkeypatch):
+    """Two simultaneous cold starts must coalesce into exactly one Popen."""
+    from threading import Barrier, Thread
+
+    monkeypatch.setattr(admin, "_AGENT_PORT", 9232)
+    monkeypatch.setattr(admin, "_chrome_path", lambda: "/usr/bin/google-chrome")
+    monkeypatch.setattr(admin, "_agent_profile", lambda: Path("/tmp/agent-profile"))
+    monkeypatch.setenv("BH_CHROME_HEADLESS", "1")
+    state = {"running": False}
+    popen = {"count": 0}
+
+    def fake_popen(*a, **k):
+        popen["count"] += 1
+        state["running"] = True
+
+    monkeypatch.setattr(admin, "_agent_chrome_running", lambda: state["running"])
+    monkeypatch.setattr("subprocess.Popen", fake_popen)
+
+    barrier = Barrier(2)
+    results = []
+
+    def worker():
+        barrier.wait()
+        results.append(admin._launch_agent_chrome())
+
+    threads = [Thread(target=worker) for _ in range(2)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(10)
+    assert popen["count"] == 1
+    assert results == [True, True]
+
+
 def _fake_version_endpoint(monkeypatch, payload=None):
     """Point _agent_chrome_headless's /json/version probe at a fake payload.
 
@@ -1152,3 +1204,41 @@ def test_chrome_mode_already_in_mode_aligns_env(monkeypatch, tmp_path, capsys):
     assert admin.run_chrome_mode(["headless"]) == 0
     assert "already headless" in capsys.readouterr().out
     assert "BH_CHROME_HEADLESS=1" in (tmp_path / ".env").read_text(encoding="utf-8")
+
+
+def test_chrome_mode_flip_quiesces_rmux_stack_before_stopping_daemons(monkeypatch, tmp_path):
+    """S008 double-launch root cause: the flip used to leave the rmux
+    supervisor/worker alive while stopping the x-monitor daemon — the worker
+    respawned its daemon and relaunched Chrome (stale mode) mid-flip. The
+    stack must be killed FIRST, daemons/Chrome after, restore last."""
+    events = []
+
+    class FakeRmux:
+        def server_running(self):
+            return True
+
+        def has_session(self, name):
+            return name == "x-supervisor"
+
+        def kill_session(self, name):
+            events.append(f"kill:{name}")
+
+    monkeypatch.setattr("browser_harness.rmux.Rmux", FakeRmux)
+    monkeypatch.setenv("BH_HOME", str(tmp_path))
+    monkeypatch.setenv("BU_CDP_URL", "http://127.0.0.1:9223")
+    monkeypatch.setattr(admin, "daemon_alive", lambda nm: True)
+    monkeypatch.setattr(admin, "restart_daemon", lambda nm=None: events.append(f"daemon:{nm}"))
+    # live state by call: target-check (headed) -> stop-check (running) -> result (headless)
+    headless_by_call = iter([False, False, True])
+    monkeypatch.setattr(admin, "_agent_chrome_headless", lambda: next(headless_by_call, True))
+    monkeypatch.setattr(admin, "_stop_agent_chrome", lambda: events.append("chrome-stop"))
+    monkeypatch.setattr(admin, "ensure_daemon", lambda *a, **k: events.append("ensure"))
+    monkeypatch.setattr(admin, "_restart_x_monitor", lambda: events.append("restore"))
+
+    assert admin.run_chrome_mode(["headless"]) == 0
+
+    assert events.index("kill:x-monitor") < events.index("daemon:default")
+    assert events.index("kill:x-supervisor") < events.index("daemon:x-monitor")
+    assert events.index("daemon:x-monitor") < events.index("chrome-stop")
+    assert events.index("chrome-stop") < events.index("ensure")
+    assert events.index("ensure") < events.index("restore")

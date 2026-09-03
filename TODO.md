@@ -44,7 +44,7 @@ WSL2 无头接管（对应 `GOAL.md`，队列目标「Linux/macOS 接管」的 L
 | agent-workspace 更名 browser-workspace | 已完成 | 用户定向 + 二次缩范围（profile 一族不动）；C1 核心（env 回退链 + 整目录自动迁移 + 模块垫片）/C2 repo 119 文件迁移/C3 文档三副本/C4 发版 v0.6.8；真机迁移自验：123 文件与 x_tweets.db 字节级随迁、旧目录消、profile 未动、x-search 读到全量 1064 推、doctor 绿、stdin 冒烟过；单测 conftest BH_HOME 隔离顺带根治存量隐患，234 绿 | 2026-09-03 |
 | dev 环境 Windows 侧真栈姿势 | 已完成 | launcher 按 uname 分家 BH_HOME（Windows→`.browser-harness-dev-win`，端口 9225；WSL 留原目录 9224）；Windows 侧 `./browser-harness` 真栈 stdin 一次过（daemon 冷启动 + 无头 Chrome + 真导航），装机栈 9223 不受扰；沉淀 R006（端口分配全景 9223/9224/9225）；单测侧隔离由 v0.6.8 conftest 先行根治 | 2026-09-03 |
 | Linux/macOS 接管 | 已完成 | WSL 半（S006/S007）+ Windows 复测（R004）+ macOS 半（R005 验收全过、S008 钥匙串发现 + chrome-mode 双模）三侧闭环，2026-09-01 收口 |
-| chrome-mode 翻转双拉起竞态 | 待观察 | 首次翻转后偶见 Chrome 二次拉起（flip 与 x-monitor 恢复各自 ensure 疑似竞态），后续翻转未复现；daemon 侧并发已由 M109 单实例锁根治，Chrome 拉起侧若无复现即收口（S008 遗留） |
+| chrome-mode 翻转双拉起竞态 | 已完成（随下版） | 根因两层：翻转不杀 rmux 栈（活 worker 复活 daemon 撞停/拉窗口）+ 拉起原语无互斥；修复 = 翻转先静默 rmux 会话再动 daemon/Chrome + `_launch_agent_chrome` 挂 M109 同款内核锁（败者等赢者）；+3 单测，dev 栈真栈实证（静默序正确、9223/9225 各恰一实例、栈恢复）；S008 遗留销项 | 2026-09-03 |
 | --update 限流误报 up to date | 排后 | M108：API 403 时缓存回退伪装成"确认无新版"；修复方向 = 显式 --update 失败时告警 + --force 旁路 |
 | agent Chrome 独立应用身份 | 排后 | macOS 同 bundle 双实例 Dock 激活混淆（无头实例顶包用户 Chrome）；候选解 = 独立副本改 CFBundleIdentifier（S008 遗留） |
 | 站点专用提取扩充 | 排后 | domain-skills 按站点定制正文提取 |

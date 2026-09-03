@@ -64,6 +64,6 @@ BH_CHROME_HEADLESS=1        # 值守常态；chrome-mode 翻转会自动改写�
 
 ## 遗留
 
-- 翻转后偶见 Chrome 被二次拉起（疑似 flip 的 `ensure_daemon` 与 x-monitor 恢复各自的 ensure 竞态；后续翻转 pid 稳定，未再复现）——待观察，复现则修。
+- ~~翻转后偶见 Chrome 被二次拉起~~ **已修（2026-09-03，随下版）**：根因两层——①翻转只停 x-monitor daemon，rmux 里活着的 worker 见 daemon 死即自行 ensure 重生，带着旧模式撞翻转的停/拉窗口（macOS `open -na` 把第二次 Popen 物化成真第二实例）；②`_launch_agent_chrome` 的「端口探测→Popen→等端口」窗口数秒宽，无互斥。修复：翻转先杀 rmux x-monitor/x-supervisor 会话再动 daemon/Chrome（恢复仍幂等拉回）；拉起挂 M109 同款内核锁（`agent-chrome-<port>`），并发 ensure 败者等赢者端口就绪、绝不二次 Popen。dev 栈真栈实证：静默行先于停 daemon、9223/9225 各恰一实例、栈恢复。
 - agent Chrome 与用户 Chrome 同 bundle 身份的 Dock 激活混淆：候选解 = 独立应用副本（改 `CFBundleIdentifier`，如 Chrome Dev 之于 Chrome），工程量与升级维护成本待评估。
 - 翻转期间的 stdout 缓冲导致子进程输出先于父进程提示出现（管道场景；终端场景行缓冲无此问题），纯观感，不修。

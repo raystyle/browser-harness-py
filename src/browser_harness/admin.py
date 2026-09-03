@@ -835,36 +835,55 @@ def _launch_agent_chrome() -> bool:
     """Start the isolated agent Chrome if it is not already up. Blocks up to 20s.
 
     The user-data-dir flag must stay unquoted (M101: quoting once leaked the
-    launch into the user's default profile)."""
+    launch into the user's default profile). Concurrent callers (chrome-mode
+    flip, x-monitor worker respawn, two CLI cold starts) serialize on a
+    kernel lock, same primitive as the daemon single-instance guard (M109):
+    the check→Popen→port-ready window is several seconds wide, and a loser
+    racing through it double-launches — on macOS `open -na` materializes that
+    as a real second instance (S008 遗留 race). The loser instead out-waits
+    the holder and piggybacks on its Chrome."""
     import platform
     import subprocess
     import time
 
     if _agent_chrome_running():
         return True
-    chrome = _chrome_path()
-    if not chrome:
+    fd, _holder = ipc.acquire_lock(f"agent-chrome-{_AGENT_PORT}")
+    if fd is None:
+        deadline = time.time() + 30  # out-wait the holder's 20s launch window
+        while time.time() < deadline:
+            if _agent_chrome_running():
+                return True
+            time.sleep(0.5)
         return False
-    flags = [
-        f"--user-data-dir={_agent_profile()}",
-        f"--remote-debugging-port={_AGENT_PORT}",
-        *_NO_THROTTLE_FLAGS,
-        *_headless_flags(),
-        *_extra_chrome_flags(),
-    ]
     try:
-        if platform.system() == "Darwin":
-            subprocess.Popen(["open", "-na", "Google Chrome", "--args", *flags])
-        else:
-            subprocess.Popen([chrome, *flags], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    except OSError:
-        return False
-    deadline = time.time() + 20
-    while time.time() < deadline:
-        if _agent_chrome_running():
+        if _agent_chrome_running():  # re-check under the lock: holder may have finished
             return True
-        time.sleep(0.5)
-    return False
+        chrome = _chrome_path()
+        if not chrome:
+            return False
+        flags = [
+            f"--user-data-dir={_agent_profile()}",
+            f"--remote-debugging-port={_AGENT_PORT}",
+            *_NO_THROTTLE_FLAGS,
+            *_headless_flags(),
+            *_extra_chrome_flags(),
+        ]
+        try:
+            if platform.system() == "Darwin":
+                subprocess.Popen(["open", "-na", "Google Chrome", "--args", *flags])
+            else:
+                subprocess.Popen([chrome, *flags], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except OSError:
+            return False
+        deadline = time.time() + 20
+        while time.time() < deadline:
+            if _agent_chrome_running():
+                return True
+            time.sleep(0.5)
+        return False
+    finally:
+        os.close(fd)
 
 
 def _agent_chrome_headless() -> bool | None:
@@ -1010,6 +1029,18 @@ def run_chrome_mode(args: list[str]) -> int:
         r = Rmux()
         if r.server_running():
             had_x_monitor = r.has_session("x-supervisor")
+            if had_x_monitor:
+                # Quiesce the stack BEFORE touching daemons/Chrome: a live
+                # worker that notices its daemon gone respawns it via its own
+                # ensure path, relaunching Chrome mid-flip with the stale mode
+                # and racing the flip's own stop/launch (S008 double-launch).
+                # _restart_x_monitor() brings the whole stack back afterwards.
+                print("stopping x-monitor rmux stack (a live worker would respawn mid-flip)...")
+                for session in ("x-monitor", "x-supervisor"):
+                    try:
+                        r.kill_session(session)
+                    except Exception:
+                        pass
     except Exception:
         pass
     for nm in (NAME, "x-monitor"):
