@@ -58,6 +58,13 @@ print(page_info())
   display-less Linux).
 - To drive a different browser for a task, set `BU_CDP_URL`/`BU_CDP_WS` (per
   call or in `<BH_HOME>/.env`); see the X section below.
+- Pipe code and command dispatch share one capability surface (dual-mode
+  compatibility): any subcommand is callable from pipe scripts via
+  `run_app(name, *args, json_output=False)` — it runs exactly
+  `browser-harness <name> <args>` and returns its stdout. `web_fetch(url)` is
+  the direct pre-imported alias for `browser-harness web-fetch <url>` (plain
+  HTTP first, browser upgrade on bot walls; current page:
+  `extract_page_content()`). Long-running supervisors (x-monitor) stay in rmux.
 
 ## Agent Workspace
 

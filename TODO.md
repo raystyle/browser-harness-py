@@ -34,12 +34,14 @@ WSL2 无头接管（对应 `GOAL.md`，队列目标「Linux/macOS 接管」的 L
 | chrome-mode 双模切换 | 已完成 | 用户定向落地：`chrome-mode status\|headed\|headless`，翻转 = .env 重写 + pid 精确停 Chrome + 双 daemon 重启 + x-monitor 恢复；macOS 往返翻转实证；登录录入标准姿势 = headed 人工登录（S008） | 2026-09-01 |
 | browsers 视图 Darwin 枚举 | 已完成 | `ps -axo` 扫描 + 首 flag 前头部识别二进制（路径含空格）；Mac 实测列实例/tab/rmux | 2026-09-01 |
 | daemon 单实例守卫 | 已完成 | Issue #1 / M109：内核锁（flock/LockFileEx，进程死自动释放）+ claim 争抢语义（让位/等待/接管）；单测 222 绿 + 本机 E2E 三分支；启动路径收敛为仅经 CLI | 2026-09-02 |
+| stdin 与命令模式双兼容 | 已完成 | Issue #2：`run_app()` 通用子命令桥 + `web_fetch()` 别名（默认对齐 CLI）+ R003 双模式条款；单测 227 绿，真栈验证随发版自验 | 2026-09-03 |
 
 ## 队列目标
 
 | 目标 | 状态 | 说明 |
 | --- | --- | --- |
-| v0.6.7 发版 | 排后 | 单实例守卫（M109）随版；用户定向暂不封版，待功能/修复聚合发版；Issue #1 已按「随下个 Release 下发」回帖关闭 |
+| v0.6.7 发版 | 排后 | 单实例守卫（M109）+ 双模式对齐（Issue #2）随版；用户定向暂不封版，待功能/修复聚合发版；Issue #1 已按「随下个 Release 下发」回帖关闭 |
+| dev 环境 Windows 侧真栈姿势 | 排后 | 本 checkout dev `.env` 为 WSL 配置（9224 + /home profile），Windows 侧 stdin/daemon 真栈实测连续两日受阻（M109、Issue #2）；候选解 = BH_HOME 指独立目录 + `.env` 平台分文件，沉淀成 R 文档 |
 | Linux/macOS 接管 | 已完成 | WSL 半（S006/S007）+ Windows 复测（R004）+ macOS 半（R005 验收全过、S008 钥匙串发现 + chrome-mode 双模）三侧闭环，2026-09-01 收口 |
 | chrome-mode 翻转双拉起竞态 | 待观察 | 首次翻转后偶见 Chrome 二次拉起（flip 与 x-monitor 恢复各自 ensure 疑似竞态），后续翻转未复现；daemon 侧并发已由 M109 单实例锁根治，Chrome 拉起侧若无复现即收口（S008 遗留） |
 | --update 限流误报 up to date | 排后 | M108：API 403 时缓存回退伪装成"确认无新版"；修复方向 = 显式 --update 失败时告警 + --force 旁路 |
