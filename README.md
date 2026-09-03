@@ -185,13 +185,13 @@ browser-harness/
 ├── .claude-plugin/               #   plugin.json + marketplace.json
 ├── SKILL.md                      # ★ 技能正文权威源（≈18KB；包内副本由测试守护同步）
 ├── install.md                    # 一次性安装指引（随包分发为 references/install.md）
-├── tests/unit/                   # 224 个测试：daemon/helpers/admin/rmux/run/js/recorder/
+├── tests/unit/                   # 227 个测试：daemon/helpers/admin/rmux/run/js/recorder/
 │                                 #   skills 防漂移 / 插件合并加载 / app 路由…
 ├── docs/                         # 文档体系（ohmyagents 规范）
 │   ├── guide/                    #   G001-G004：文档/研究/工作流/经验沉淀细则
 │   ├── research/                 #   S001-S008：rmux、defuddle、浏览器隔离、无头接管、钥匙串…
 │   ├── proven/                   #   P0001-P0002：已实证方案
-│   ├── mistakes/                 #   M101-M108：profile 污染、升级锁、symlink、CRLF、限流误报…
+│   ├── mistakes/                 #   M101-M109：profile 污染、升级锁、symlink、CRLF、限流误报、单实例竞态…
 │   ├── references/               #   R001-R005：R003=插件开发与测试规范
 │   └── diary/ · assets/          #   日记与截图
 ├── AGENTS.md / INDEX.md / GOAL.md / PLAN.md / ROADMAP.md / TODO.md / CHANGELOG.md
@@ -303,6 +303,7 @@ $env:BH_AGENT_CHROME_PROFILE # agent Chrome profile
 $env:BH_AGENT_CDP_PORT       # agent Chrome 调试端口（默认 9223；WSL mirrored 网络建议 9224）
 $env:BH_CHROME_HEADLESS      # 1=强制无头 0=保窗；不设时无 DISPLAY 的 Linux 自动无头（chrome-mode 管理的键）
 $env:BH_CHROME_EXTRA_FLAGS   # 透传给 agent Chrome 的额外启动 flag
+$env:BH_LOCK_GRACE           # daemon 单实例锁等待宽限秒数（默认 90，须大于启动最坏 ~75s；超时退出并报 holder pid）
 $env:BU_CDP_URL              # CDP http 地址（钉住浏览器）
 $env:BU_CDP_WS               # CDP websocket 地址
 $env:BU_NAME                 # daemon 名（每个长跑插件应有专属 daemon）
@@ -417,7 +418,7 @@ close_tab(t)
 '@ | browser-harness
 ```
 
-预导入助手：`page_info / js / cdp / list_tabs / new_tab / switch_tab / activate_tab / close_tab / click_at_xy / scroll / fill_input / press_key / upload_file / wait_for_element / wait_for_load / wait_for_network_idle / extract_page_content / extract_url_content / google_search / bing_search / setup_browser_apps / capture_screenshot / drain_events / http_get`（全部经 daemon，永远只碰 agent Chrome）。
+预导入助手：`page_info / js / cdp / list_tabs / new_tab / switch_tab / activate_tab / close_tab / click_at_xy / scroll / fill_input / press_key / upload_file / wait_for_element / wait_for_load / wait_for_network_idle / extract_page_content / extract_url_content / web_fetch / google_search / bing_search / run_app / setup_browser_apps / capture_screenshot / drain_events / http_get`（全部经 daemon，永远只碰 agent Chrome；`web_fetch` 纯 HTTP 起步、bot 墙升级浏览器，`run_app` 可在脚本内调任意 CLI 子命令）。
 
 ### 技能与插件分发
 
@@ -426,7 +427,7 @@ PS> browser-harness skills
   claude   up to date    ~\.claude\skills\browser-harness
   codex    up to date    ~\.codex\skills\browser-harness
   workspace up to date   …\agent-workspace\domain-skills  [107 domain-skills]
-  workspace up to date   …\agent-workspace\apps           [7 apps]
+  workspace up to date   …\agent-workspace\apps           [8 apps]
 ```
 
 ### rmux 会话管理（框架核心）

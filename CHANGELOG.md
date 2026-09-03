@@ -2,6 +2,11 @@
 
 版本里程碑：本项目版本记录（v0.2.2 起独立维护；v0.1.x 为 browser-use 上游基线历史）。
 
+## v0.6.7 — 2026-09-03
+
+- **daemon 单实例守卫**（Issue #1、M109）：并发启动 daemon 曾因 TOCTOU 根治不彻底留下僵尸实例——首个 daemon 绑定 IPC 端点前有 ~75s 窗口 ping 不通，争抢方各自判定「没人在跑」并覆写 PID/端口/日志，`restart_daemon()` 只摸到最后一个端口文件赢家，其余进程永不可达。现由 `claim_single_instance()` 以内核级互斥锁（Unix `fcntl.flock` / Windows `msvcrt.locking`，进程死亡内核自动释放）串行化启动，claim 三分支：holder 可 ping 通（含无锁的旧版共存）→ 让位退出 0；锁被占 → 有界等待（`BH_LOCK_GRACE` 默认 90s，须长于合法启动最坏 ~75s），holder 中途死掉内核放锁、无缝接管；超时 → 退出 1 并报出 holder pid 供手动清理。LOG 截断与 PID 写入挪到持锁之后，共享文件恢复单写者。+7 单测（互斥/同进程双持锁/claim 三分支），本机 E2E 三分支实证；daemon 启动路径收敛为仅经 CLI。
+- **stdin 与命令模式双兼容**（Issue #2）：新增预导入 `run_app(name, *args, json_output=False)` 通用子命令桥——管道脚本内直接调用任意 CLI 子命令（web-fetch / x-search / browsers 及 workspace app 通吃），与命令行分发走同一代码路径，非零退出抛 RuntimeError 并带 stderr 尾部；新增预导入 `web_fetch()` 别名，对齐 CLI 默认（纯 HTTP 起步、命中 bot 墙才升级浏览器），消除「google/bing_search 有预导入函数、web-fetch 没有」的 app 名↔函数名映射不对称。R003 增双模式兼容条款，SKILL 双入口说明同步。+5 单测，Windows 227 passed / 9 skipped。
+
 ## v0.6.6 — 2026-09-01
 
 - **跨平台字节一致性收口**（M107）：`.gitattributes` 钉全仓 `* text=auto eol=lf`（Windows autocrlf 检出 CRLF 曾致 `skills` 哈希永不相等、同步后仍报 OUTDATED；顺带 renormalize 修正 `.gitignore` 历史混入的 7 行 CRLF）；`skills.py` 哈希/provision 比较对 `.md`/`.py` 折 CRLF→LF（editable install 免误报）；回归 +2（CRLF 容错、三副本与打包树禁 symlink）。Windows 215 passed / 9 skipped。
