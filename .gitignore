@@ -16,3 +16,4 @@ dist/
 agent-chrome-profile/
 cookies-*.json
 *.cookies.json
+.ohmyagents/
