@@ -1,27 +1,21 @@
-# browser-harness CLI — one-time install prerequisite
+---
+name: browser-install
+description: Install browser-harness and connect it to a browser fast.
+---
 
-This is a **one-time prerequisite**, not part of the regular AI workflow. Do it once; after `browser-harness` prints page info, never repeat install/connection steps during normal browser work.
+# browser-harness install
 
-## Install the command
+Use once. For browser work, read `SKILL.md`.
+
+## Fast Path
+
+This fork installs from GitHub, not PyPI:
 
 ```powershell
 uv tool install --python 3.12 --force git+https://github.com/raystyle/browser-harness
-browser-harness --version   # should print the version
 ```
 
-`--python 3.12` prevents uv from selecting old releases that support older Python versions. `--upgrade --force` replaces any previous `browser-harness` tool install with the latest `main` build. It does not uninstall unrelated commands such as `browser-use-Browser` or `browser-use-Terminal`.
-
-For browser-harness development, clone the repo into a durable path and run `uv tool install -e .` from the checkout.
-
-## Register the skill
-
-Install/register a skill named `browser-harness` using this command for the body:
-
-```powershell
-browser-harness skill
-```
-
-For Codex:
+Register the Codex skill:
 
 ```powershell
 $skillDir = "$env:USERPROFILE\.codex\skills\browser-harness"
@@ -29,11 +23,7 @@ New-Item -ItemType Directory -Force $skillDir | Out-Null
 browser-harness skill | Set-Content -LiteralPath "$skillDir\SKILL.md" -Encoding utf8
 ```
 
-If an old user-installed `browser` or `browser-use` skill is being picked instead, remove that stale skill directory manually. Never edit bundled/vendor plugin caches.
-
-## Connect to a browser
-
-`browser-harness` attaches to a local Chrome you already have running. Quick check:
+Quick browser check:
 
 ```powershell
 @'
@@ -41,26 +31,103 @@ print(page_info())
 '@ | browser-harness
 ```
 
-If that prints page info, you're done. If not, run `browser-harness --doctor` and follow the connection cases. The two local connection methods:
+If `page_info()` prints, configure recording consent below, then stop.
 
-- **Way 1 (real browser):** open Chrome normally, then open `chrome://inspect/#remote-debugging` and tick "Allow remote debugging for this browser instance". On Chrome 144+, click Allow on the first-attach popup. Inherits your logins/extensions — best when the agent acts in your everyday browser.
-- **Way 2 (isolated agent Chrome):** `browser-harness x-monitor` launches a separate Chrome profile on port `9223` with anti-throttle flags and `BU_CDP_URL` set. Use this for X monitoring and unattended automation; it never touches your normal Chrome profile.
+`--python 3.12` prevents uv from selecting old releases that support older Python versions. `--upgrade --force` replaces any previous `browser-harness` tool install with the latest `main` build.
 
-If the quick path fails after `--doctor`, inspect `src/browser_harness/admin.py`, `src/browser_harness/daemon.py`, and `src/browser_harness/_ipc.py`.
+For Claude Code or other agents: install `browser-harness`, register a skill named `browser-harness`, use `browser-harness skill` as the body, and use this trigger:
 
-## Keeping current
+```text
+Always use browser-harness for any web interaction: automation, scraping, testing, or site/app work.
+```
 
-This fork installs from the `main` branch. Upgrade with:
+If an old user-installed `browser` or `browser-use` skill is being picked instead, remove that stale skill directory manually. Do not edit bundled/vendor plugin caches.
+
+## Recording Consent
+
+Run `browser-harness recordings`. If it reports `(default)`, ask the user once:
+
+> Enable local browser recordings? This saves screenshots and action traces on
+> this machine, which may include sensitive page content, so you can later ask
+> "show me what you did" or request a video. Videos are never generated
+> automatically. [y/N]
+
+Default to no. Run `browser-harness recordings enable` only after yes; otherwise
+run `browser-harness recordings disable`. Preserve an existing `(config)` or
+`(BH_RECORD)` preference during upgrades instead of asking again.
+
+## If Chrome Blocks It
+
+In Chrome:
+
+1. Open `chrome://inspect/#remote-debugging`.
+2. Tick "Allow remote debugging for this browser instance".
+3. Retry `page_info()`.
+
+If that reports `permission-blocked` on macOS, handle the per-connection Allow
+sheet without bringing Chrome to the foreground:
+
+```bash
+browser-harness mac-approve
+```
+
+Continue browser work when the helper returns `ready`; otherwise follow its
+printed instruction. The first checkbox is intentionally a one-time manual
+Chrome setup step; it is not exposed to the harness until CDP is available.
+
+The helper requires Accessibility permission for the app launching the CLI
+(for example Terminal, iTerm, Codex, or an IDE) in System Settings.
+
+## Isolated Agent Chrome
+
+X monitoring does not use your normal Chrome. Start it with:
+
+```powershell
+browser-harness x-monitor
+```
+
+This launches an isolated `agent-chrome-profile` on port `BH_AGENT_CDP_PORT`
+(default `9223`) with anti-throttle flags and pins the worker to it via
+`BU_CDP_URL`. On a headless Linux/WSL2 host, add to `<BH_HOME>/.env`:
+`BH_CHROME_HEADLESS=1` (implicit on display-less Linux) and, for WSL2 with
+mirrored networking, a non-9223 `BH_AGENT_CDP_PORT` so the WSL stack does not
+collide with the Windows stack's agent Chrome on the shared loopback.
+
+## If Still Broken
+
+```powershell
+browser-harness --doctor
+```
+
+Use the output:
+
+- `chrome running` FAIL: ask the user to open Chrome, or start the isolated
+  agent Chrome via `browser-harness x-monitor`.
+- `daemon alive` FAIL: Chrome remote debugging permission is missing, Chrome is
+  closed, or the CDP endpoint is not reachable.
+- `rmux` FAIL: install rmux under `%LOCALAPPDATA%\rmux` or make `rmux` available
+  on PATH; see README.
+
+For a machine-readable health check, an orchestrator can set `BU_NAME` to an
+already-provisioned daemon and run:
+
+```powershell
+browser-harness doctor --json --require-existing-daemon
+```
+
+This prints a versioned JSON report and exits nonzero unless that exact daemon
+has a live browser connection. It never starts or discovers another browser.
+
+If this still fails, inspect `src/browser_harness/admin.py`, `src/browser_harness/daemon.py`, and `src/browser_harness/_ipc.py`.
+
+Useful:
 
 ```powershell
 browser-harness --update -y
 ```
 
-One command: it stops the running stack (rmux sessions + daemons, which otherwise
+`--update` is self-contained: it stops the running stack (rmux + daemons, which
 lock the venv on Windows), reinstalls from `main`, re-provisions skills and
-workspace apps (additively — local additions are never deleted), and brings back
-the x-monitor stack if it was running. The manual
-`uv tool install --force git+https://github.com/raystyle/browser-harness`
-also works but requires stopping the stack first (M102 in the repo docs).
+workspace apps, and restores the x-monitor stack if it was running.
 
-State lives under `C:\Users\<user>\.config\browser-harness` by default on Windows: agent workspace, agent Chrome profile, runtime sockets, logs, screenshots, and temp files. Override with `BH_HOME` or `BROWSER_HARNESS_HOME`.
+State lives under `C:\Users\<user>\.config\browser-harness` by default on Windows: browser workspace, agent Chrome profile, runtime sockets, logs, screenshots, and temp files. Override with `BH_HOME` or `BROWSER_HARNESS_HOME`.

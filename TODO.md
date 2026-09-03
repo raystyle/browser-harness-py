@@ -41,7 +41,7 @@ WSL2 无头接管（对应 `GOAL.md`，队列目标「Linux/macOS 接管」的 L
 
 | 目标 | 状态 | 说明 |
 | --- | --- | --- |
-| agent-workspace 更名 browser-workspace | 排后 | 用户定向 2026-09-03：repo 目录 / `BH_AGENT_WORKSPACE` / `<BH_HOME>/agent-workspace` 运行时全套更名；既有机器须迁移而非孤儿化（自加内容永不删除的承诺不破）；SKILL 三副本 + README/AGENTS/R003 同步；v0.6.8 材料 |
+| agent-workspace 更名 browser-workspace | 进行中 | 用户定向 2026-09-03；范围二次定向：profile 一族（agent-chrome-profile / BH_AGENT_CHROME_PROFILE / BH_AGENT_CDP_PORT / agent Chrome 术语）不动，workspace 一族全改（目录/env/模块/常量）+ 升级自动搬家；C1 核心改名 + C2 repo 迁移已提交，C3 文档、C4 发版待做 |
 | dev 环境 Windows 侧真栈姿势 | 排后 | 本 checkout dev `.env` 为 WSL 配置（9224 + /home profile），Windows 侧 stdin/daemon 真栈实测连续两日受阻（M109、Issue #2）；候选解 = BH_HOME 指独立目录 + `.env` 平台分文件，沉淀成 R 文档 |
 | Linux/macOS 接管 | 已完成 | WSL 半（S006/S007）+ Windows 复测（R004）+ macOS 半（R005 验收全过、S008 钥匙串发现 + chrome-mode 双模）三侧闭环，2026-09-01 收口 |
 | chrome-mode 翻转双拉起竞态 | 待观察 | 首次翻转后偶见 Chrome 二次拉起（flip 与 x-monitor 恢复各自 ensure 疑似竞态），后续翻转未复现；daemon 侧并发已由 M109 单实例锁根治，Chrome 拉起侧若无复现即收口（S008 遗留） |

@@ -130,4 +130,4 @@ browser-harness --update -y
 lock the venv on Windows), reinstalls from `main`, re-provisions skills and
 workspace apps, and restores the x-monitor stack if it was running.
 
-State lives under `C:\Users\<user>\.config\browser-harness` by default on Windows: agent workspace, agent Chrome profile, runtime sockets, logs, screenshots, and temp files. Override with `BH_HOME` or `BROWSER_HARNESS_HOME`.
+State lives under `C:\Users\<user>\.config\browser-harness` by default on Windows: browser workspace, agent Chrome profile, runtime sockets, logs, screenshots, and temp files. Override with `BH_HOME` or `BROWSER_HARNESS_HOME`.

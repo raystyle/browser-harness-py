@@ -26,7 +26,7 @@ workspace.
 - Let the harness write skills while it works. Agent-generated skills reflect
   what actually works in the browser; do not hand-author them.
 - Copy the generated `domain-skills/<site>/` folder into this repository's
-  [`agent-workspace/domain-skills/`](agent-workspace/domain-skills/) examples.
+  [`browser-workspace/domain-skills/`](browser-workspace/domain-skills/) examples.
 - Keep contributions small and focused.
 - Browse existing examples such as `github/`, `linkedin/`, and `amazon/` to see
   the expected shape.

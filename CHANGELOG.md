@@ -2,6 +2,11 @@
 
 版本里程碑：本项目版本记录（v0.2.2 起独立维护；v0.1.x 为 browser-use 上游基线历史）。
 
+## v0.6.8 — 2026-09-03
+
+- **agent-workspace 更名 browser-workspace（用户定向，含运行时自动迁移）**：workspace 一族全套更名——repo 目录 `agent-workspace/`（119 文件）git mv 为 `browser-workspace/`；环境变量 `BH_AGENT_WORKSPACE` → `BH_BROWSER_WORKSPACE`（旧名只读回退保留一版）；模块 `browser_harness/agent_helpers.py` → `browser_helpers.py`（旧名留 `import *` 垫片一版，workspace 覆盖文件优先读 `browser_helpers.py`、回退旧文件名）；常量 `helpers.AGENT_WORKSPACE` → `BROWSER_WORKSPACE`（旧名别名）。**既有机器升级零孤儿**：默认路径首次解析时整目录 `os.rename` 搬家（用户自加文件、`x_tweets.db`、recordings 随迁），Windows 句柄锁失败则回退旧路径一次性警示、`--update` 停栈窗口自然重试。范围裁决：profile 一族（`agent-chrome-profile` / `BH_AGENT_CHROME_PROFILE` / `BH_AGENT_CDP_PORT` / agent Chrome 术语）**不改**。测试面根治存量隐患：`tests/conftest.py` 强制 `BH_HOME` 指测试 scratch 目录（旧单测隐性写真实 `~/.config`）。+7 单测（迁移三分支、env 优先级、双名合并、垫片等价）。
+- 文档随动：SKILL 三副本 / README / install 三副本（顺修包内两份陈旧漂移）/ AGENTS / INDEX（包模块表修正 v0.4.0 后死行）/ R003 / R005 / CONTRIBUTING / .env.example 同步；历史档（CHANGELOG 旧条目、diary、research/proven）保留原称。
+
 ## v0.6.7 — 2026-09-03
 
 - **daemon 单实例守卫**（Issue #1、M109）：并发启动 daemon 曾因 TOCTOU 根治不彻底留下僵尸实例——首个 daemon 绑定 IPC 端点前有 ~75s 窗口 ping 不通，争抢方各自判定「没人在跑」并覆写 PID/端口/日志，`restart_daemon()` 只摸到最后一个端口文件赢家，其余进程永不可达。现由 `claim_single_instance()` 以内核级互斥锁（Unix `fcntl.flock` / Windows `msvcrt.locking`，进程死亡内核自动释放）串行化启动，claim 三分支：holder 可 ping 通（含无锁的旧版共存）→ 让位退出 0；锁被占 → 有界等待（`BH_LOCK_GRACE` 默认 90s，须长于合法启动最坏 ~75s），holder 中途死掉内核放锁、无缝接管；超时 → 退出 1 并报出 holder pid 供手动清理。LOG 截断与 PID 写入挪到持锁之后，共享文件恢复单写者。+7 单测（互斥/同进程双持锁/claim 三分支），本机 E2E 三分支实证；daemon 启动路径收敛为仅经 CLI。

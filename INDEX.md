@@ -16,7 +16,7 @@
 | 代码 | `src\browser_harness\` | Python 包（admin / daemon / helpers / run 等） |
 | 配置 | `pyproject.toml` | 依赖与打包（uv / setuptools，`requires-python >=3.11`） |
 | 测试 | `tests\` | `unit`（无浏览器）+ `integration`（需 CDP） |
-| 技能 | `skills\` / `interaction-skills\` / `agent-workspace\` | skill 与 agent 可写区 |
+| 技能 | `skills\` / `interaction-skills\` / `browser-workspace\` | skill 与 agent 可写区 |
 | 示例 | `examples\` | 研究/验证用 POC 探针（不参与打包） |
 | 入口 | `browser-harness` / `mcp_server.py` | 本地启动器与 MCP 服务 |
 
@@ -27,11 +27,11 @@
 | `src\browser_harness\run.py` | `browser-harness` CLI 入口 |
 | `src\browser_harness\admin.py` | daemon 生命周期、诊断、更新、profile |
 | `src\browser_harness\daemon.py` | 浏览器与 agent 之间的长驻中间进程 |
-| `src\browser_harness\helpers.py` | CDP 封装与浏览器原语 |
-| `src\browser_harness\xapps.py` / `browsers.py` / `rmux.py` | 应用子命令 / 资源视图 / rmux 集成 |
-| `src\browser_harness\x_worker.py` / `x_supervisor.py` / `x_search.py` | X 监控 worker / 自愈 supervisor / 推文查询 |
-| `src\browser_harness\web_fetch.py` / `agent_helpers.py` | 网页正文提取 CLI / agent 辅助函数 |
-| `src\browser_harness\_ipc.py` / `paths.py` / `macos.py` / `recorder.py` / `video.py` / `video_render.py` | 支撑模块 |
+| `src\browser_harness\helpers.py` | CDP 封装与浏览器原语（预导入面）+ `run_app` 子命令桥 |
+| `src\browser_harness\daemon.py` / `admin.py` / `run.py` | CDP daemon（单实例锁）/ 应用管理（升级·chrome-mode）/ CLI 入口 |
+| `src\browser_harness\browser_helpers.py`（旧名 `agent_helpers.py` 垫片） | 应用函数库：搜索/正文提取（合并加载进管道命名空间） |
+| `src\browser_harness\browsers.py` / `rmux.py` / `skills.py` | 资源视图 / rmux 集成 / 技能铺装 |
+| `src\browser_harness\_ipc.py` / `paths.py` / `macos.py` / `recorder.py` / `video.py` / `video_render.py` | 支撑模块（BH_HOME 路径体系 / 录制 / 视频） |
 | `mcp_server.py` | MCP stdio 工具暴露 |
 | `tests\unit\` / `tests\integration\` | 分层测试 |
 | `examples\poc-os-input.py` | OS 级输入 vs CDP 输入域泄漏实证（S001 依据，Windows） |

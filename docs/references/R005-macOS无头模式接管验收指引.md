@@ -14,7 +14,7 @@ v0.6.6 的无头能力（`BH_CHROME_HEADLESS`、`BH_AGENT_CDP_PORT`）与 cookie
 | --- | --- | --- |
 | 1 推 origin 后直装（推荐） | Windows 侧 `git push origin main`；Mac 侧 `uv tool install git+https://github.com/raystyle/browser-harness` | 推 main 是日常开发动作，不是发版（无 tag/Release）；git 源装默认分支头，即 v0.6.6 代码 |
 | 2 bundle 搬运 | Windows 侧 `git bundle create bh.bundle origin/main..main` → scp → Mac `git clone bh.bundle` | 完全离线 |
-| 3 只差 cookies 插件时 | 单独 `scp cookies.py`（`agent-workspace/apps/cookies.py`）到 Mac，用工具 venv 的 python 直接跑 | 路径 A 验收（0.6.5 即可）+ 手动无头拉起，仅 cookie 导入需要这一个文件 [实证: Windows 侧同法绕过 0.6.5 无插件] |
+| 3 只差 cookies 插件时 | 单独 `scp cookies.py`（`browser-workspace/apps/cookies.py`）到 Mac，用工具 venv 的 python 直接跑 | 路径 A 验收（0.6.5 即可）+ 手动无头拉起，仅 cookie 导入需要这一个文件 [实证: Windows 侧同法绕过 0.6.5 无插件] |
 
 Mac 上工具 venv 的 python：`$(uv tool dir)/browser-harness/bin/python`（macOS 是 `bin/`，Windows 是 `Scripts\`）。
 

@@ -5,7 +5,7 @@ description: "Always use browser-harness for any web interaction: automation, sc
 
 # browser-harness
 
-Direct browser control via CDP. For task-specific edits, use `agent-workspace/agent_helpers.py`. For setup, install, or connection problems, read https://github.com/raystyle/browser-harness/blob/main/install.md.
+Direct browser control via CDP. For task-specific edits, use `browser-workspace/browser_helpers.py`. For setup, install, or connection problems, read https://github.com/raystyle/browser-harness/blob/main/install.md.
 
 ## When Not to Use
 
@@ -13,7 +13,7 @@ A basic fetch of public information needs no browser. If a plain HTTP request ca
 
 Domain skills are off by default. Set `BH_DOMAIN_SKILLS=1` to enable them; see the bottom section.
 
-**If `BH_DOMAIN_SKILLS=1` and the task is site-specific, read every file in the matching `$BH_AGENT_WORKSPACE/domain-skills/<site>/` directory before inventing an approach.**
+**If `BH_DOMAIN_SKILLS=1` and the task is site-specific, read every file in the matching `$BH_BROWSER_WORKSPACE/domain-skills/<site>/` directory before inventing an approach.**
 
 ## Usage
 
@@ -66,24 +66,26 @@ print(page_info())
   HTTP first, browser upgrade on bot walls; current page:
   `extract_page_content()`). Long-running supervisors (x-monitor) stay in rmux.
 
-## Agent Workspace
+## Browser Workspace
 
-`agent-workspace/` is an **agent-owned runtime directory**, not package source.
+`browser-workspace/` is an **agent-owned runtime directory**, not package source.
 Only add task-specific helpers and data here; do not edit the installed package.
 
 - Always under the app data dir (`BH_HOME`, default `~/.config/browser-harness`;
   Windows: `C:\Users\<user>\.config\browser-harness`) — in every install mode,
-  including a git checkout. The repo's `agent-workspace/` holds tracked
+  including a git checkout. The repo's `browser-workspace/` holds tracked
   reference content only.
-- Override the location with `BH_AGENT_WORKSPACE`.
+- Override the location with `BH_BROWSER_WORKSPACE` (legacy `BH_AGENT_WORKSPACE`
+  still honored; a pre-v0.6.8 default `agent-workspace/` is auto-renamed on
+  first run).
 - **Add an app = helper functions + plugin script**: reusable functions go in
-  `agent_helpers.py`, standalone scripts in `apps/<name>.py` — invoked as
+  `browser_helpers.py`, standalone scripts in `apps/<name>.py` — invoked as
   `browser-harness <name> [args...]` (positional args land in `APP_ARGS`).
   Long-running plugins get a rmux session (`browser-harness rmux ensure ...`).
-- `agent_helpers.py` loading is a **merge**: packaged helpers fill the defaults,
+- `browser_helpers.py` loading is a **merge**: packaged helpers fill the defaults,
   the workspace copy overrides per function — create it only to customize; an
   absent file always uses the newest packaged helpers.
-- To add a helper, create `agent_helpers.py` in the active workspace. Its public
+- To add a helper, create `browser_helpers.py` in the active workspace. Its public
   functions are imported automatically by the next `browser-harness` script:
 
 ```python
@@ -102,12 +104,12 @@ print(summarize_current_page())
 ```
 
 - Keep app data there too: `x_tweets.db`, heartbeats, supervisor logs.
-- Domain skills live in `agent-workspace/domain-skills/<host>/`. When
+- Domain skills live in `browser-workspace/domain-skills/<host>/`. When
   `BH_DOMAIN_SKILLS=1`, read every matching file before inventing an approach.
 
 ## Apps routing
 
-The package is a thin core (daemon, helpers, rmux, diagnostics); applications are **workspace plugins** in `agent-workspace/apps/`, provisioned by `browser-harness --update` (or `skills sync`). Route by intent:
+The package is a thin core (daemon, helpers, rmux, diagnostics); applications are **workspace plugins** in `browser-workspace/apps/`, provisioned by `browser-harness --update` (or `skills sync`). Route by intent:
 
 | User intent | App / command |
 | --- | --- |
@@ -197,7 +199,7 @@ user's own Chrome — via `BU_CDP_URL`.
   logged in to X on that host.
 - Poll status/data anytime:
   `browser-harness rmux status`              # are both sessions alive?
-  heartbeat freshness at `agent-workspace/x_worker.heartbeat`
+  heartbeat freshness at `browser-workspace/x_worker.heartbeat`
   `browser-harness rmux capture x-monitor`   # worker stdout
   `browser-harness x-search --stats`         # how many tweets are stored
 - Recover / stop: `browser-harness rmux kill x-monitor` (the supervisor respawns
@@ -217,7 +219,7 @@ When the X page is hidden (minimized / background tab) and the user is idle, the
 worker shrinks the window to that docked pane, activates the tab to defeat
 Chrome's intensive throttling, captures, then minimizes it again.
 
-Tweets are stored in `<BH_HOME>/agent-workspace/x_tweets.db` (deduped, WAL,
+Tweets are stored in `<BH_HOME>/browser-workspace/x_tweets.db` (deduped, WAL,
 searchable). Tweet `author` holds the display name only; `handle` is separate.
 When the user asks to analyze:
 
@@ -233,7 +235,7 @@ When the user asks to analyze:
 
 ## Search (Google / Bing)
 
-Agent helpers `google_search(query, limit)` and `bing_search(query, limit)` each
+Workspace helpers `google_search(query, limit)` and `bing_search(query, limit)` each
 reuse their own tab, extract `[{title, url}, ...]`, and return them. Use them when
 the user asks to search Google or Bing (runs in the real, logged-in browser):
 
@@ -285,18 +287,18 @@ browser-harness doctor --json   # parse daemon.browser_ready / chrome_running
 
 or run the setup wizard — a guided, step-by-step flow that auto-opens Chrome,
 reminds for remote-debugging / Allow, and creates one tab per app (X, Google,
-Bing). These scripts live in a git checkout's `agent-workspace/` and are not
+Bing). These scripts live in a git checkout's `browser-workspace/` and are not
 part of the installed package:
 
 ```powershell
-uv run python agent-workspace/browser_wizard.py   # repo checkout only
+uv run python browser-workspace/browser_wizard.py   # repo checkout only
 ```
 
 or watch it continuously — this also auto-opens Chrome when none is running,
 then reports when the daemon becomes connected:
 
 ```powershell
-uv run python agent-workspace/browser_watch.py     # repo checkout only
+uv run python browser-workspace/browser_watch.py     # repo checkout only
 ```
 
 In a browser script, `setup_browser_apps()` ensures X / Google / Bing each have
@@ -378,7 +380,7 @@ upstream they live at https://github.com/raystyle/browser-harness/tree/main/inte
 - Trusted orchestrators that already provisioned an exact named daemon can set
   `BH_REQUIRE_EXISTING_DAEMON=1`. Each CLI call then health-checks and reuses
   that daemon or fails closed; it never auto-starts or discovers another Chrome.
-- Core helpers stay short. Put task-specific helper additions in `$BH_AGENT_WORKSPACE/agent_helpers.py`.
+- Core helpers stay short. Put task-specific helper additions in `$BH_BROWSER_WORKSPACE/browser_helpers.py`.
 
 ## Gotchas
 
@@ -402,7 +404,7 @@ upstream they live at https://github.com/raystyle/browser-harness/tree/main/inte
 
 Only applies when `BH_DOMAIN_SKILLS=1`. Otherwise ignore domain skills.
 
-When enabled, look up `$BH_AGENT_WORKSPACE/domain-skills/<dir>/` before
+When enabled, look up `$BH_BROWSER_WORKSPACE/domain-skills/<dir>/` before
 inventing an approach. **Directory name = the hostname's first label after
 stripping a leading `www.`**: `github.com` → `github/`, `www.bing.com` →
 `bing/`. Subdomains are their own site — `maps.google.com` → `maps/` (not

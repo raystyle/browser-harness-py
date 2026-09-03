@@ -107,7 +107,7 @@ browser-harness --update -y
 | --- | --- |
 | `~/.claude/skills/browser-harness/` | 技能包（SKILL.md + install.md + 17 个 interaction 专题） |
 | `~/.codex/skills/browser-harness/` | 同上 |
-| `~/.config/browser-harness/agent-workspace/{apps,domain-skills}/` | 插件脚本 + 站点技能（**增量覆盖，绝不删除**本地自加内容） |
+| `~/.config/browser-harness/browser-workspace/{apps,domain-skills}/` | 插件脚本 + 站点技能（**增量覆盖，绝不删除**本地自加内容） |
 
 注册后 skill 名称为 `browser-harness`，触发器是 SKILL frontmatter 里的 description：
 
@@ -141,21 +141,21 @@ print(setup_browser_apps())
 
 上面的代码会经 daemon 连上当前绑定的 Chrome，并把结果打印到 stdout。脚本执行失败会以非 0 退出码返回，适合被 agent 或 CI 直接调用。
 
-## agent-workspace（agent 运行目录 + 应用层）
+## browser-workspace（运行目录 + 应用层）
 
-`agent-workspace` 是 agent 运行时的**应用层**，恒位于 `<BH_HOME>`（默认 `~/.config/browser-harness/agent-workspace`，repo checkout 不再特殊化）。结构：
+`browser-workspace` 是运行时的**应用层**，恒位于 `<BH_HOME>`（默认 `~/.config/browser-harness/browser-workspace`，repo checkout 不再特殊化）。结构：
 
 ```text
-agent-workspace/
-├── agent_helpers.py   # 可选：函数合并层（包内置打底，本文件按函数名覆盖）
+browser-workspace/
+├── browser_helpers.py   # 可选：函数合并层（包内置打底，本文件按函数名覆盖）
 ├── apps/              # 插件：browser-harness <app名> 即调用 apps/<app名>.py
 └── domain-skills/     # 站点技能（BH_DOMAIN_SKILLS=1 时 goto_url 自动匹配）
 ```
 
-`agent_helpers.py` 是**合并**加载：包内置版填充默认函数，workspace 版按函数名覆盖 —— 只在想自定义时创建它；不存在则永远用最新内置版。
+`browser_helpers.py` 是**合并**加载：包内置版填充默认函数，workspace 版按函数名覆盖 —— 只在想自定义时创建它；不存在则永远用最新内置版。
 
 ```powershell
-# 在 ~/.config/browser-harness/agent-workspace/agent_helpers.py 里写：
+# 在 ~/.config/browser-harness/browser-workspace/browser_helpers.py 里写：
 def summarize_current_page():
     info = page_info() or {}
     body = js("(document.body && document.body.innerText || '').slice(0, 3000)")
@@ -176,7 +176,7 @@ print(summarize_current_page())
 ```text
 browser-harness/
 ├── src/browser_harness/          # ★ 包源（与 wheel 内容 1:1，见下节）
-├── agent-workspace/              # ★ 应用层【源】（git 跟踪；运行时副本在 BH_HOME）
+├── browser-workspace/              # ★ 应用层【源】（git 跟踪；运行时副本在 BH_HOME）
 │   ├── apps/                     #   8 个插件源：x-monitor / x-supervisor / x-worker /
 │   │                             #   x-search / web-fetch / google-search / bing-search / cookies
 │   └── domain-skills/            #   97 个站点配方源（x/、github/、amazon/…106 md + 1 py）
@@ -207,7 +207,7 @@ browser_harness/                  # 薄核心：框架，不含任何应用逻�
 ├── run.py            # CLI 入口：子命令分发；管道执行；插件路由（注入 APP_ARGS/APP_FILE）
 ├── daemon.py         # CDP WS 持有 + IPC 中继（TCP loopback；每 BU_NAME 一个 daemon）
 ├── helpers.py        # 预导入助手（page_info/js/cdp/click_at_xy/scroll/wait_*）
-│                     #   + agent_helpers 合并加载（包内置打底、workspace 按函数覆盖）
+│                     #   + browser_helpers 合并加载（包内置打底、workspace 按函数覆盖）
 ├── admin.py          # ensure_daemon 自愈（agent Chrome 冷启动自动拉起）+ Chrome 生命周期
 │                     #   + doctor / --update / .env 加载（<BH_HOME>/.env 优先）
 ├── _ipc.py           # IPC 帧协议 + 端口/pid/日志路径（TCP token 防护）
@@ -216,13 +216,13 @@ browser_harness/                  # 薄核心：框架，不含任何应用逻�
 ├── rmux.py           # rmux 会话管理（label 原子隔离、kill-server）——框架核心
 ├── skills.py         # skills [sync]：三落位分发器 + 内容哈希比对
 ├── recorder.py / video.py / video_render.py / video-template.html   # 录制与视频导出
-├── agent_helpers.py  # 内置应用函数：google/bing_search、extract_*_content、setup_browser_apps
+├── browser_helpers.py  # 内置应用函数：google/bing_search、extract_*_content、setup_browser_apps
 ├── macos.py          # macOS 远程调试权限批准
 ├── SKILL.md          # 技能正文（test_skill_packaged 守护 == repo 根）
 └── references/       # ★ 分发母本（只读）
     ├── install.md                #   安装指引
     ├── interaction/   (17 文件)  #   操作专题（与 interaction-skills/ 同步守护）
-    ├── apps/          (8 文件)   #   插件母本（与 agent-workspace/apps/ 同步守护）
+    ├── apps/          (8 文件)   #   插件母本（与 browser-workspace/apps/ 同步守护）
     └── domain-skills/ (107 文件) #   站点配方母本（同上；106 md + 1 py）
 ```
 
@@ -247,7 +247,7 @@ BH_HOME/
 ├── agent-chrome-profile/   # agent 专属 Chrome user-data-dir（X 登录态；调试端口 9223）
 ├── runtime/                # 每 daemon 一对：bu-default.pid/.port、bu-x-monitor.pid/.port
 ├── tmp/                    # bu-*.log（daemon 日志）、shot.png、调试截图/PDF
-└── agent-workspace/        # ★ agent 应用层（活数据；skills sync 只增不删）
+└── browser-workspace/        # ★ 应用层（活数据；skills sync 只增不删）
     ├── apps/               #   8 个插件运行时（browser-harness <app名> 即执行）
     │   ├── x-monitor.py        # 启动器：拉起 Chrome + 钉 env + rmux ensure（非阻塞）
     │   ├── x-supervisor.py     # 自愈监督：心跳检查 + 异常重拉 worker（会话 x-supervisor）
@@ -260,7 +260,7 @@ BH_HOME/
     ├── x_tweets.db (+wal/shm)  # 推文库（WAL；author=显示名，handle 单列）
     ├── x_worker.heartbeat      # worker 心跳（supervisor 判活依据）
     └── x_supervisor{,.stderr,.stdout}.log      # 监督日志
-    （agent_helpers.py 按需创建：想自定义时才建，缺省用包内置最新版）
+    （browser_helpers.py 按需创建：想自定义时才建，缺省用包内置最新版）
 ```
 
 **C. Agent CLI 技能**（`skills sync` 产物，各 19 文件）
@@ -278,8 +278,8 @@ repo 源（git）                wheel references 母本           部署落位
 ──────────────  ──拷贝/发布──▶  ──────────────────  ──sync──▶  ─────────────────
 SKILL.md                       browser_harness/SKILL.md        C 线技能目录（19 文件）
 interaction-skills/    →       references/interaction/    →    （并入技能包）
-agent-workspace/apps/  →       references/apps/           →    B 线 apps/（8 插件）
-agent-workspace/domain-skills/ → references/domain-skills/  →  B 线 domain-skills/
+browser-workspace/apps/  →       references/apps/           →    B 线 apps/（8 插件）
+browser-workspace/domain-skills/ → references/domain-skills/  →  B 线 domain-skills/
         └── tests/unit/test_skill_packaged.py 逐对守护，漂移即红
 ```
 
@@ -298,7 +298,7 @@ browser-harness <命令/脚本/插件>
 
 ```powershell
 $env:BH_HOME                 # 根数据目录（全局）
-$env:BH_AGENT_WORKSPACE      # agent workspace 目录
+$env:BH_BROWSER_WORKSPACE      # workspace 目录（默认 <BH_HOME>/browser-workspace；旧名 BH_AGENT_WORKSPACE 兼容，v0.6.8 前旧目录自动改名迁移）
 $env:BH_AGENT_CHROME_PROFILE # agent Chrome profile
 $env:BH_AGENT_CDP_PORT       # agent Chrome 调试端口（默认 9223；WSL mirrored 网络建议 9224）
 $env:BH_CHROME_HEADLESS      # 1=强制无头 0=保窗；不设时无 DISPLAY 的 Linux 自动无头（chrome-mode 管理的键）
@@ -326,19 +326,19 @@ browser-harness skills sync        # 独立铺装（--update 已内置，单独�
 ```text
 ① 技能触发                 ② SKILL.md 文本指路                ③ agent 解析路径              ④ 读取执行
 ─────────                ─────────────────                 ──────────────               ──────────
-任务涉及网页               三处接力指令：                      $BH_AGENT_WORKSPACE          通读该目录全部 .md
+任务涉及网页               三处接力指令：                      $BH_BROWSER_WORKSPACE          通读该目录全部 .md
 → frontmatter            · 开头强制令：BH_DOMAIN_SKILLS=1    的解析规则写在 Workspace      → 按 "Do this first"
-  description 命中          时先读 domain-skills/<dir>/      章节：<BH_HOME>/agent-       工作流动手
-→ SKILL.md 全文注入       · Workspace 章节：$BH_AGENT_       workspace（BH_HOME 默认
-  上下文                    WORKSPACE = <BH_HOME>/agent-     ~/.config/browser-harness）
+  description 命中          时先读 domain-skills/<dir>/      章节：<BH_HOME>/browser-     工作流动手
+→ SKILL.md 全文注入       · Workspace 章节：$BH_BROWSER_     workspace（BH_HOME 默认
+  上下文                    WORKSPACE = <BH_HOME>/browser-   ~/.config/browser-harness）
 · 底部 Domain Skills        workspace                       → agent 拼出绝对路径
-  章节：<dir> 命名规则 +     （BH_AGENT_WORKSPACE 环境变量
+  章节：<dir> 命名规则 +     （BH_BROWSER_WORKSPACE 环境变量
   goto_url 动态提示          可覆盖）
 ```
 
 关键事实：
 
-- **`$BH_AGENT_WORKSPACE` 不是变量插值，是 agent 读文档自己拼的**；技能副本里故意不含 domain-skills 实体（只有路由说明），实体永远在 workspace。
+- **`$BH_BROWSER_WORKSPACE` 不是变量插值，是 agent 读文档自己拼的**；技能副本里故意不含 domain-skills 实体（只有路由说明），实体永远在 workspace。
 - **目录命名 = hostname 去掉 `www.` 后的首标签**：`github.com` → `github/`，`www.bing.com` → `bing/`；**子域名自成一站** —— `maps.google.com` → `maps/`（不是 `google/`），所以 `gmail` 是独立目录。
 - **动态通道**：设 `BH_DOMAIN_SKILLS=1` 后 `goto_url()` 返回值带 `domain_skills: [文件名…最多10个 .md]`；配套 `.py` 脚本不在提示里，需列目录发现。
 - **默认关闭**：未设 `BH_DOMAIN_SKILLS=1` 时 SKILL 明令 "ignore domain skills"；该变量只硬控 goto_url 提示，"读文件"靠指令约束 agent 行为。
@@ -426,8 +426,8 @@ close_tab(t)
 PS> browser-harness skills
   claude   up to date    ~\.claude\skills\browser-harness
   codex    up to date    ~\.codex\skills\browser-harness
-  workspace up to date   …\agent-workspace\domain-skills  [107 domain-skills]
-  workspace up to date   …\agent-workspace\apps           [8 apps]
+  workspace up to date   …\browser-workspace\domain-skills  [107 domain-skills]
+  workspace up to date   …\browser-workspace\apps           [8 apps]
 ```
 
 ### rmux 会话管理（框架核心）
@@ -447,12 +447,12 @@ browser-harness rmux kill x-supervisor      # 停整个监控栈
 
 ## 二次开发
 
-包是**薄核心**（daemon / helpers / rmux / 诊断 / skills），应用一律做成 `agent-workspace/apps/` 下的插件。按改动深度分三层：
+包是**薄核心**（daemon / helpers / rmux / 诊断 / skills），应用一律做成 `browser-workspace/apps/` 下的插件。按改动深度分三层：
 
 | 层 | 改哪里 | 谁生效 / 怎么生效 |
 | --- | --- | --- |
-| **不改代码** | `<BH_HOME>/agent-workspace/` 下自加：新 app 文件、新 domain-skill 站点、`agent_helpers.py` 里按函数名覆盖内置 helper | 即写即用；`skills sync` 只增不删，永不覆盖你的自加内容 |
-| **改插件** | repo `agent-workspace/apps/<app>.py`（git 源） | 拷入 `src/browser_harness/references/apps/` → 测试 → 发版 → 目标机 `--update` 铺装生效 |
+| **不改代码** | `<BH_HOME>/browser-workspace/` 下自加：新 app 文件、新 domain-skill 站点、`browser_helpers.py` 里按函数名覆盖内置 helper | 即写即用；`skills sync` 只增不删，永不覆盖你的自加内容 |
+| **改插件** | repo `browser-workspace/apps/<app>.py`（git 源） | 拷入 `src/browser_harness/references/apps/` → 测试 → 发版 → 目标机 `--update` 铺装生效 |
 | **改核心** | repo `src/browser_harness/`（daemon/helpers/admin 等） | 走同一发版链路；CDP 面与安全约束见 `AGENTS.md`（最小改动、不扩大攻击面） |
 
 **开发环境**：
