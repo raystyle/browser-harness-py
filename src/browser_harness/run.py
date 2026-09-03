@@ -65,7 +65,7 @@ Commands:
                                     show/flip the agent Chrome headless or headed
                                     (headed = visible window for manual login)
   browser-harness current            show the tab/app the daemon is operating on now
-  browser-harness <app> [args...]    run an agent-workspace app (apps/<app>.py):
+  browser-harness <app> [args...]    run a browser-workspace app (apps/<app>.py):
                                       x-monitor, x-search, web-fetch,
                                       google-search, bing-search, cookies —
                                       installed by `browser-harness skills sync`
@@ -78,7 +78,7 @@ USAGE = """Usage:
   print(page_info())
   '@ | browser-harness
 
-  browser-harness <app> [args...]       run agent-workspace/apps/<app>.py (APP_ARGS holds args)
+  browser-harness <app> [args...]       run browser-workspace/apps/<app>.py (APP_ARGS holds args)
 """
 
 

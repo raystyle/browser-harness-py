@@ -41,7 +41,7 @@ def run(engine: str, rest: list[str]) -> int:
         print(f"usage: browser-harness {engine}-search <query> [--page <int>]", file=sys.stderr)
         return 2
     from browser_harness.admin import ensure_daemon
-    from browser_harness.agent_helpers import bing_search, extract_url_content, google_search
+    from browser_harness.browser_helpers import bing_search, extract_url_content, google_search
 
     ensure_daemon()
     rows = google_search(query, limit=5, page=page) if engine == "google" else bing_search(query, limit=5, page=page)

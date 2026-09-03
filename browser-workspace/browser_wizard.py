@@ -4,7 +4,7 @@ Steps: 1) Chrome running, 2) remote debugging enabled, 3) daemon connected,
 4) one tab per app (X / Google / Bing). Each step detects, auto-fixes what it
 can, and reminds the user for what only they can do (toggle / click Allow).
 
-Run:  uv run python agent-workspace/browser_wizard.py
+Run:  uv run python browser-workspace/browser_wizard.py
 """
 
 from __future__ import annotations

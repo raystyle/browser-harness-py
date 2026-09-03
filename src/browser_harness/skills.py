@@ -22,7 +22,7 @@ _PROVISION_DIRS = ("domain-skills", "apps")
 # Files this project itself shipped into the workspace root before the v0.4.0
 # apps/ layout and later retired. Sync removes exactly these names so upgraded
 # machines drop pre-v0.4.0 relics; anything else in the workspace (user/agent
-# additions, agent_helpers.py overrides) is never touched.
+# additions, browser_helpers.py overrides) is never touched.
 _RETIRED_WORKSPACE_FILES = (
     "browser_watch.py",
     "browser_wizard.py",

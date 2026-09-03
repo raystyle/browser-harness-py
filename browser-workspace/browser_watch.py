@@ -6,7 +6,7 @@ when none is running.
 browser (same profile, honouring BH_NO_THROTTLE / BH_CHROME_EXTRA_FLAGS) and
 keeps watching until the daemon connects.
 
-Run:  uv run python agent-workspace/browser_watch.py
+Run:  uv run python browser-workspace/browser_watch.py
 Env:  BW_INTERVAL (seconds between checks, default 10)
       BW_MAX_CHECKS (0 = run forever)
 """

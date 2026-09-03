@@ -50,7 +50,7 @@ A working script lives next to this file: `extract-share-transcript.py`. Run it 
 ```bash
 CLAUDE_SHARE_URL=https://claude.ai/share/<uuid> \
 OUTPUT_DIR=/path/to/transcripts \
-browser-harness < agent-workspace/domain-skills/claude-ai/extract-share-transcript.py
+browser-harness < browser-workspace/domain-skills/claude-ai/extract-share-transcript.py
 ```
 
 The script reads both via env vars (browser-harness runs the script it reads on stdin and forwards no extra `argv`, so env vars are the cleanest passthrough).

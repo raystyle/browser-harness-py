@@ -5,7 +5,7 @@ Self-heal = auto-detect anomaly + auto-alert + auto-recover:
   - alert:  log + stderr
   - recover: kill the session and respawn the worker in a fresh rmux pane
 
-Run (standalone):  uv run python agent-workspace/x_supervisor.py
+Run (standalone):  uv run python browser-workspace/x_supervisor.py
 """
 
 from __future__ import annotations

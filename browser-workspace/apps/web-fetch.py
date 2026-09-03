@@ -6,8 +6,8 @@ Uses defuddle for main-content extraction:
   - else a lightweight bs4/stdlib fallback
 
 Usage:
-  uv run python agent-workspace/page_text.py <url> [--markdown|--text|--json] [--browser]
-  uv run python agent-workspace/page_text.py --current [--markdown|--text|--json]
+  uv run python browser-workspace/page_text.py <url> [--markdown|--text|--json] [--browser]
+  uv run python browser-workspace/page_text.py --current [--markdown|--text|--json]
 
 Default is a plain HTTP fetch (no browser). Pass ``--browser`` to reuse the
 attached, logged-in browser (cookies + JS), or ``--current`` to parse the page
@@ -18,7 +18,7 @@ import argparse
 import json
 import sys
 
-from browser_harness.agent_helpers import extract_page_content, extract_url_content
+from browser_harness.browser_helpers import extract_page_content, extract_url_content
 
 
 def main(argv=None):

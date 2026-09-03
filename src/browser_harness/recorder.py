@@ -2,7 +2,7 @@
 
 A recording is just a folder:
 
-    <BH_AGENT_WORKSPACE>/recordings/<name>/
+    <BH_BROWSER_WORKSPACE>/recordings/<name>/
       meta.json      # {name, title, started}
       events.jsonl   # one JSON object per action: helper, coords/text,
                      # url, viewport, focused-element box, frame filename
