@@ -35,12 +35,13 @@ WSL2 无头接管（对应 `GOAL.md`，队列目标「Linux/macOS 接管」的 L
 | browsers 视图 Darwin 枚举 | 已完成 | `ps -axo` 扫描 + 首 flag 前头部识别二进制（路径含空格）；Mac 实测列实例/tab/rmux | 2026-09-01 |
 | daemon 单实例守卫 | 已完成 | Issue #1 / M109：内核锁（flock/LockFileEx，进程死自动释放）+ claim 争抢语义（让位/等待/接管）；单测 222 绿 + 本机 E2E 三分支；启动路径收敛为仅经 CLI | 2026-09-02 |
 | stdin 与命令模式双兼容 | 已完成 | Issue #2：`run_app()` 通用子命令桥 + `web_fetch()` 别名（默认对齐 CLI）+ R003 双模式条款；单测 227 绿，真栈验证随发版自验 | 2026-09-03 |
+| v0.6.7 发版 | 已完成 | 预检四件套全绿（227 单测/symlink 零/树净/版本就绪）→ tag + Release「daemon 单实例守卫与管道命令双模式对齐」→ 本机 `--update` 升 0.6.7（M108 未犯、尾部输出落地版本）+ doctor 绿 + stdin 真栈（run_app/web_fetch 过冷启动 daemon，M109 健康拉起活体复核）；README 五处随版对齐 | 2026-09-03 |
 
 ## 队列目标
 
 | 目标 | 状态 | 说明 |
 | --- | --- | --- |
-| v0.6.7 发版 | 排后 | 单实例守卫（M109）+ 双模式对齐（Issue #2）随版；用户定向暂不封版，待功能/修复聚合发版；Issue #1 已按「随下个 Release 下发」回帖关闭 |
+| agent-workspace 更名 browser-workspace | 排后 | 用户定向 2026-09-03：repo 目录 / `BH_AGENT_WORKSPACE` / `<BH_HOME>/agent-workspace` 运行时全套更名；既有机器须迁移而非孤儿化（自加内容永不删除的承诺不破）；SKILL 三副本 + README/AGENTS/R003 同步；v0.6.8 材料 |
 | dev 环境 Windows 侧真栈姿势 | 排后 | 本 checkout dev `.env` 为 WSL 配置（9224 + /home profile），Windows 侧 stdin/daemon 真栈实测连续两日受阻（M109、Issue #2）；候选解 = BH_HOME 指独立目录 + `.env` 平台分文件，沉淀成 R 文档 |
 | Linux/macOS 接管 | 已完成 | WSL 半（S006/S007）+ Windows 复测（R004）+ macOS 半（R005 验收全过、S008 钥匙串发现 + chrome-mode 双模）三侧闭环，2026-09-01 收口 |
 | chrome-mode 翻转双拉起竞态 | 待观察 | 首次翻转后偶见 Chrome 二次拉起（flip 与 x-monitor 恢复各自 ensure 疑似竞态），后续翻转未复现；daemon 侧并发已由 M109 单实例锁根治，Chrome 拉起侧若无复现即收口（S008 遗留） |
