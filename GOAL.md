@@ -18,6 +18,7 @@
 
 | 日期 | 进展 |
 | --- | --- |
+| 2026-09-03 | chrome-mode 翻转竞态修复（静默 rmux 栈 + 拉起内核锁，S008 遗留销项）；任务生命周期三分类（`--once`/`--batch` + `BH_IDLE_TIMEOUT` 闲置看门狗，用户定向）顺修两条 Windows 存量竞态；全量验收矩阵后发版 v0.6.9 并装机自验 |
 | 2026-09-03 | agent-workspace 更名 browser-workspace（用户定向；二次定向缩范围：profile 一族不动）：C1 核心改名+自动迁移、C2 repo 目录 119 文件迁移、C3 文档三副本+活文档、C4 发版 v0.6.8 + 真机迁移自验；测试面顺带根治单测隐性写真实 BH_HOME（conftest 隔离） |
 | 2026-09-03 | Issue #2 双模式对齐（`run_app()` 桥 + `web_fetch()` 别名，R003 双模式条款）；v0.6.7 发版（用户定向解缓决）：M109 + 双模式随版，本机 `--update` + doctor + stdin 真栈全过，守卫健康拉起活体复核闭环；下一目标 = agent-workspace 更名 browser-workspace（用户定向） |
 | 2026-09-02 | 首条 GitHub Issue（#1）闭环：daemon 单实例守卫——同机 4 实例并存根因三层（TOCTOU ~75s / 端口赢家通吃 / PID 覆写），内核锁（flock/LockFileEx 进程死自动释放）+ claim 争抢语义（让位/等待/接管）根治；M109 落档，单测 222 绿 + 本机 E2E 三分支；启动路径收敛为仅经 CLI |
