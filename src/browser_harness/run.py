@@ -41,6 +41,18 @@ Typical usage:
 
 Helpers are pre-imported. The daemon auto-starts and connects to the running browser.
 
+Task lifetime (prefix flag, applies to any command or stdin script):
+  --once         one-shot task: at invocation end, stop the stack this task
+                 cold-started (daemon + agent Chrome). A stack that was
+                 already running (persistent task / monitoring) is untouched.
+  --batch        batch task: identical teardown — the invocation IS the
+                 batch; do many operations in one script, the browser closes
+                 at the end.
+  --persistent   explicit default: daemon and Chrome stay up. The daemon
+                 idle-times out after BH_IDLE_TIMEOUT (default 30 min, 0
+                 disables) with no request; the last daemon standing then
+                 closes the agent Chrome.
+
 Commands:
   browser-harness --version        print the installed version
   browser-harness --doctor         diagnose install, daemon, and browser state
@@ -142,6 +154,31 @@ def main():
 
 
 def _run(args):
+    """CLI entry: optional leading task-lifetime flag, then dispatch.
+
+    --once/--batch wrap the whole invocation in a scoped teardown (finally):
+    whatever the task cold-started (default daemon, agent Chrome) is stopped
+    at exit; a stack that was already up is never touched. --persistent is
+    the explicit spelling of the default.
+    """
+    scope = "persistent"
+    if args and args[0] in ("--once", "--batch", "--persistent"):
+        scope = args[0][2:]
+        args = args[1:]
+    if scope == "persistent":
+        return _dispatch(args)
+    from . import admin
+
+    try:
+        return _dispatch(args)
+    finally:
+        try:
+            admin.teardown_scoped_stack()
+        except Exception as exc:
+            print(f"browser-harness: scoped teardown warning: {exc}", file=sys.stderr)
+
+
+def _dispatch(args):
     if args and args[0] in {"-h", "--help"}:
         print(HELP)
         return

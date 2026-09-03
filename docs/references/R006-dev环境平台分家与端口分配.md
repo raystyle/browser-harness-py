@@ -21,6 +21,7 @@
 - runtime/tmp 隔离沿用 launcher 原有逻辑（`/tmp/bh-dev-<id>/runtime`），与 BH_HOME 分家叠加后，dev daemon 与装机 daemon 的 IPC 天然不串。
 - `.gitignore` 放宽为 `.browser-harness-dev*/`。
 - 单测隔离另行根治（`tests/conftest.py` 强制 BH_HOME 指测试 scratch 目录，v0.6.8 随版）——测试面与 dev 面是两件事，勿混。
+- 一次性/批量测试任务用 `./browser-harness --once ...`（或 `--batch`）：调用结束自动拆掉自己冷启动的栈（daemon + agent Chrome），不再留残余浏览器；已在跑的装机栈不受影响。
 
 ## 验证
 

@@ -367,6 +367,12 @@ class Daemon:
         self.events = deque(maxlen=BUF)
         self.dialog = None
         self.stop = None  # asyncio.Event, set inside start()
+        # Idle watchdog bookkeeping: every client request refreshes last_activity;
+        # the watchdog shuts the daemon down after BH_IDLE_TIMEOUT of silence
+        # (persistent-task lifecycle), and the last daemon standing also stops
+        # the agent Chrome it kept alive.
+        self.last_activity = time.monotonic()
+        self._idle_exit = False
 
     async def attach_first_page(self, replaces_session=None, enable_domains=True):
         """Attach to a real page (or any page). Sets self.session. Returns attached target or None."""
@@ -591,6 +597,7 @@ class Daemon:
         expected = ipc.expected_token()
         if expected is not None and req.get("token") != expected:
             return {"error": "unauthorized"}
+        self.last_activity = time.monotonic()  # any authenticated request counts as activity
         meta = req.get("meta")
         # Liveness probe — lets clients confirm the listener is actually this
         # daemon and not an unrelated process that reused our port post-crash.
@@ -749,13 +756,14 @@ async def serve(d):
 
     serve_task = asyncio.create_task(ipc.serve(NAME, handler))
     stop_task = asyncio.create_task(d.stop.wait())
+    idle_task = asyncio.create_task(_idle_watchdog(d))
     await asyncio.sleep(0.05)  # let serve() bind so sock_addr() resolves to the live endpoint
     log(f"listening on {ipc.sock_addr(NAME)} (name={NAME})")
     try:
         await asyncio.wait({serve_task, stop_task}, return_when=asyncio.FIRST_COMPLETED)
         if serve_task.done(): await serve_task  # surfaces a serve crash
     finally:
-        for t in (serve_task, stop_task):
+        for t in (serve_task, stop_task, idle_task):
             t.cancel()
             try: await t
             except (asyncio.CancelledError, Exception): pass
@@ -787,7 +795,69 @@ async def serve(d):
 async def main():
     d = Daemon()
     await d.start()
-    await serve(d)
+    try:
+        await serve(d)
+    finally:
+        if getattr(d, "_idle_exit", False):
+            _stop_agent_chrome_if_last()
+
+
+def _idle_timeout():
+    """Persistent-task idle timeout in seconds (BH_IDLE_TIMEOUT, 0 disables).
+
+    Default 30 min: comfortably above the x-monitor worker's 10-min idle-gated
+    rounds, so a monitoring stack's request traffic never idles its daemon out.
+    """
+    try:
+        return max(0.0, float(os.environ.get("BH_IDLE_TIMEOUT", "1800")))
+    except ValueError:
+        return 1800.0
+
+
+async def _idle_watchdog(d):
+    """Shut the daemon down after BH_IDLE_TIMEOUT with no client request.
+
+    Setting d.stop routes through serve()'s finally — the same graceful
+    cleanup as meta:shutdown (recovery barrier, dedicated-tab close, endpoint
+    cleanup). main() then closes the agent Chrome if this was the last daemon.
+    """
+    timeout = _idle_timeout()
+    if timeout <= 0:
+        return
+    interval = max(1.0, min(30.0, timeout / 4))
+    while True:
+        await asyncio.sleep(interval)
+        idle_for = time.monotonic() - d.last_activity
+        if idle_for >= timeout:
+            log(
+                f"idle {idle_for:.0f}s >= BH_IDLE_TIMEOUT={timeout:.0f}s"
+                " -- persistent-task lifecycle over, shutting down"
+            )
+            d._idle_exit = True
+            d.stop.set()
+            return
+
+
+def _stop_agent_chrome_if_last():
+    """On idle exit, close the agent Chrome only when this was the last daemon.
+
+    Another live daemon (e.g. an x-monitor stack's, in the same runtime) may
+    still be driving the shared agent Chrome — the browser is only ours to
+    close when nobody else is attached. The stop itself is pid-precise
+    (profile/port matched), never the user's own Chrome."""
+    try:
+        from . import admin  # lazy: admin has no daemon import, but keep daemon standalone
+
+        if not admin._pinned_agent_cdp(None):
+            return  # remote/user browser model — nothing we own to stop
+        for other in ("default", "x-monitor"):
+            if other != NAME and ipc.ping(other, timeout=1.0):
+                log(f"idle exit: daemon {other!r} still alive -- leaving agent Chrome up")
+                return
+        admin._stop_agent_chrome()
+        log("idle exit: last daemon -- agent Chrome stopped")
+    except Exception as e:
+        log(f"idle exit chrome stop failed: {e}")
 
 
 def already_running():

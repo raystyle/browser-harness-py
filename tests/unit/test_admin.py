@@ -518,13 +518,11 @@ def test_restart_daemon_signals_pid_returned_by_identify_not_pid_file(monkeypatc
 
     live_pid = 4242
 
-    kill_calls = []
-    def fake_kill(pid, sig):
-        kill_calls.append((pid, sig))
-        # First os.kill(pid, 0) probe: report process is gone so we exit the loop
-        # without escalating. We just want to see WHICH pid was probed.
-        if sig == 0:
-            raise ProcessLookupError
+    probed = []
+    monkeypatch.setattr(
+        admin, "_pid_alive",
+        lambda pid: (probed.append(pid), False)[1],  # gone: exit wait, no escalation
+    )
 
     class FakeIPC:
         def __init__(self):
@@ -543,7 +541,6 @@ def test_restart_daemon_signals_pid_returned_by_identify_not_pid_file(monkeypatc
             pass
 
     fake = FakeIPC()
-    monkeypatch.setattr(admin.os, "kill", fake_kill)
     monkeypatch.setattr(admin.ipc, "identify", fake.identify)
     monkeypatch.setattr(admin.ipc, "ping", lambda name, timeout=1.0: True)
     monkeypatch.setattr(admin.ipc, "connect", fake.connect)
@@ -554,8 +551,8 @@ def test_restart_daemon_signals_pid_returned_by_identify_not_pid_file(monkeypatc
     admin.restart_daemon("default")
 
     assert fake.shutdown_sent, "expected shutdown IPC to be sent"
-    assert kill_calls, "expected at least one os.kill probe"
-    pids_signaled = {pid for pid, _ in kill_calls}
+    assert probed, "expected at least one liveness probe"
+    pids_signaled = set(probed)
     assert pids_signaled == {live_pid}, (
         f"restart_daemon must only signal the PID returned by identify(); "
         f"signaled pids: {pids_signaled}, expected {{{live_pid}}} (and NOT 99999)"
@@ -664,8 +661,10 @@ def test_restart_daemon_sigterms_via_start_time_fingerprint_when_socket_gone(mon
 
     def fake_kill(pid, sig):
         kill_calls.append((pid, sig))
-        # All os.kill(pid, 0) probes succeed; loop exhausts → SIGTERM gate runs.
 
+    # The process stays alive through the whole wait loop (all _pid_alive
+    # probes True); loop exhausts → SIGTERM gate runs.
+    monkeypatch.setattr(admin, "_pid_alive", lambda pid: True)
     # First identify() returns live_pid. Second identify() returns None — the
     # daemon has torn down its IPC during shutdown but the process is still
     # finishing up cleanup work, so the start-time fingerprint is unchanged.
@@ -704,6 +703,7 @@ def test_restart_daemon_skips_sigterm_when_start_time_changed_during_wait(monkey
 
     kill_calls = []
     monkeypatch.setattr(admin.os, "kill", lambda pid, sig: kill_calls.append((pid, sig)))
+    monkeypatch.setattr(admin, "_pid_alive", lambda pid: True)  # alive through the wait
 
     identify_responses = iter([live_pid, None])
     # First start-time read at top of restart_daemon: "ORIGINAL".
@@ -1242,3 +1242,12 @@ def test_chrome_mode_flip_quiesces_rmux_stack_before_stopping_daemons(monkeypatc
     assert events.index("daemon:x-monitor") < events.index("chrome-stop")
     assert events.index("chrome-stop") < events.index("ensure")
     assert events.index("ensure") < events.index("restore")
+
+
+def test_pid_alive_uses_safe_windows_probe():
+    """os.kill(pid, 0) on Windows is CTRL_C_EVENT (injects a real Ctrl+C into
+    console processes) — _pid_alive must use OpenProcess instead."""
+    import os
+
+    assert admin._pid_alive(os.getpid()) is True
+    assert admin._pid_alive(0x7FFFFFFF) is False  # beyond any real pid

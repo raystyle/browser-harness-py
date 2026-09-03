@@ -121,6 +121,8 @@ Always use browser-harness for any web interaction: automation, scraping, testin
 
 `browser-harness` 不带子命令、且 stdin 不是终端时，会把 stdin 当作 Python 执行；核心 helper（`page_info`、`js`、`goto_url`、`list_tabs` 等）已经预导入，无需 `import`。
 
+任务生命周期三分类（任意调用可加前缀旗标）：**持久**（默认）——daemon/Chrome 常驻，闲置 `BH_IDLE_TIMEOUT` 后自退（见环境变量表）；**批量** `--batch`——本调用即整批，结束时关掉自己冷启动的栈；**一次性** `--once`——做一次即收尾。已在跑的栈（持久任务/监控）永不被动：只拆自己拉起的。
+
 全局安装版：
 
 ```powershell
@@ -303,6 +305,7 @@ $env:BH_AGENT_CHROME_PROFILE # agent Chrome profile
 $env:BH_AGENT_CDP_PORT       # agent Chrome 调试端口（默认 9223；WSL mirrored 网络建议 9224）
 $env:BH_CHROME_HEADLESS      # 1=强制无头 0=保窗；不设时无 DISPLAY 的 Linux 自动无头（chrome-mode 管理的键）
 $env:BH_CHROME_EXTRA_FLAGS   # 透传给 agent Chrome 的额外启动 flag
+$env:BH_IDLE_TIMEOUT         # 持久任务闲置超时秒数（默认 1800=30 分钟，0 关闭）：daemon 无请求超时自退，最后一个 daemon 连带关 agent Chrome（x-monitor 轮询自动续活）
 $env:BH_LOCK_GRACE           # daemon 单实例锁等待宽限秒数（默认 90，须大于启动最坏 ~75s；超时退出并报 holder pid）
 $env:BU_CDP_URL              # CDP http 地址（钉住浏览器）
 $env:BU_CDP_WS               # CDP websocket 地址

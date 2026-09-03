@@ -203,3 +203,34 @@ def test_lock_is_exclusive_across_processes(monkeypatch, tmp_path):
     assert fd2 is not None
     assert holder2 is None
     os.close(fd2)
+
+
+def test_cleanup_endpoint_retries_past_exiting_daemon_handle(monkeypatch):
+    """Windows: an exiting daemon can hold the port file handle briefly;
+    cleanup must retry, and a permanently locked file must not raise (the
+    next daemon rewrites it under the single-instance lock anyway)."""
+    from types import SimpleNamespace
+
+    state = {"calls": 0}
+
+    def flaky_unlink():
+        state["calls"] += 1
+        if state["calls"] < 3:
+            raise PermissionError("held by exiting daemon")
+
+    monkeypatch.setattr(ipc, "port_path", lambda name: SimpleNamespace(unlink=flaky_unlink))
+    monkeypatch.setattr(ipc, "_sock_path", lambda name: SimpleNamespace(unlink=flaky_unlink))
+    ipc.cleanup_endpoint("default")
+    assert state["calls"] == 3
+
+    state["calls"] = 0
+
+    def locked_unlink():
+        state["calls"] += 1
+        raise PermissionError("permanently locked")
+
+    monkeypatch.setattr(ipc, "port_path", lambda name: SimpleNamespace(unlink=locked_unlink))
+    monkeypatch.setattr(ipc, "_sock_path", lambda name: SimpleNamespace(unlink=locked_unlink))
+    monkeypatch.setattr(ipc.time, "sleep", lambda s: None)  # don't actually wait 10x50ms
+    ipc.cleanup_endpoint("default")  # must not raise
+    assert state["calls"] == 10

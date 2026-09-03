@@ -65,6 +65,14 @@ print(page_info())
   the direct pre-imported alias for `browser-harness web-fetch <url>` (plain
   HTTP first, browser upgrade on bot walls; current page:
   `extract_page_content()`). Long-running supervisors (x-monitor) stay in rmux.
+- Task lifetime: prefix any invocation with `--once` (one-shot task) or
+  `--batch` (batch task — the invocation IS the batch) and the task stops
+  what it cold-started (default daemon + agent Chrome) at exit; a stack that
+  was already running (persistent task, monitoring) is never touched.
+  Default is persistent: the daemon shuts down after `BH_IDLE_TIMEOUT`
+  (default 30 min, 0 disables) with no request, and the last daemon standing
+  then closes the agent Chrome (x-monitor's capture rounds refresh activity,
+  so a monitoring stack never idles out).
 
 ## Browser Workspace
 

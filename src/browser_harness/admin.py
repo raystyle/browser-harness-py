@@ -354,6 +354,42 @@ def run_doctor_fix_snap():
     return 0
 
 
+# Scoped-task lifecycle bookkeeping (--once/--batch): a task only tears down
+# what IT cold-started. Chrome/daemon already running at task start belongs to
+# a persistent task or monitoring stack and is never touched.
+_launched_chrome_here = False
+_started_daemon_here = False
+
+
+def teardown_scoped_stack():
+    """End-of-invocation cleanup for --once/--batch tasks (see run.py).
+
+    Rule: only stop what this process started. A scoped task that found the
+    stack already up (persistent task's Chrome, monitoring daemon) leaves it
+    exactly as found; a cold-started stack (daemon + agent Chrome) is taken
+    back down. The Chrome stop also yields to any other live daemon that may
+    have attached to it meanwhile."""
+    global _launched_chrome_here, _started_daemon_here
+    try:
+        if _started_daemon_here:
+            restart_daemon()  # stop-only semantics (docstring: callers follow with a fresh start)
+    except Exception as exc:
+        print(f"browser-harness: scoped teardown: daemon stop skipped: {exc}", file=sys.stderr)
+    if not _launched_chrome_here:
+        return
+    try:
+        for other in ("default", "x-monitor"):
+            if other != NAME and daemon_alive(other):
+                print("browser-harness: scoped teardown: another daemon is attached -- leaving agent Chrome up")
+                return
+        _stop_agent_chrome()
+    except Exception as exc:
+        print(f"browser-harness: scoped teardown: chrome stop skipped: {exc}", file=sys.stderr)
+    finally:
+        _launched_chrome_here = False
+        _started_daemon_here = False
+
+
 def ensure_daemon(wait=60.0, name=None, env=None):
     """Idempotent. Self-heals stale daemon, closed Chrome (launches it), cold
     Chrome, and missing Allow on chrome://inspect."""
@@ -391,6 +427,9 @@ def ensure_daemon(wait=60.0, name=None, env=None):
             [sys.executable, "-m", "browser_harness.daemon"],
             env=e, stdout=subprocess.DEVNULL, stderr=stderr_sink, **ipc.spawn_kwargs(),
         )
+        if name in (None, NAME):
+            global _started_daemon_here
+            _started_daemon_here = True  # scoped teardown stops what we cold-started
         if stderr_sink is not subprocess.DEVNULL:
             stderr_sink.close()
         spawned = time.time()
@@ -487,6 +526,33 @@ def require_existing_daemon(name=None):
         raise RuntimeError(f"required daemon {daemon_name!r} failed its CDP health check")
 
 
+def _pid_alive(pid):
+    """Cross-platform liveness probe for the shutdown wait.
+
+    os.kill(pid, 0) is unusable on Windows: signal 0 is CTRL_C_EVENT there —
+    for a detached daemon it errors (falsely "dead"), for a console process
+    it would inject a real Ctrl+C. OpenProcess(SYNCHRONIZE) is the safe check.
+    """
+    if sys.platform == "win32":
+        import ctypes
+
+        kernel32 = ctypes.windll.kernel32
+        handle = kernel32.OpenProcess(0x00100000, False, pid)  # SYNCHRONIZE
+        if handle:
+            kernel32.CloseHandle(handle)
+            return True
+        return False
+    try:
+        os.kill(pid, 0)
+        return True
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True  # POSIX EPERM: exists but owned by another user
+    except OSError:
+        return False
+
+
 def restart_daemon(name=None, require_clean=False):
     """Best-effort daemon shutdown + socket/pid cleanup.
 
@@ -540,11 +606,9 @@ def restart_daemon(name=None, require_clean=False):
 
     if daemon_pid is not None:
         for _ in range(75):
-            try:
-                os.kill(daemon_pid, 0)
-                time.sleep(0.2)
-            except (ProcessLookupError, OSError, SystemError, OverflowError):
+            if not _pid_alive(daemon_pid):
                 break
+            time.sleep(0.2)
         else:
             verified_pid = ipc.identify(name, timeout=1.0)
             same_process = verified_pid == daemon_pid or (
@@ -876,6 +940,8 @@ def _launch_agent_chrome() -> bool:
                 subprocess.Popen([chrome, *flags], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         except OSError:
             return False
+        global _launched_chrome_here
+        _launched_chrome_here = True  # scoped teardown stops what we cold-started
         deadline = time.time() + 20
         while time.time() < deadline:
             if _agent_chrome_running():
