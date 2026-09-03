@@ -3,6 +3,8 @@
 import importlib
 from pathlib import Path
 
+import pytest
+
 from browser_harness import helpers, run
 
 
@@ -35,3 +37,76 @@ def test_workspace_app_lookup(tmp_path, monkeypatch):
     assert run.workspace_app("../evil") is None
     assert run.workspace_app("-h") is None
     assert run.workspace_app("") is None
+
+
+# --- stdin/command mode dual compatibility (Issue #2) ---
+
+def test_pipe_namespace_import_chain_exposes_app_entrypoints():
+    """run.py pre-imports the exec namespace via `from .helpers import *`.
+    Replicate that exact chain and require the app entry points to survive it
+    — Issue #2's NameError was a break in precisely this chain (app cores
+    without names matching their CLI subcommands)."""
+    ns = {}
+    exec("from browser_harness.helpers import *", ns)
+    assert callable(ns["web_fetch"])
+    assert callable(ns["run_app"])
+    assert callable(ns["google_search"])  # the one that already worked
+
+
+def test_web_fetch_alias_defaults_match_the_cli_app(monkeypatch):
+    """CLI semantics: plain HTTP first (--browser is opt-in), markdown by
+    default. The alias must keep those defaults so both modes mean the same
+    call."""
+    from browser_harness import agent_helpers
+
+    seen = {}
+
+    def fake_extract(url, markdown=True, use_browser=True):
+        seen.update(url=url, markdown=markdown, use_browser=use_browser)
+        return {"markdown": "ok"}
+
+    monkeypatch.setattr(agent_helpers, "extract_url_content", fake_extract)
+    assert agent_helpers.web_fetch("https://example.com") == {"markdown": "ok"}
+    assert seen == {"url": "https://example.com", "markdown": True, "use_browser": False}
+    agent_helpers.web_fetch("https://example.com/x", use_browser=True, markdown=False)
+    assert seen == {"url": "https://example.com/x", "markdown": False, "use_browser": True}
+
+
+class _FakeProc:
+    def __init__(self, returncode=0, stdout="", stderr=""):
+        self.returncode = returncode
+        self.stdout = stdout
+        self.stderr = stderr
+
+
+def test_run_app_runs_the_cli_subcommand_verbatim(monkeypatch):
+    """run_app must spawn exactly `python -m browser_harness.run <name> <args>`
+    so pipe code and command dispatch stay one code path."""
+    import sys
+
+    captured = {}
+
+    def fake_run(cmd, **kwargs):
+        captured["cmd"] = cmd
+        captured["kwargs"] = kwargs
+        return _FakeProc(stdout="42\n")
+
+    monkeypatch.setattr("subprocess.run", fake_run)
+    assert helpers.run_app("x-search", "--stats") == "42\n"
+    assert captured["cmd"] == [
+        sys.executable, "-m", "browser_harness.run", "x-search", "--stats",
+    ]
+    assert captured["kwargs"]["encoding"] == "utf-8"
+
+
+def test_run_app_parses_json_output(monkeypatch):
+    monkeypatch.setattr("subprocess.run", lambda cmd, **kw: _FakeProc(stdout='{"a": 1}\n'))
+    assert helpers.run_app("browsers", json_output=True) == {"a": 1}
+
+
+def test_run_app_raises_with_stderr_tail_on_failure(monkeypatch):
+    monkeypatch.setattr(
+        "subprocess.run", lambda cmd, **kw: _FakeProc(returncode=2, stderr="usage: boom")
+    )
+    with pytest.raises(RuntimeError, match="exited 2.*boom"):
+        helpers.run_app("missing-app")

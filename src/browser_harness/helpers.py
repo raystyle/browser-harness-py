@@ -613,6 +613,29 @@ def http_get(url, headers=None, timeout=20.0):
 from .recorder import start_recording, stop_recording, recording_dir
 
 
+def run_app(name, *args, json_output=False):
+    """Run a CLI subcommand from pipe code: exactly ``browser-harness <name> <args...>``,
+    stdout returned as text (parsed as JSON when ``json_output=True``).
+
+    Dual-mode compatibility is the harness's core execution logic: stdin code
+    and command dispatch share one pre-imported namespace, and this is the
+    bridge back — any subcommand (workspace app or core command: web-fetch,
+    x-search, browsers, ...) is callable and composable from pipe scripts.
+    Long-running supervisors (x-monitor) still belong in an rmux session.
+    Raises RuntimeError with the child's stderr tail on a nonzero exit.
+    """
+    import subprocess, sys
+    proc = subprocess.run(
+        [sys.executable, "-m", "browser_harness.run", name, *[str(a) for a in args]],
+        capture_output=True, text=True, encoding="utf-8", errors="replace",
+    )
+    if proc.returncode != 0:
+        raise RuntimeError(
+            f"run_app({name!r}) exited {proc.returncode}: {(proc.stderr or '').strip()[-500:]}"
+        )
+    return json.loads(proc.stdout) if json_output else proc.stdout
+
+
 def _load_agent_helpers():
     # Merge, not replace: the packaged agent_helpers fills the defaults first,
     # then the workspace copy overrides per function name. A stale workspace

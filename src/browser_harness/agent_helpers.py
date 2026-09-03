@@ -402,6 +402,18 @@ def _fetch_in_browser(url, markdown=True):
             pass
 
 
+def web_fetch(url, markdown=True, use_browser=False):
+    """``browser-harness web-fetch <url>`` as a pre-imported callable.
+
+    App-name alias closing the stdin/command mode gap (Issue #2): search apps
+    exposed their cores as google_search/bing_search, but web-fetch's had no
+    matching name. Same defaults as the CLI app — plain HTTP first, upgrading
+    to the attached browser only when the response looks bot-walled or thin.
+    For the current page use extract_page_content().
+    """
+    return extract_url_content(url, markdown=markdown, use_browser=use_browser)
+
+
 def extract_url_content(url, markdown=True, use_browser=True):
     """Fetch ``url`` and extract clean text/markdown + metadata.
 
