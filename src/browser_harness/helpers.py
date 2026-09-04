@@ -557,6 +557,52 @@ def wait_for_load(timeout=15.0):
         time.sleep(0.3)
     return False
 
+_RENDER_PROBE_JS = """(()=> {
+    if (window.__bh_render) return true;
+    const s = {lastMutation: performance.now(), frames: 0};
+    window.__bh_render = s;
+    new MutationObserver(() => { s.lastMutation = performance.now(); })
+        .observe(document.documentElement,
+                 {subtree: true, childList: true, attributes: true, characterData: true});
+    const tick = () => { s.frames++; requestAnimationFrame(tick); };
+    requestAnimationFrame(tick);
+    return true;
+})()"""
+
+
+def wait_for_render(timeout=15.0, stable_ms=400):
+    """Wait until the page has RENDERED stably: DOM quiet for stable_ms while
+    the compositor keeps producing frames.
+
+    Rendering is the state that matters; network quiescence is an
+    implementation detail. wait_for_network_idle is neither necessary
+    (analytics beacons and long-polling never go idle) nor sufficient (an SPA
+    renders AFTER its data arrives — rendering lags the network). The rAF
+    heartbeat is what tells a settled page from a frozen renderer: DOM quiet
+    alone is ambiguous, quiet + frames ticking is rendered. It relies on the
+    agent Chrome's no-throttle flags keeping rAF alive in background tabs.
+
+    Judge is an explicit in-page state probe; the deadline is the usual
+    deadlock guard (False = unknown, not failure). For a known target,
+    wait_for_element(selector) is the most task-true render judge."""
+    js(_RENDER_PROBE_JS)
+    deadline = time.time() + timeout
+    stable = max(0.05, stable_ms / 1000.0)
+    while time.time() < deadline:
+        try:
+            r = js(
+                "JSON.stringify({q: (performance.now() - window.__bh_render.lastMutation) / 1000,"
+                " f: window.__bh_render.frames})"
+            )
+            d = json.loads(r) if r else {}
+            if d.get("f", 0) > 0 and d.get("q", 1e9) >= stable:
+                return True
+        except _IPCResponseTimeout:
+            pass  # a cold-start poll brushing the IPC budget is 未知, not failure
+        time.sleep(min(0.3, stable))
+    return False
+
+
 def wait_for_element(selector, timeout=10.0, visible=False):
     """Poll until querySelector(selector) exists in the DOM, or timeout.
 
@@ -590,8 +636,15 @@ def wait_for_element(selector, timeout=10.0, visible=False):
 def wait_for_network_idle(timeout=10.0, idle_ms=500):
     """Wait until all in-flight requests finish and no Network.* events arrive for idle_ms ms.
 
-    Useful after form submits, SPA route transitions, and any action that triggers
-    XHR/fetch without a visible DOM change. Builds on drain_events() — no daemon changes.
+    NETWORK state, not render state — use only when the wait target genuinely
+    is a specific data request, and know its two failure modes: long-polling /
+    SSE / analytics beacons never go idle (False forever), and idle ≠ rendered
+    (an SPA renders after its data arrives). For "the page is ready", prefer
+    wait_for_render() (rendering quiescence) or wait_for_element(selector)
+    (the task's own target) — rendering is the verdict; network is an
+    implementation detail.
+
+    Builds on drain_events() — no daemon changes.
     Returns True if idle window reached, False on timeout.
 
     Events are filtered to the active session — a previously-attached background

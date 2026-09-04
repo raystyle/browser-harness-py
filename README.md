@@ -424,7 +424,7 @@ close_tab(t)
 '@ | browser-harness
 ```
 
-预导入助手：`page_info / js / cdp / list_tabs / new_tab / switch_tab / activate_tab / close_tab / click_at_xy / scroll / fill_input / press_key / upload_file / wait_for_element / wait_for_load / wait_for_network_idle / extract_page_content / extract_url_content / web_fetch / google_search / bing_search / run_app / setup_browser_apps / capture_screenshot / drain_events / http_get`（全部经 daemon，永远只碰 agent Chrome；`web_fetch` 纯 HTTP 起步、bot 墙升级浏览器，`run_app` 可在脚本内调任意 CLI 子命令）。
+预导入助手：`page_info / js / cdp / list_tabs / new_tab / switch_tab / activate_tab / close_tab / click_at_xy / scroll / fill_input / press_key / upload_file / wait_for_element / wait_for_render / wait_for_load / wait_for_network_idle / extract_page_content / extract_url_content / web_fetch / google_search / bing_search / run_app / setup_browser_apps / capture_screenshot / drain_events / http_get`（全部经 daemon，永远只碰 agent Chrome；`web_fetch` 纯 HTTP 起步、bot 墙升级浏览器，`run_app` 可在脚本内调任意 CLI 子命令）。等待判官优先级：已知目标 → `wait_for_element`；一般就绪 → `wait_for_render`（渲染静默 + 合成器心跳，网络态≠渲染态）；`wait_for_load` 适合静态页；`wait_for_network_idle` 仅在等待对象确实是某个数据请求时用（长轮询/beacon 永不 idle）。
 
 ### 技能与插件分发
 

@@ -737,3 +737,63 @@ def test_fill_input_types_each_character_as_a_real_key():
     typed = [(e["key"], e["code"], e["windowsVirtualKeyCode"], bool(e["modifiers"] & 8))
              for e in events if e["type"] == "keyDown"]
     assert typed == [("H", "KeyH", 72, True), ("i", "KeyI", 73, False), ("!", "Digit1", 49, True)]
+
+
+# --- wait_for_render: rendering quiescence is the verdict (network is an
+# implementation detail) ---
+
+
+def _render_poll_states(seq):
+    """Fake js(): first call installs the probe, then returns probe states
+    (q = seconds since last DOM mutation, f = rAF frames since install)."""
+    it = iter(seq)
+
+    def fake_js(expr, **kwargs):
+        if "__bh_render" in expr and "JSON.stringify" not in expr:
+            return True  # probe install / re-install no-op
+        return next(it)
+
+    return fake_js
+
+
+def test_wait_for_render_true_on_dom_quiet_with_frames(monkeypatch):
+    states = _render_poll_states(['{"q": 0.8, "f": 12}'])
+    monkeypatch.setattr(helpers, "js", states)
+    assert helpers.wait_for_render(timeout=5.0, stable_ms=400) is True
+
+
+def test_wait_for_render_false_while_dom_keeps_mutating(monkeypatch):
+    states = _render_poll_states(['{"q": 0.1, "f": 30}'] * 50)
+    monkeypatch.setattr(helpers, "js", states)
+    with patch("browser_harness.helpers.time") as mock_time:
+        start = 1000.0
+        mock_time.time.side_effect = [start] + [start + 0.2 * i for i in range(1, 60)]
+        mock_time.sleep = lambda _: None
+        assert helpers.wait_for_render(timeout=3.0, stable_ms=400) is False
+
+
+def test_wait_for_render_false_on_frozen_renderer(monkeypatch):
+    # DOM quiet but zero rAF frames = the renderer is frozen, not settled —
+    # this is exactly the state DOM-quiet-only judges misread as ready.
+    states = _render_poll_states(['{"q": 2.0, "f": 0}'] * 10)
+    monkeypatch.setattr(helpers, "js", states)
+    with patch("browser_harness.helpers.time") as mock_time:
+        start = 1000.0
+        mock_time.time.side_effect = [start] + [start + 0.3 * i for i in range(1, 20)]
+        mock_time.sleep = lambda _: None
+        assert helpers.wait_for_render(timeout=3.0, stable_ms=400) is False
+
+
+def test_wait_for_render_tolerates_ipc_timeout_mid_poll(monkeypatch):
+    it = iter([helpers._IPCResponseTimeout("slow"), '{"q": 0.9, "f": 5}'])
+
+    def fake_js(expr, **kwargs):
+        if "__bh_render" in expr and "JSON.stringify" not in expr:
+            return True  # probe install
+        v = next(it)
+        if isinstance(v, Exception):
+            raise v
+        return v
+
+    monkeypatch.setattr(helpers, "js", fake_js)
+    assert helpers.wait_for_render(timeout=5.0, stable_ms=400) is True

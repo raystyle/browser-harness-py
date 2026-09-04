@@ -193,7 +193,14 @@ After the user clicks Allow, verify with `browser-harness --doctor` that
   Coordinates: `q = cdp("DOM.getBoxModel", backendNodeId=n)["model"]["content"]; x, y = sum(q[0::2])/4, sum(q[1::2])/4` (viewport px, ready for `click_at_xy`; negative/oversized means scroll first).
 - Clicking: AX node -> box center -> `click_at_xy(x, y)` -> verify with a targeted `js(...)`/`page_info()` check. A click that dispatches without effect on a hidden tab needs the same `activate_tab` treatment as a timed-out scroll.
 - Fall back to raw HTML via `js(...)` only when the AX tree lacks the element (canvas, exotic widgets); screenshot when layout or imagery matters — `capture_screenshot()` returns a PNG file path, not base64.
-- After navigation, call `wait_for_load()`.
+- After navigation, wait by RENDER state, not network state: the two are not
+  synchronized, and rendering is the one that matters. `wait_for_element(sel)`
+  when the target is known (the most task-true judge); `wait_for_render()`
+  for general settle (DOM quiet + compositor heartbeat — tells a settled page
+  from a frozen renderer); `wait_for_load()` suits static pages. Reserve
+  `wait_for_network_idle()` for waits whose target genuinely is one specific
+  data request — long-polling/SSE/analytics beacons never go idle, and idle
+  ≠ rendered (an SPA renders after its data arrives).
 - If the current tab is stale or internal, call `ensure_real_tab()`.
 - Use `js(...)` for DOM inspection or extraction when coordinates are the wrong tool.
 - Login walls: stop and ask. Exception: use available SSO automatically when Chrome is already signed in; still stop for passwords, MFA, consent, or ambiguous account choice.
@@ -404,6 +411,11 @@ upstream they live at https://github.com/raystyle/browser-harness/tree/main/inte
   events and explicit state queries. A deadline only guards the no-event
   deadlock — its expiry means unknown ("still in flight"), never a failure
   claim. goto_url's lost-response adjudication is the pattern (Issue #3).
+- Render state is the verdict; network is an implementation detail. Network
+  quiescence is neither necessary (beacons, long-polling never idle) nor
+  sufficient (SPAs render after data arrives). wait_for_render /
+  wait_for_element judge readiness; wait_for_network_idle is a niche tool
+  for waiting on one specific data request.
 - Coordinate clicks default. CDP mouse events pass through iframes/shadow/cross-origin at the compositor level.
 - Keep the connection model simple: use the default daemon, `BU_CDP_URL`, or
   `BU_CDP_WS`.

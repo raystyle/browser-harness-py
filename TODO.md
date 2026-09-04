@@ -57,5 +57,5 @@ WSL2 无头接管（对应 `GOAL.md`，队列目标「Linux/macOS 接管」的 L
 | cookies export 默认 endpoint 硬编码 | 排后 | export 默认 `http://127.0.0.1:9223`，与 import 取 `BU_CDP_URL` 不一致；dev/WSL（9224/9225）场景需显式 `--endpoint`；统一为 `BU_CDP_URL` 回退 9223 | 2026-09-03 |
 | agent Chrome 独立应用身份 | 排后 | macOS 同 bundle 双实例 Dock 激活混淆（无头实例顶包用户 Chrome）；候选解 = 独立副本改 CFBundleIdentifier（S008 遗留） |
 | 站点专用提取扩充 | 排后 | domain-skills 按站点定制正文提取 |
-| 等待原语事件化 | 排后 | 用户定向原则「所有操作事件驱动」渐进落地：wait_for_load 由 readyState 轮询迁 Page.loadEventFired 事件（wait_for_network_idle 已事件驱动、goto_url 已三态判定）；原则条目见 SKILL Design Constraints |
+| 等待原语事件化 | 大半完成（v0.6.10 后） | 用户定向原则两连收敛：「所有操作事件驱动」+「判官是渲染态不是网络态」。已落地：goto_url 三态事件判定（v0.6.10）、wait_for_render 渲染静默+合成器心跳判官（MutationObserver + rAF，冻死渲染器与静默可辨）、wait_for_network_idle 降位为单请求数据等待专用（长轮询/beacon 永不 idle）；活体对照：挂死资源下 network_idle 6.1s False vs render 0.7s True。剩余排后：wait_for_load 迁 Page.loadEventFired 事件（价值已被 wait_for_render 覆盖大半） |
 | MCP 集成 | 不做 | 用户定向 2026-09-03 出队；`mcp_server.py` 与 pyproject optional 依赖保留现状不删 |
