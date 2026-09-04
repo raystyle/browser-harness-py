@@ -43,10 +43,31 @@ NAME = os.environ.get("BU_NAME", "default")
 SOCK = ipc.sock_addr(NAME)
 INTERNAL = ("chrome://", "chrome-untrusted://", "devtools://", "chrome-extension://", "about:")
 IPC_CONNECT_TIMEOUT_SECONDS = 5.0
-DEFAULT_IPC_RESPONSE_TIMEOUT_SECONDS = 5.0
+
+
+def _env_seconds(name, default):
+    """Env override for a seconds budget. Empty, unparseable, or non-positive
+    values fall back to the default — a config typo must not kill imports."""
+    raw = (os.environ.get(name) or "").strip()
+    if not raw:
+        return default
+    try:
+        value = float(raw)
+    except ValueError:
+        return default
+    return value if value > 0 else default
+
+
+# Ordinary CDP round trips. BH_IPC_TIMEOUT overrides (slow machines where even
+# cheap calls brush the default).
+DEFAULT_IPC_RESPONSE_TIMEOUT_SECONDS = _env_seconds("BH_IPC_TIMEOUT", 5.0)
+# Page.navigate waits on a real network load, and agent-Chrome cold start
+# multiplies slow sites past the ordinary budget — 5s reported "not back yet"
+# as a false timeout (Issue #3). BH_NAVIGATE_TIMEOUT overrides.
+NAVIGATE_IPC_RESPONSE_TIMEOUT_SECONDS = _env_seconds("BH_NAVIGATE_TIMEOUT", 30.0)
 # Screenshots can routinely take longer than ordinary CDP round trips. Keep
 # their IPC socket alive within the caller's existing 90-second process budget.
-SCREENSHOT_IPC_RESPONSE_TIMEOUT_SECONDS = 60.0
+SCREENSHOT_IPC_RESPONSE_TIMEOUT_SECONDS = _env_seconds("BH_SCREENSHOT_TIMEOUT", 60.0)
 
 
 class _IPCResponseTimeout(TimeoutError):
@@ -154,7 +175,7 @@ def _is_illegal_return_error(exc):
 
 # --- navigation / page ---
 def goto_url(url):
-    r = cdp("Page.navigate", url=url)
+    r = cdp("Page.navigate", url=url, _response_timeout=NAVIGATE_IPC_RESPONSE_TIMEOUT_SECONDS)
     if os.environ.get("BH_DOMAIN_SKILLS") != "1":
         return r
     d = (BROWSER_WORKSPACE / "domain-skills" / (urlparse(url).hostname or "").removeprefix("www.").split(".")[0])

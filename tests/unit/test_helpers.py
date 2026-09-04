@@ -73,6 +73,54 @@ def test_screenshot_timeout_has_context(tmp_path):
             helpers.capture_screenshot(str(tmp_path / "shot.png"))
 
 
+# --- IPC response-timeout budgets (Issue #3) ---
+
+
+def test_goto_url_carries_the_navigate_response_timeout():
+    """Cold-start Chrome plus a slow site holds Page.navigate past the 5s
+    ordinary budget; goto_url must carry the navigate-specific budget or the
+    timeout misreports "not back yet" as "unreachable"."""
+    with patch("browser_harness.helpers.cdp", return_value={"frameId": "f"}) as cdp_mock:
+        helpers.goto_url("https://example.com")
+
+    assert cdp_mock.call_args.kwargs == {
+        "url": "https://example.com",
+        "_response_timeout": helpers.NAVIGATE_IPC_RESPONSE_TIMEOUT_SECONDS,
+    }
+    assert helpers.NAVIGATE_IPC_RESPONSE_TIMEOUT_SECONDS > helpers.DEFAULT_IPC_RESPONSE_TIMEOUT_SECONDS
+
+
+def test_env_seconds_overrides_and_falls_back(monkeypatch):
+    for raw, expected in [("12.5", 12.5), ("", 5.0), ("abc", 5.0), ("-3", 5.0), ("0", 5.0)]:
+        monkeypatch.setenv("BH_TEST_SECONDS", raw)
+        assert helpers._env_seconds("BH_TEST_SECONDS", 5.0) == expected, raw
+    monkeypatch.delenv("BH_TEST_SECONDS", raising=False)
+    assert helpers._env_seconds("BH_TEST_SECONDS", 5.0) == 5.0
+
+
+def test_ipc_timeouts_read_env_overrides_at_import(monkeypatch):
+    import importlib
+
+    timeout_env = {
+        "BH_IPC_TIMEOUT": "12",
+        "BH_NAVIGATE_TIMEOUT": "45",
+        "BH_SCREENSHOT_TIMEOUT": "90",
+    }
+    try:
+        for k, v in timeout_env.items():
+            monkeypatch.setenv(k, v)
+        importlib.reload(helpers)
+        assert helpers.DEFAULT_IPC_RESPONSE_TIMEOUT_SECONDS == 12.0
+        assert helpers.NAVIGATE_IPC_RESPONSE_TIMEOUT_SECONDS == 45.0
+        assert helpers.SCREENSHOT_IPC_RESPONSE_TIMEOUT_SECONDS == 90.0
+    finally:
+        # Undo before the restore reload — monkeypatch teardown runs after the
+        # test body, so an env-clean reload here must be explicit.
+        for k in timeout_env:
+            monkeypatch.delenv(k, raising=False)
+        importlib.reload(helpers)
+
+
 def _seed_skill(tmp_path):
     site = tmp_path / "domain-skills" / "example"
     site.mkdir(parents=True)

@@ -407,6 +407,11 @@ upstream they live at https://github.com/raystyle/browser-harness/tree/main/inte
   the `[inspect-toggle]` section of `browser-harness browsers`. Keep the
   default daemon pinned via `BU_CDP_URL` so it can never ride the user's
   browser.
+- IPC response budgets: ordinary CDP round trips get 5s (`BH_IPC_TIMEOUT`
+  overrides), `goto_url`'s Page.navigate carries 30s (`BH_NAVIGATE_TIMEOUT`)
+  and screenshots 60s (`BH_SCREENSHOT_TIMEOUT`). Cold-start Chrome plus a slow
+  site outlasts the ordinary budget, so raw `cdp("Page.navigate", ...)` calls
+  should pass `_response_timeout=` or go through `goto_url` (Issue #3).
 
 ## Domain Skills
 

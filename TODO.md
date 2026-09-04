@@ -38,6 +38,7 @@ WSL2 无头接管（对应 `GOAL.md`，队列目标「Linux/macOS 接管」的 L
 | v0.6.7 发版 | 已完成 | 预检四件套全绿（227 单测/symlink 零/树净/版本就绪）→ tag + Release「daemon 单实例守卫与管道命令双模式对齐」→ 本机 `--update` 升 0.6.7（M108 未犯、尾部输出落地版本）+ doctor 绿 + stdin 真栈（run_app/web_fetch 过冷启动 daemon，M109 健康拉起活体复核）；README 五处随版对齐 | 2026-09-03 |
 | 任务生命周期三分类 + 闲置看门狗 | 已完成 v0.6.9 | 用户定向：持久（默认，`BH_IDLE_TIMEOUT` 默认 30 分钟闲置自退 + 末位 daemon 连带关 agent Chrome，x-monitor 轮询自动续活）/ 批量 `--batch` / 一次性 `--once`（调用级 teardown，只拆自己冷启动的栈，已在跑的栈永不被动）；顺修 restart_daemon Windows 死等误判（os.kill(pid,0)=CTRL_C_EVENT 换 OpenProcess 探活）与 cleanup_endpoint unlink 竞态；+11 单测 248 绿，dev 真栈三场景实证；一例未解之谜挂待观察 | 2026-09-03 |
 | v0.6.9 发版 | 已完成 | 发版前全量验收矩阵全绿（全树 265 / 生命周期三场景 / 带栈翻转往返 / M109 复用 / x-monitor 长跑型 / 七插件 happy-path）→ tag + Release「任务生命周期三分类与翻转竞态修复」→ 本机 `--update` 升 0.6.9 + doctor 版本对齐 + 装机 CLI `--once` 用完即清实证 | 2026-09-03 |
+| CDP 响应超时可配置 | 已完成 | Issue #3：`BH_IPC_TIMEOUT` 覆盖普通往返默认 5s；导航单独预算 `NAVIGATE_IPC_RESPONSE_TIMEOUT_SECONDS` 30s（`BH_NAVIGATE_TIMEOUT` 可调）由 `goto_url` 携带（截图先例 `BH_SCREENSHOT_TIMEOUT` 同步可配）；根治冷启动+慢站叠加时 `Page.navigate` 5s 误报超时；+3 单测全树 268 绿 | 2026-09-04 |
 
 ## 队列目标
 
