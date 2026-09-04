@@ -1135,6 +1135,81 @@ def _fake_version_endpoint(monkeypatch, payload=None):
     monkeypatch.setattr(admin.urllib.request, "urlopen", fake_urlopen)
 
 
+# --- crash-restore bubble: exit_type normalization + hide flag ---
+
+
+def _write_exit_type(profile, exit_type):
+    pref = profile / "Default" / "Preferences"
+    pref.parent.mkdir(parents=True, exist_ok=True)
+    pref.write_text(json.dumps({"profile": {"exit_type": exit_type}}), encoding="utf-8")
+    return pref
+
+
+def test_normalize_chrome_exit_type_rewrites_crashed(monkeypatch, tmp_path):
+    profile = tmp_path / "agent-chrome-profile"
+    pref = _write_exit_type(profile, "Crashed")
+    monkeypatch.setattr(admin, "_agent_profile", lambda: profile)
+    admin._normalize_chrome_exit_type()
+    assert json.loads(pref.read_text(encoding="utf-8"))["profile"]["exit_type"] == "Normal"
+
+
+def test_normalize_chrome_exit_type_leaves_clean_and_missing_alone(monkeypatch, tmp_path):
+    profile = tmp_path / "agent-chrome-profile"
+    pref = _write_exit_type(profile, "Normal")
+    monkeypatch.setattr(admin, "_agent_profile", lambda: profile)
+    admin._normalize_chrome_exit_type()
+    assert json.loads(pref.read_text(encoding="utf-8"))["profile"]["exit_type"] == "Normal"
+
+    monkeypatch.setattr(admin, "_agent_profile", lambda: tmp_path / "no-such-profile")
+    admin._normalize_chrome_exit_type()  # no Preferences file: must not raise
+    assert not (tmp_path / "no-such-profile").exists()
+
+
+def test_stop_agent_chrome_normalizes_exit_type_after_stop(monkeypatch):
+    calls = []
+    monkeypatch.setattr(admin, "_agent_chrome_pids", lambda: [4242])
+    monkeypatch.setattr(admin, "_agent_chrome_running", lambda: False)  # already dead post-kill
+    monkeypatch.setattr(admin.os, "kill", lambda pid, sig: calls.append(("kill", pid, sig)))
+    monkeypatch.setattr(admin, "_normalize_chrome_exit_type", lambda: calls.append("normalize"))
+    assert admin._stop_agent_chrome() is True
+    assert calls[-1] == "normalize"
+
+
+def test_stop_agent_chrome_skips_normalization_when_chrome_survives(monkeypatch):
+    calls = []
+    monkeypatch.setattr(admin, "_agent_chrome_pids", lambda: [4242])
+    monkeypatch.setattr(admin, "_agent_chrome_running", lambda: True)  # even SIGKILL failed
+    monkeypatch.setattr(admin.os, "kill", lambda pid, sig: calls.append(("kill", pid, sig)))
+    monkeypatch.setattr(admin, "_normalize_chrome_exit_type", lambda: calls.append("normalize"))
+    monkeypatch.setattr(admin.time, "sleep", lambda _: None)
+    assert admin._stop_agent_chrome(timeout=0.0) is True
+    assert "normalize" not in calls  # Chrome still up: it owns Preferences, our patch would be overwritten
+
+
+def test_launch_agent_chrome_hides_crash_bubble_and_normalizes_first(monkeypatch, tmp_path):
+    profile = tmp_path / "agent-chrome-profile"
+    _write_exit_type(profile, "Crashed")
+    calls = []
+    monkeypatch.setattr(admin, "_agent_profile", lambda: profile)
+    monkeypatch.setattr(admin, "_AGENT_PORT", 9233)
+    monkeypatch.setattr(admin, "_chrome_path", lambda: "/usr/bin/google-chrome")
+    monkeypatch.setenv("BH_CHROME_HEADLESS", "1")
+    monkeypatch.setenv("BH_CHROME_EXTRA_FLAGS", "")
+    monkeypatch.setenv("BH_NO_THROTTLE", "")
+    state = {"running": False}
+    monkeypatch.setattr(admin, "_agent_chrome_running", lambda: state["running"])
+
+    def fake_popen(argv, **_kwargs):
+        calls.append(list(argv))
+        state["running"] = True
+
+    monkeypatch.setattr("subprocess.Popen", fake_popen)
+    assert admin._launch_agent_chrome() is True
+    assert "--hide-crash-restore-bubble" in calls[0]
+    # pre-Popen normalization repaired the dirty profile before Chrome first read it
+    assert json.loads((profile / "Default" / "Preferences").read_text(encoding="utf-8"))["profile"]["exit_type"] == "Normal"
+
+
 def test_agent_chrome_headless_reads_ua(monkeypatch):
     _fake_version_endpoint(monkeypatch, {"User-Agent": "x HeadlessChrome/152.0.0.0 y"})
     assert admin._agent_chrome_headless() is True

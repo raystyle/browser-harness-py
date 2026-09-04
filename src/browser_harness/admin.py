@@ -895,6 +895,31 @@ def _headless_flags():
     return flags
 
 
+def _normalize_chrome_exit_type():
+    """Mark the agent profile's last exit as clean so the next launch doesn't
+    show the 'Chrome didn't shut down correctly' restore bubble.
+
+    Every stop path kills by pid, and on Windows os.kill is always
+    TerminateProcess — SIGTERM included — so Chrome never writes its clean
+    exit_type and the profile stays flagged Crashed. Patch Preferences while
+    Chrome is down: after a stop (the kill we just did), and before a launch
+    (the belt for power loss / foreign killers). Must only run with Chrome
+    stopped, or its own exit rewrite lands on top of ours."""
+    pref_path = _agent_profile() / "Default" / "Preferences"
+    try:
+        prefs = json.loads(pref_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return
+    profile = prefs.get("profile")
+    if not isinstance(profile, dict) or profile.get("exit_type") in (None, "Normal"):
+        return
+    profile["exit_type"] = "Normal"
+    try:
+        pref_path.write_text(json.dumps(prefs), encoding="utf-8")
+    except OSError:
+        pass
+
+
 def _launch_agent_chrome() -> bool:
     """Start the isolated agent Chrome if it is not already up. Blocks up to 20s.
 
@@ -926,9 +951,11 @@ def _launch_agent_chrome() -> bool:
         chrome = _chrome_path()
         if not chrome:
             return False
+        _normalize_chrome_exit_type()
         flags = [
             f"--user-data-dir={_agent_profile()}",
             f"--remote-debugging-port={_AGENT_PORT}",
+            "--hide-crash-restore-bubble",  # belt: a mid-session real crash must not nag either
             *_NO_THROTTLE_FLAGS,
             *_headless_flags(),
             *_extra_chrome_flags(),
@@ -1014,9 +1041,15 @@ def _stop_agent_chrome(timeout: float = 10.0) -> bool:
     if _agent_chrome_running():
         for pid in pids:
             try:
-                os.kill(pid, signal.SIGKILL)
+                # No SIGKILL on Windows (AttributeError — the escalation itself
+                # used to crash there); os.kill on Windows is always
+                # TerminateProcess, so the SIGTERM re-send IS the force kill.
+                os.kill(pid, getattr(signal, "SIGKILL", signal.SIGTERM))
             except (ProcessLookupError, PermissionError, OSError):
                 pass
+    if not _agent_chrome_running():
+        _normalize_chrome_exit_type()  # pid kills leave exit_type=Crashed; the
+        # next launch would greet with the restore bubble (Windows TerminateProcess)
     return True
 
 
