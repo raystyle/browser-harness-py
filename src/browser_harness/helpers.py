@@ -549,7 +549,11 @@ def wait_for_load(timeout=15.0):
     """Poll document.readyState == 'complete' or timeout."""
     deadline = time.time() + timeout
     while time.time() < deadline:
-        if js("document.readyState") == "complete": return True
+        try:
+            if js("document.readyState") == "complete": return True
+        except _IPCResponseTimeout:
+            pass  # a cold-start evaluate can brush the IPC budget; one slow
+            # poll is 未知, not failure — this wait's own deadline is the verdict
         time.sleep(0.3)
     return False
 

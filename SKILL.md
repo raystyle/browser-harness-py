@@ -73,6 +73,18 @@ print(page_info())
   (default 30 min, 0 disables) with no request, and the last daemon standing
   then closes the agent Chrome (x-monitor's capture rounds refresh activity,
   so a monitoring stack never idles out).
+- **Isolation default**: `--once`/`--batch` tasks run on their OWN browser
+  stack — dedicated daemon name (`task-<hex>`), debug port (9230+,
+  kernel-reserved against double-pick), and a best-effort clone of the base
+  login profile (caches skipped, locked files degrade to placeholders). The
+  stack pins itself via `BU_CDP_URL=127.0.0.1:<port>`, so it can never reach
+  the user's Chrome or the shared stack. Everything is torn down at exit:
+  browser closed the CDP way (`Browser.close` — clean state, no restore
+  bubble), daemon stopped, task profile deleted. Add `--shared` to run on
+  the shared persistent stack instead; a pinned `BU_NAME`/`BU_CDP_URL`
+  (e.g. .env, monitoring) also opts out. Tasks therefore never jockey tabs
+  on one browser — `ensure_app_tab`/tab bookkeeping is for the shared
+  persistent stack only; inside an isolated task just `new_tab()` freely.
 
 ## Browser Workspace
 

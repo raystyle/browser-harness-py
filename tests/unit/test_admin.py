@@ -1167,6 +1167,7 @@ def test_normalize_chrome_exit_type_leaves_clean_and_missing_alone(monkeypatch, 
 
 def test_stop_agent_chrome_normalizes_exit_type_after_stop(monkeypatch):
     calls = []
+    monkeypatch.setattr(admin, "_graceful_close_agent_chrome", lambda timeout=15.0: False)
     monkeypatch.setattr(admin, "_agent_chrome_pids", lambda: [4242])
     monkeypatch.setattr(admin, "_agent_chrome_running", lambda: False)  # already dead post-kill
     monkeypatch.setattr(admin.os, "kill", lambda pid, sig: calls.append(("kill", pid, sig)))
@@ -1177,6 +1178,7 @@ def test_stop_agent_chrome_normalizes_exit_type_after_stop(monkeypatch):
 
 def test_stop_agent_chrome_skips_normalization_when_chrome_survives(monkeypatch):
     calls = []
+    monkeypatch.setattr(admin, "_graceful_close_agent_chrome", lambda timeout=15.0: False)
     monkeypatch.setattr(admin, "_agent_chrome_pids", lambda: [4242])
     monkeypatch.setattr(admin, "_agent_chrome_running", lambda: True)  # even SIGKILL failed
     monkeypatch.setattr(admin.os, "kill", lambda pid, sig: calls.append(("kill", pid, sig)))
@@ -1184,6 +1186,45 @@ def test_stop_agent_chrome_skips_normalization_when_chrome_survives(monkeypatch)
     monkeypatch.setattr(admin.time, "sleep", lambda _: None)
     assert admin._stop_agent_chrome(timeout=0.0) is True
     assert "normalize" not in calls  # Chrome still up: it owns Preferences, our patch would be overwritten
+
+
+# --- graceful CDP close (Browser.close relayed by the daemon) ---
+
+
+def test_stop_agent_chrome_prefers_graceful_close_and_skips_pids(monkeypatch):
+    calls = []
+    monkeypatch.setattr(admin, "_graceful_close_agent_chrome", lambda timeout=15.0: True)
+    monkeypatch.setattr(admin, "_agent_chrome_pids", lambda: calls.append("pids") or [4242])
+    assert admin._stop_agent_chrome() is True
+    assert calls == []  # graceful success: no pid enumeration, no kills
+
+
+def test_graceful_close_agent_chrome_relays_via_daemon(monkeypatch):
+    class FakeSock:
+        def settimeout(self, v):
+            pass
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(admin.ipc, "connect", lambda name, timeout: (FakeSock(), None))
+    req = {}
+
+    def fake_request(c, token, payload):
+        req.update(payload)
+        return {"closed": True}
+
+    monkeypatch.setattr(admin.ipc, "request", fake_request)
+    assert admin._graceful_close_agent_chrome() is True
+    assert req == {"meta": "close_browser"}
+
+
+def test_graceful_close_agent_chrome_no_daemon_is_false(monkeypatch):
+    def refused(name, timeout):
+        raise OSError("connection refused")
+
+    monkeypatch.setattr(admin.ipc, "connect", refused)
+    assert admin._graceful_close_agent_chrome() is False
 
 
 def test_launch_agent_chrome_hides_crash_bubble_and_normalizes_first(monkeypatch, tmp_path):

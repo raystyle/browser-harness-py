@@ -42,6 +42,7 @@ WSL2 无头接管（对应 `GOAL.md`，队列目标「Linux/macOS 接管」的 L
 | 导航三态事件判定 | 已完成 | 用户定向架构原则「事件驱动判状态、超时只做死锁兜底」落到 goto_url：响应丢失时由缓冲事件流判定（主帧 frameNavigated→成功、chrome-error→失败、静默到点→未知并如实措辞），daemon 事件缓冲本就具备（Page 域默认启用）；SKILL Design Constraints 入原则条目；+5 单测 256 绿，dev 真栈三态活体实证（响应先回/事件判成功/挂死站未知） | 2026-09-04 |
 | agent Chrome 恢复气泡根治 | 已完成 | 用户报告「每次提醒 Chrome 未正确关闭」：Windows `os.kill` 全是 TerminateProcess 硬杀，exit_type 恒留 Crashed。修法 = `_normalize_chrome_exit_type`（停后 + 拉起前把 Preferences 的 exit_type 归 Normal，kiosk 标准姿势）+ `--hide-crash-restore-bubble` 双保险；顺修 M110（SIGKILL 升级分支在 Windows 自身 AttributeError，单测逼出冷分支发现）；dev 真栈实证 Crashed→一轮 --once→Normal | 2026-09-04 |
 | 搜索链路验收 | 已完成 | 用户定向：Google（登录 profile ✓，dev 新 profile 被 /sorry 反爬墙——环境事实）/ Bing ✓ / web-fetch 双路径 ✓ / X 库检索 ✓ / X 实时搜索 ✓（滚动采集姿势）；装机版 0.6.9 同场复现 Issue #3 5s 误报超时（工作树版已修，活体对照）；随验收清偿两笔原则债：google/bing_search 被墙 stderr 如实上报不再静默 []、X 搜索滚动渲染姿势入 SKILL；+3 单测 281 绿 | 2026-09-04 |
+| 任务级浏览器隔离 + Browser.close 优雅关闭 | 已完成 | 用户定向「每任务默认独立浏览器，不再多任务倒腾一个浏览器的多个 tab」+「关浏览器走 CDP 正规方式」：--once/--batch 默认独立栈（task-<hex> daemon 名 + 9230+ 端口内核预留防 TOCTOU + 登录 profile 克隆（缓存跳过、锁文件降级占位）+ 自钉 BU_CDP_URL 永不猎用户 Chrome）；关闭分层——daemon `meta:close_browser` 走 `Browser.close`（调试端口消亡为成功判据，回复丢失不算失败）、pid 杀仅为兜底；teardown 反序（浏览器先优雅关再停 daemon）+ task-profile 清场（守卫根目录）；顺修三雷：CancelledError 穿透 except Exception、apply 先于 .env 载入误判 pin、wait_for_load 单次轮询超时即炸；+9 单测 292 绿，双任务双浏览器真并行（9230/9231 各自导航）+ 全清场实证 | 2026-09-04 |
 
 ## 队列目标
 

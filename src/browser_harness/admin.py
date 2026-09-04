@@ -361,33 +361,60 @@ _launched_chrome_here = False
 _started_daemon_here = False
 
 
+def _remove_task_profile():
+    """Delete this isolated task's profile clone (task-isolation teardown).
+
+    Guarded to the task-profiles root so a mis-set environment can never
+    rmtree anything outside it."""
+    raw = os.environ.get("BH_AGENT_CHROME_PROFILE") or ""
+    if not raw:
+        return
+    try:
+        p = Path(raw).expanduser()
+        from .paths import home_dir
+
+        if (home_dir() / "task-profiles") in p.parents:
+            shutil.rmtree(p, ignore_errors=True)
+    except OSError:
+        pass
+
+
 def teardown_scoped_stack():
     """End-of-invocation cleanup for --once/--batch tasks (see run.py).
 
     Rule: only stop what this process started. A scoped task that found the
     stack already up (persistent task's Chrome, monitoring daemon) leaves it
     exactly as found; a cold-started stack (daemon + agent Chrome) is taken
-    back down. The Chrome stop also yields to any other live daemon that may
-    have attached to it meanwhile."""
+    back down. The Chrome stop yields to any other live daemon that may have
+    attached to it — except on an isolated task stack (BH_ISOLATED_TASK=1),
+    whose browser is exclusively this task's.
+
+    Chrome goes down before the daemon: its graceful close (CDP Browser.close)
+    rides on the still-live daemon."""
     global _launched_chrome_here, _started_daemon_here
+    isolated = os.environ.get("BH_ISOLATED_TASK") == "1"
+    if _launched_chrome_here:
+        try:
+            if not isolated:
+                for other in ("default", "x-monitor"):
+                    if other != NAME and daemon_alive(other):
+                        print("browser-harness: scoped teardown: another daemon is attached -- leaving agent Chrome up")
+                        break
+                else:
+                    _stop_agent_chrome()
+            else:
+                _stop_agent_chrome()  # task browser is exclusively ours
+        except Exception as exc:
+            print(f"browser-harness: scoped teardown: chrome stop skipped: {exc}", file=sys.stderr)
     try:
         if _started_daemon_here:
             restart_daemon()  # stop-only semantics (docstring: callers follow with a fresh start)
     except Exception as exc:
         print(f"browser-harness: scoped teardown: daemon stop skipped: {exc}", file=sys.stderr)
-    if not _launched_chrome_here:
-        return
-    try:
-        for other in ("default", "x-monitor"):
-            if other != NAME and daemon_alive(other):
-                print("browser-harness: scoped teardown: another daemon is attached -- leaving agent Chrome up")
-                return
-        _stop_agent_chrome()
-    except Exception as exc:
-        print(f"browser-harness: scoped teardown: chrome stop skipped: {exc}", file=sys.stderr)
-    finally:
-        _launched_chrome_here = False
-        _started_daemon_here = False
+    if isolated:
+        _remove_task_profile()
+    _launched_chrome_here = False
+    _started_daemon_here = False
 
 
 def ensure_daemon(wait=60.0, name=None, env=None):
@@ -1023,9 +1050,31 @@ def _agent_chrome_pids() -> list[int]:
     return pids
 
 
+def _graceful_close_agent_chrome(timeout: float = 15.0) -> bool:
+    """Close the agent Chrome the CDP way, relayed by the live daemon:
+    Browser.close lets Chrome write its own clean shutdown state. pid kills
+    stay the fallback for when no daemon is reachable. True iff the debug
+    port died (the daemon judges by that event, not by the command reply)."""
+    try:
+        c, token = ipc.connect(NAME, timeout=2.0)
+    except Exception:
+        return False
+    try:
+        c.settimeout(timeout)
+        return bool(ipc.request(c, token, {"meta": "close_browser"}).get("closed"))
+    except Exception:
+        return False
+    finally:
+        c.close()
+
+
 def _stop_agent_chrome(timeout: float = 10.0) -> bool:
-    """Stop the agent Chrome main process(es) only, by pid. True if any stopped."""
+    """Stop the agent Chrome. Graceful first (CDP Browser.close via the live
+    daemon — Chrome writes clean exit state itself); pid kills only fallback."""
     import signal
+
+    if _graceful_close_agent_chrome():
+        return True
 
     pids = _agent_chrome_pids()
     if not pids:

@@ -30,6 +30,7 @@
 | `src\browser_harness\helpers.py` | CDP 封装与浏览器原语（预导入面）+ `run_app` 子命令桥 |
 | `src\browser_harness\daemon.py` / `admin.py` / `run.py` | CDP daemon（单实例锁）/ 应用管理（升级·chrome-mode）/ CLI 入口 |
 | `src\browser_harness\browser_helpers.py`（旧名 `agent_helpers.py` 垫片） | 应用函数库：搜索/正文提取（合并加载进管道命名空间） |
+| `src\browser_harness\task_isolation.py` | --once/--batch 任务级浏览器隔离（专属栈 + 登录 profile 克隆 + 端口内核预留，入口先于 admin/helpers import 绑 env） |
 | `src\browser_harness\browsers.py` / `rmux.py` / `skills.py` | 资源视图 / rmux 集成 / 技能铺装 |
 | `src\browser_harness\_ipc.py` / `paths.py` / `macos.py` / `recorder.py` / `video.py` / `video_render.py` | 支撑模块（BH_HOME 路径体系 / 录制 / 视频） |
 | `mcp_server.py` | MCP stdio 工具暴露 |

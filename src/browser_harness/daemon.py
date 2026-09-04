@@ -607,6 +607,11 @@ class Daemon:
         if meta == "drain_events":
             out = list(self.events); self.events.clear()
             return {"events": out}
+        if meta == "close_browser":
+            # Graceful browser exit for task-scoped stacks / teardown: the
+            # reply may never arrive (browser can tear down first), so the
+            # verdict is the debug port dying — event, not timeout, judges.
+            return {"closed": await _close_browser_gracefully(self)}
         if meta == "session":     return {"session_id": self.session}
         if meta == "current_tab":
             # Resolve the attached page's target info server-side. Helpers can't
@@ -799,7 +804,7 @@ async def main():
         await serve(d)
     finally:
         if getattr(d, "_idle_exit", False):
-            _stop_agent_chrome_if_last()
+            await _stop_agent_chrome_if_last(d)
 
 
 def _idle_timeout():
@@ -812,6 +817,41 @@ def _idle_timeout():
         return max(0.0, float(os.environ.get("BH_IDLE_TIMEOUT", "1800")))
     except ValueError:
         return 1800.0
+
+
+def _debug_port_live() -> bool:
+    """True when the agent Chrome's debugging port still accepts connections."""
+    try:
+        port = int(os.environ.get("BH_AGENT_CDP_PORT") or 9223)
+    except ValueError:
+        port = 9223
+    try:
+        socket.create_connection(("127.0.0.1", port), timeout=0.5).close()
+        return True
+    except OSError:
+        return False
+
+
+async def _close_browser_gracefully(d, timeout: float = 8.0) -> bool:
+    """Close the browser the CDP way: Browser.close lets Chrome write its own
+    clean shutdown state (pid kills are the fallback, never the default).
+
+    The command reply often never arrives — the browser tears down before
+    answering — so success is judged by the event that matters: the debug
+    port dying within the deadline. A timeout here is 未知, and callers fall
+    back to the pid path."""
+    try:
+        await asyncio.wait_for(d.cdp.send_raw("Browser.close", {}), timeout=5)
+    except (Exception, asyncio.CancelledError):
+        # CancelledError is BaseException — a browser tearing down mid-send
+        # cancels the task, and that must land here, not blow up the caller.
+        pass
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if not _debug_port_live():
+            return True
+        await asyncio.sleep(0.3)
+    return False
 
 
 async def _idle_watchdog(d):
@@ -838,13 +878,14 @@ async def _idle_watchdog(d):
             return
 
 
-def _stop_agent_chrome_if_last():
+async def _stop_agent_chrome_if_last(d):
     """On idle exit, close the agent Chrome only when this was the last daemon.
 
     Another live daemon (e.g. an x-monitor stack's, in the same runtime) may
     still be driving the shared agent Chrome — the browser is only ours to
-    close when nobody else is attached. The stop itself is pid-precise
-    (profile/port matched), never the user's own Chrome."""
+    close when nobody else is attached. Graceful CDP close first (Browser.close
+    over our own connection); the pid-precise stop (profile/port matched,
+    never the user's own Chrome) is the fallback."""
     try:
         from . import admin  # lazy: admin has no daemon import, but keep daemon standalone
 
@@ -854,8 +895,11 @@ def _stop_agent_chrome_if_last():
             if other != NAME and ipc.ping(other, timeout=1.0):
                 log(f"idle exit: daemon {other!r} still alive -- leaving agent Chrome up")
                 return
+        if await _close_browser_gracefully(d):
+            log("idle exit: last daemon -- agent Chrome closed gracefully (Browser.close)")
+            return
         admin._stop_agent_chrome()
-        log("idle exit: last daemon -- agent Chrome stopped")
+        log("idle exit: last daemon -- agent Chrome stopped (pid fallback)")
     except Exception as e:
         log(f"idle exit chrome stop failed: {e}")
 

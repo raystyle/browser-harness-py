@@ -13,6 +13,13 @@ for _stream in (sys.stdout, sys.stderr):
         except Exception:
             pass
 
+# Task isolation must bind env BEFORE admin/helpers import (they read
+# BU_NAME / agent port / profile at import time): --once/--batch get their
+# own browser stack unless pinned or --shared. See task_isolation.py.
+from . import task_isolation
+
+task_isolation.apply_from_argv()
+
 from .admin import (
     _version,
     NAME,
@@ -42,16 +49,20 @@ Typical usage:
 Helpers are pre-imported. The daemon auto-starts and connects to the running browser.
 
 Task lifetime (prefix flag, applies to any command or stdin script):
-  --once         one-shot task: at invocation end, stop the stack this task
-                 cold-started (daemon + agent Chrome). A stack that was
-                 already running (persistent task / monitoring) is untouched.
-  --batch        batch task: identical teardown — the invocation IS the
-                 batch; do many operations in one script, the browser closes
+  --once         one-shot task: runs on its OWN browser stack — dedicated
+                 daemon name, debug port, and a clone of the base login
+                 profile — all torn down (browser closed the CDP way,
+                 profile deleted) at invocation end. Add --shared to use the
+                 shared persistent stack instead (with scoped teardown: only
+                 what this task cold-started is stopped).
+  --batch        batch task: same isolated stack — the invocation IS the
+                 batch; do many operations in one script, everything closes
                  at the end.
-  --persistent   explicit default: daemon and Chrome stay up. The daemon
-                 idle-times out after BH_IDLE_TIMEOUT (default 30 min, 0
-                 disables) with no request; the last daemon standing then
-                 closes the agent Chrome.
+  --persistent   explicit default: the shared daemon and Chrome stay up. The
+                 daemon idle-times out after BH_IDLE_TIMEOUT (default 30 min,
+                 0 disables) with no request; the last daemon standing then
+                 closes the agent Chrome (CDP Browser.close first, pid only
+                 as fallback).
 
 Commands:
   browser-harness --version        print the installed version
