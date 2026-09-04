@@ -2,6 +2,10 @@
 
 版本里程碑：本项目版本记录（v0.2.2 起独立维护；v0.1.x 为 browser-use 上游基线历史）。
 
+## v0.6.12 — 2026-09-04
+
+- **`wait_for_render` 活性心跳修正（v0.6.11 发版自验抓出）**：rAF 只在 Chrome 有合成需求时触发——完全静态页（example.com）`frames` 恒 0，rAF 门把「已静默」误判为「冻死」，10s 超时 False。心跳改为 `setInterval` 计数：渲染器冻死时定时器同样停止（活性判据等价），但与合成需求无关，静态页照常判定。实证：静态页 0.7s 正判（原 10s False）、维基内容页 0.6s；单测同步。教训记档：**rAF 不是页面活性信号，是帧需求信号**——单测的 js mock 拦不住这类真渲染器行为，新原语必须有真栈静态页验收。
+
 ## v0.6.11 — 2026-09-04
 
 - **`wait_for_render` 渲染态判官（用户定向原则第三连）**：网络态 ≠ 渲染态——网络静默既不必要（长轮询/SSE/beacon 永不 idle）也不充分（SPA 数据到后才渲染）。新原语以页面内 **MutationObserver 静默 + rAF 合成器心跳**判渲染就绪：静默 `stable_ms`（默认 400ms）且仍在产帧；心跳是「已静默」与「渲染器冻死」的分界（DOM 单独静默两态同形）。活体对照实证：页面 500ms 渲染完成 + 一条永不返回的 fetch，`wait_for_network_idle` 6.1s 误等至超时，`wait_for_render` **0.7s 正判**。`wait_for_network_idle` docstring 降位（仅单请求数据等待专用）；等待判官优先级（element > render > load > network）入 SKILL 与 README。
