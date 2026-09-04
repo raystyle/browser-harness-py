@@ -121,7 +121,7 @@ Always use browser-harness for any web interaction: automation, scraping, testin
 
 `browser-harness` 不带子命令、且 stdin 不是终端时，会把 stdin 当作 Python 执行；核心 helper（`page_info`、`js`、`goto_url`、`list_tabs` 等）已经预导入，无需 `import`。
 
-任务生命周期三分类（任意调用可加前缀旗标）：**持久**（默认）——daemon/Chrome 常驻，闲置 `BH_IDLE_TIMEOUT` 后自退（见环境变量表）；**批量** `--batch`——本调用即整批，结束时关掉自己冷启动的栈；**一次性** `--once`——做一次即收尾。已在跑的栈（持久任务/监控）永不被动：只拆自己拉起的。
+任务生命周期三分类（任意调用可加前缀旗标）：**持久**（默认）——daemon/Chrome 常驻，闲置 `BH_IDLE_TIMEOUT` 后自退（见环境变量表）；**批量** `--batch` / **一次性** `--once`——**默认运行在独立浏览器栈上**（专属 daemon 名 + 9230+ 端口 + 基础登录 profile 克隆，结束时整套拆除：CDP 优雅关闭 + profile 删除），任务间互不共浏览器、可真并行；加 `--shared` 或已钉栈（.env 设 `BU_NAME`/`BU_CDP_URL`）则退回共享栈（只拆自己冷启动的部分）。已在跑的栈（持久任务/监控）永不被动。
 
 全局安装版：
 
@@ -187,13 +187,13 @@ browser-harness/
 ├── .claude-plugin/               #   plugin.json + marketplace.json
 ├── SKILL.md                      # ★ 技能正文权威源（≈18KB；包内副本由测试守护同步）
 ├── install.md                    # 一次性安装指引（随包分发为 references/install.md）
-├── tests/unit/                   # 256 个测试：daemon/helpers/admin/rmux/run/js/recorder/
+├── tests/unit/                   # 275 个测试：daemon/helpers/admin/rmux/run/js/recorder/
 │                                 #   skills 防漂移 / 插件合并加载 / app 路由…
 ├── docs/                         # 文档体系（ohmyagents 规范）
 │   ├── guide/                    #   G001-G004：文档/研究/工作流/经验沉淀细则
 │   ├── research/                 #   S001-S008：rmux、defuddle、浏览器隔离、无头接管、钥匙串…
 │   ├── proven/                   #   P0001-P0002：已实证方案
-│   ├── mistakes/                 #   M101-M109：profile 污染、升级锁、symlink、CRLF、限流误报、单实例竞态…
+│   ├── mistakes/                 #   M101-M110：profile 污染、升级锁、symlink、CRLF、限流误报、单实例竞态、Windows 无 SIGKILL…
 │   ├── references/               #   R001-R005：R003=插件开发与测试规范
 │   └── diary/ · assets/          #   日记与截图
 ├── AGENTS.md / INDEX.md / GOAL.md / PLAN.md / ROADMAP.md / TODO.md / CHANGELOG.md

@@ -2,7 +2,14 @@
 
 版本里程碑：本项目版本记录（v0.2.2 起独立维护；v0.1.x 为 browser-use 上游基线历史）。
 
-## v0.6.9 — 2026-09-03
+## v0.6.10 — 2026-09-04
+
+- **任务级浏览器隔离（用户定向架构）**：`--once`/`--batch` 默认运行在**自己的浏览器栈**上——专属 daemon 名（`task-<hex>`）+ 9230+ 调试端口（**内核锁预留**，防并发 TOCTOU 静默共浏览器）+ **基础登录 profile 克隆**（缓存目录跳过、Windows 锁文件降级占位，登录态随行）+ 自钉 `BU_CDP_URL=127.0.0.1:<port>`（local 发现只认用户 Chrome 与 9222/9223，不钉会摸到用户浏览器）。结束时整套拆除：浏览器走 CDP 优雅关闭、daemon 停、task-profile 删除（守卫根目录）。`--shared` 或钉栈（.env 设 `BU_NAME`/`BU_CDP_URL`，监控/远程模型）退回共享栈；持久默认不变——「多任务倒腾一个浏览器的多个 tab」姿势就此废止，tab 记账（`ensure_app_tab`）仅服务共享持久栈。多任务从此**真并行**（双任务双浏览器实证）。
+- **`Browser.close` 优雅关闭（用户定向研究）**：关浏览器改走 CDP 正规方式——daemon 新增 `meta:close_browser`，看门狗连带关与 `_stop_agent_chrome` 全部优雅优先、pid 杀仅兜底；**成功判据 = 调试端口消亡**（命令回复常因浏览器先拆而不达，回复丢失≠失败）；teardown 反序（浏览器先借活 daemon 优雅关，再停 daemon）。Chrome 自写干净退出状态，恢复气泡从根上消失。
+- **CDP 响应超时可配置 + 导航三态事件判定（Issue #3）**：`BH_IPC_TIMEOUT`（普通往返默认 5s）/`BH_NAVIGATE_TIMEOUT`（`goto_url` 导航默认 30s）/`BH_SCREENSHOT_TIMEOUT`（截图 60s）三档预算 env 可调（空/坏值/非正回退默认）。导航判定遵循架构原则「**事件驱动判状态（成功/失败/未知），超时只做无事件时的死锁兜底**」：`Page.navigate` 响应丢失时由 daemon 缓冲事件流接管——主帧 `frameNavigated`→成功（重定向后 URL 也认）、`chrome-error:`→失败、静默到点→`verdict unknown ... may still be in flight` 如实抛出，绝不把「还没回来」伪装成「拿不到」。原则入 SKILL Design Constraints。
+- **agent Chrome 恢复气泡根治（用户报告）**：Windows `os.kill` 全是 `TerminateProcess` 硬杀，`exit_type` 恒留 `Crashed`，每次启动弹「未正确关闭」。修法 = `_normalize_chrome_exit_type`（停后 + 拉起前归 Normal，kiosk 标准姿势）+ `--hide-crash-restore-bubble` 双保险；实测 Crashed→一轮启停→Normal。顺修 **M110**：`signal.SIGKILL` 在 Windows 不存在，强杀升级分支自身 `AttributeError`（单测逼出冷分支发现，潜伏至今）。
+- **搜索被墙如实上报（验收发现）+ X 搜索滚动姿势**：`google_search`/`bing_search` 被 `/sorry`、reCAPTCHA、Cloudflare 墙时不再静默返回 `[]`——stderr 警告 + 契约不变（被墙≠无结果，三态原则延伸）；X 搜索时间线**要滚动才渲染**（虚拟滚动扣住首条 article），滚动采集姿势（navigate→wait→scroll→harvest 去重）入 SKILL X 节。搜索链路五通道验收全通（Google 登录态/Bing/web-fetch 双路径/X 库/X 实时）。
+- 单测 275（+27），全树 292 passed；dev 真栈关键路径实证：三态导航判定（含 0.2s 强制丢响应与挂死站）、双任务双浏览器真并行 + teardown 全清场、exit_type 修复往返、reCAPTCHA 墙如实上报。冷启动余量：隔离任务默认 `BH_IPC_TIMEOUT=10`，`wait_for_load` 单次轮询超时不再炸（自身 deadline 才是判官）。
 
 - **任务生命周期三分类（用户定向）**：任意调用可加前缀旗标——`--once`（一次性）/`--batch`（批量，调用即整批）结束时**只拆自己冷启动的栈**（默认 daemon + agent Chrome，所有权旗标跟踪），已在跑的持久栈/监控永不被动；**持久**（默认）新增闲置看门狗：`BH_IDLE_TIMEOUT`（默认 1800s=30 分钟，0 关闭）内无任何请求则 daemon 优雅自退（与 meta:shutdown 同路径），**末位 daemon 连带关闭 agent Chrome**（先探活其他 daemon；远端/用户浏览器模型跳过）——x-monitor 每 10 分钟轮询自动续活，监控栈不会误退。根治「测试/一次性任务留残余浏览器」一类问题。
 - **chrome-mode 翻转双拉起竞态修复（S008 遗留销项）**：根因两层——翻转只停 x-monitor daemon 而 rmux 里活着的 worker 见 daemon 死即自行 ensure 重生，带旧模式撞翻转停/拉窗口（macOS `open -na` 把二次 Popen 物化成真第二实例）；`_launch_agent_chrome`「端口探测→Popen→等端口」窗口数秒宽无互斥。修复：翻转先静默 rmux x-monitor/x-supervisor 会话再动 daemon/Chrome（恢复仍幂等拉回）；拉起挂 M109 同款内核锁 `agent-chrome-<port>`，并发 ensure 败者等赢者端口就绪绝不二次 Popen。
