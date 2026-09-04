@@ -39,6 +39,7 @@ WSL2 无头接管（对应 `GOAL.md`，队列目标「Linux/macOS 接管」的 L
 | 任务生命周期三分类 + 闲置看门狗 | 已完成 v0.6.9 | 用户定向：持久（默认，`BH_IDLE_TIMEOUT` 默认 30 分钟闲置自退 + 末位 daemon 连带关 agent Chrome，x-monitor 轮询自动续活）/ 批量 `--batch` / 一次性 `--once`（调用级 teardown，只拆自己冷启动的栈，已在跑的栈永不被动）；顺修 restart_daemon Windows 死等误判（os.kill(pid,0)=CTRL_C_EVENT 换 OpenProcess 探活）与 cleanup_endpoint unlink 竞态；+11 单测 248 绿，dev 真栈三场景实证；一例未解之谜挂待观察 | 2026-09-03 |
 | v0.6.9 发版 | 已完成 | 发版前全量验收矩阵全绿（全树 265 / 生命周期三场景 / 带栈翻转往返 / M109 复用 / x-monitor 长跑型 / 七插件 happy-path）→ tag + Release「任务生命周期三分类与翻转竞态修复」→ 本机 `--update` 升 0.6.9 + doctor 版本对齐 + 装机 CLI `--once` 用完即清实证 | 2026-09-03 |
 | CDP 响应超时可配置 | 已完成 | Issue #3：`BH_IPC_TIMEOUT` 覆盖普通往返默认 5s；导航单独预算 `NAVIGATE_IPC_RESPONSE_TIMEOUT_SECONDS` 30s（`BH_NAVIGATE_TIMEOUT` 可调）由 `goto_url` 携带（截图先例 `BH_SCREENSHOT_TIMEOUT` 同步可配）；根治冷启动+慢站叠加时 `Page.navigate` 5s 误报超时；+3 单测全树 268 绿 | 2026-09-04 |
+| 导航三态事件判定 | 已完成 | 用户定向架构原则「事件驱动判状态、超时只做死锁兜底」落到 goto_url：响应丢失时由缓冲事件流判定（主帧 frameNavigated→成功、chrome-error→失败、静默到点→未知并如实措辞），daemon 事件缓冲本就具备（Page 域默认启用）；SKILL Design Constraints 入原则条目；+5 单测 256 绿，dev 真栈三态活体实证（响应先回/事件判成功/挂死站未知） | 2026-09-04 |
 
 ## 队列目标
 
@@ -52,4 +53,5 @@ WSL2 无头接管（对应 `GOAL.md`，队列目标「Linux/macOS 接管」的 L
 | cookies export 默认 endpoint 硬编码 | 排后 | export 默认 `http://127.0.0.1:9223`，与 import 取 `BU_CDP_URL` 不一致；dev/WSL（9224/9225）场景需显式 `--endpoint`；统一为 `BU_CDP_URL` 回退 9223 | 2026-09-03 |
 | agent Chrome 独立应用身份 | 排后 | macOS 同 bundle 双实例 Dock 激活混淆（无头实例顶包用户 Chrome）；候选解 = 独立副本改 CFBundleIdentifier（S008 遗留） |
 | 站点专用提取扩充 | 排后 | domain-skills 按站点定制正文提取 |
+| 等待原语事件化 | 排后 | 用户定向原则「所有操作事件驱动」渐进落地：wait_for_load 由 readyState 轮询迁 Page.loadEventFired 事件（wait_for_network_idle 已事件驱动、goto_url 已三态判定）；原则条目见 SKILL Design Constraints |
 | MCP 集成 | 不做 | 用户定向 2026-09-03 出队；`mcp_server.py` 与 pyproject optional 依赖保留现状不删 |

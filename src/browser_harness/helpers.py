@@ -174,8 +174,45 @@ def _is_illegal_return_error(exc):
 
 
 # --- navigation / page ---
+def _adjudicate_lost_navigation(url, budget):
+    """Verdict from the event stream when Page.navigate's response is lost to
+    an IPC timeout. Events judge state, deadlines only guard deadlock: a main-
+    frame Page.frameNavigated on the active session is commit (success, even
+    across redirects — the event carries the final URL), a chrome-error URL is
+    failure, and silence until the deadline is unknown — raised as such, never
+    phrased as a failure claim."""
+    deadline = time.time() + budget
+    active = _send({"meta": "session"}).get("session_id")
+    while time.time() < deadline:
+        for e in drain_events():
+            if e.get("session_id") != active or e.get("method") != "Page.frameNavigated":
+                continue
+            frame = e.get("params", {}).get("frame", {})
+            if frame.get("parentId"):
+                continue  # subframe navigation, not ours
+            frame_url = frame.get("url") or ""
+            if frame_url.startswith("chrome-error:"):
+                return {"errorText": "navigation failed (chrome-error page)", "url": frame_url, "late": True}
+            return {"frameId": frame.get("id"), "url": frame_url, "late": True}
+        try:
+            if (page_info().get("url") or "").split("#")[0] == url.split("#")[0]:
+                return {"url": url, "late": True}  # events consumed elsewhere; state corroborates
+        except Exception:
+            pass
+        time.sleep(0.3)
+    raise _IPCResponseTimeout(
+        f"Page.navigate verdict unknown after {budget:g}s with no commit event and no "
+        f"error — navigation to {url} may still be in flight"
+    )
+
+
 def goto_url(url):
-    r = cdp("Page.navigate", url=url, _response_timeout=NAVIGATE_IPC_RESPONSE_TIMEOUT_SECONDS)
+    try:
+        r = cdp("Page.navigate", url=url, _response_timeout=NAVIGATE_IPC_RESPONSE_TIMEOUT_SECONDS)
+    except _IPCResponseTimeout:
+        # The IPC deadline is a deadlock guard, not a verdict — the response
+        # was lost, but the commit event is still buffered in the daemon.
+        r = _adjudicate_lost_navigation(url, DEFAULT_IPC_RESPONSE_TIMEOUT_SECONDS)
     if os.environ.get("BH_DOMAIN_SKILLS") != "1":
         return r
     d = (BROWSER_WORKSPACE / "domain-skills" / (urlparse(url).hostname or "").removeprefix("www.").split(".")[0])

@@ -136,6 +136,88 @@ def test_goto_url_omits_domain_skills_by_default(tmp_path, monkeypatch):
     assert result == {"frameId": "f"}
 
 
+# --- goto_url lost-response adjudication (Issue #3: events judge, deadline only guards) ---
+
+
+def _lost_response(monkeypatch, url, events, page_urls=("about:blank",)):
+    """goto_url(url) with Page.navigate's response vanished; adjudication sees
+    these buffered events (consumed on first drain) and this page_info() url
+    sequence. Returns goto_url's result (or raises its exception)."""
+    monkeypatch.delenv("BH_DOMAIN_SKILLS", raising=False)
+
+    def fake_cdp(method, **kwargs):
+        raise helpers._IPCResponseTimeout(f"{method} timed out after 30s waiting for the daemon")
+
+    state = {"events": list(events), "urls": list(page_urls)}
+
+    def fake_send(req):
+        if req.get("meta") == "session":
+            return {"session_id": "session-ACTIVE"}
+        if req.get("meta") == "drain_events":
+            out, state["events"] = state["events"], []
+            return {"events": out}
+        return {}
+
+    monkeypatch.setattr(helpers, "cdp", fake_cdp)
+    monkeypatch.setattr(helpers, "_send", fake_send)
+    monkeypatch.setattr(
+        helpers, "page_info", lambda: {"url": state["urls"].pop(0) if state["urls"] else "about:blank"}
+    )
+    return helpers.goto_url(url)
+
+
+def _frame_navigated(url, session_id="session-ACTIVE", parent_id=None, frame_id="F1"):
+    return {
+        "session_id": session_id,
+        "method": "Page.frameNavigated",
+        "params": {"frame": {"id": frame_id, "url": url, **({"parentId": parent_id} if parent_id else {})}},
+    }
+
+
+def test_goto_url_adjudicates_success_from_commit_event_when_response_lost(monkeypatch):
+    result = _lost_response(
+        monkeypatch, "https://example.com/start", events=[_frame_navigated("https://example.com/final")]
+    )
+    assert result == {"frameId": "F1", "url": "https://example.com/final", "late": True}
+
+
+def test_goto_url_adjudicates_failure_from_chrome_error_event_when_response_lost(monkeypatch):
+    result = _lost_response(
+        monkeypatch, "https://unreachable.example/", events=[_frame_navigated("chrome-error://chromewebdata/")]
+    )
+    assert result["errorText"]
+    assert result["late"] is True
+
+
+def test_goto_url_ignores_subframe_and_background_navigations_when_response_lost(monkeypatch):
+    result = _lost_response(
+        monkeypatch,
+        "https://example.com/start",
+        events=[
+            _frame_navigated("https://elsewhere/", session_id="session-BG"),
+            _frame_navigated("https://ad.example/frame", parent_id="F0"),
+            _frame_navigated("https://example.com/real"),
+        ],
+    )
+    assert result["url"] == "https://example.com/real"
+
+
+def test_goto_url_falls_back_to_page_state_when_events_were_consumed(monkeypatch):
+    result = _lost_response(
+        monkeypatch, "https://example.com/start", events=[], page_urls=["https://example.com/start"]
+    )
+    assert result == {"url": "https://example.com/start", "late": True}
+
+
+def test_goto_url_silent_deadline_raises_unknown_not_failure(monkeypatch):
+    with patch("browser_harness.helpers.time") as mock_time:
+        start = 1000.0
+        # deadline init, while-pass (drain empty, url mismatch), while-exit
+        mock_time.time.side_effect = [start, start, start + 10.0]
+        with pytest.raises(TimeoutError, match="verdict unknown.*may still be in flight"):
+            _lost_response(monkeypatch, "https://hanging.example/", events=[])
+
+
 def test_goto_url_includes_domain_skills_when_enabled(tmp_path, monkeypatch):
     monkeypatch.setenv("BH_DOMAIN_SKILLS", "1")
     monkeypatch.setattr(helpers, "BROWSER_WORKSPACE", tmp_path)

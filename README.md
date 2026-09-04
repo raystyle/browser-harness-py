@@ -187,7 +187,7 @@ browser-harness/
 ├── .claude-plugin/               #   plugin.json + marketplace.json
 ├── SKILL.md                      # ★ 技能正文权威源（≈18KB；包内副本由测试守护同步）
 ├── install.md                    # 一次性安装指引（随包分发为 references/install.md）
-├── tests/unit/                   # 251 个测试：daemon/helpers/admin/rmux/run/js/recorder/
+├── tests/unit/                   # 256 个测试：daemon/helpers/admin/rmux/run/js/recorder/
 │                                 #   skills 防漂移 / 插件合并加载 / app 路由…
 ├── docs/                         # 文档体系（ohmyagents 规范）
 │   ├── guide/                    #   G001-G004：文档/研究/工作流/经验沉淀细则
@@ -308,7 +308,7 @@ $env:BH_CHROME_EXTRA_FLAGS   # 透传给 agent Chrome 的额外启动 flag
 $env:BH_IDLE_TIMEOUT         # 持久任务闲置超时秒数（默认 1800=30 分钟，0 关闭）：daemon 无请求超时自退，最后一个 daemon 连带关 agent Chrome（x-monitor 轮询自动续活）
 $env:BH_LOCK_GRACE           # daemon 单实例锁等待宽限秒数（默认 90，须大于启动最坏 ~75s；超时退出并报 holder pid）
 $env:BH_IPC_TIMEOUT          # 普通 CDP 往返响应超时秒数（默认 5）
-$env:BH_NAVIGATE_TIMEOUT     # goto_url/new_tab 的 Page.navigate 响应超时秒数（默认 30；冷启动+慢站叠加时 5s 会误报超时，Issue #3）
+$env:BH_NAVIGATE_TIMEOUT     # goto_url/new_tab 的 Page.navigate 响应超时秒数（默认 30；超时只做死锁兜底——响应丢失由事件流判成功/失败，静默到点=未知，Issue #3）
 $env:BH_SCREENSHOT_TIMEOUT   # 截图响应超时秒数（默认 60）
 $env:BU_CDP_URL              # CDP http 地址（钉住浏览器）
 $env:BU_CDP_WS               # CDP websocket 地址

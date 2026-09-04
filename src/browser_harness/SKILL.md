@@ -382,6 +382,10 @@ upstream they live at https://github.com/raystyle/browser-harness/tree/main/inte
 
 ## Design Constraints
 
+- Event-driven adjudication: success/failure/unknown verdicts come from CDP
+  events and explicit state queries. A deadline only guards the no-event
+  deadlock — its expiry means unknown ("still in flight"), never a failure
+  claim. goto_url's lost-response adjudication is the pattern (Issue #3).
 - Coordinate clicks default. CDP mouse events pass through iframes/shadow/cross-origin at the compositor level.
 - Keep the connection model simple: use the default daemon, `BU_CDP_URL`, or
   `BU_CDP_WS`.
@@ -407,11 +411,13 @@ upstream they live at https://github.com/raystyle/browser-harness/tree/main/inte
   the `[inspect-toggle]` section of `browser-harness browsers`. Keep the
   default daemon pinned via `BU_CDP_URL` so it can never ride the user's
   browser.
-- IPC response budgets: ordinary CDP round trips get 5s (`BH_IPC_TIMEOUT`
-  overrides), `goto_url`'s Page.navigate carries 30s (`BH_NAVIGATE_TIMEOUT`)
-  and screenshots 60s (`BH_SCREENSHOT_TIMEOUT`). Cold-start Chrome plus a slow
-  site outlasts the ordinary budget, so raw `cdp("Page.navigate", ...)` calls
-  should pass `_response_timeout=` or go through `goto_url` (Issue #3).
+- IPC response budgets are deadlock guards, not verdicts: ordinary CDP round
+  trips get 5s (`BH_IPC_TIMEOUT`), `goto_url`'s Page.navigate 30s
+  (`BH_NAVIGATE_TIMEOUT`), screenshots 60s (`BH_SCREENSHOT_TIMEOUT`). When the
+  navigate response is lost to the deadline, `goto_url` adjudicates from the
+  buffered event stream (`Page.frameNavigated` commit / `chrome-error` failure
+  / silent deadline = unknown) and only raises on the silent case. Raw
+  `cdp("Page.navigate", ...)` gets none of this — prefer `goto_url` (Issue #3).
 
 ## Domain Skills
 
