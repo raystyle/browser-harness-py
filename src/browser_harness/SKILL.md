@@ -215,8 +215,13 @@ Two pieces: the `x-supervisor` workspace app (self-healing loop) plus the
 Ad-hoc X search (`x.com/search?q=...&f=live`): the timeline renders **only
 after a scroll** — virtual scrolling holds even the first `article` back
 until a `window.scrollBy` event arrives. Navigate, wait ~6s, then loop
-scroll → wait → harvest `article` nodes, dedup by text prefix. Stored-tweet
-lookup needs no browser: `browser-harness x-search <keyword>`.
+scroll → wait → harvest `article` nodes, dedup by text prefix; stop on 3
+consecutive scrolls with nothing new (that is the true bottom — the feed
+ends, it is not infinite). One query supplies a FIXED window of ~10-20
+tweets however hot the term: for full coverage, time-slice the query
+(`since:YYYY-MM-DD` / `until:YYYY-MM-DD` operators) and harvest each window
+— 2 windows measurably beat the single-window cap. Stored-tweet lookup
+needs no browser: `browser-harness x-search <keyword>`.
 
 Run as rmux background sessions (reuse one shell; poll on demand — no blocking
 command). The worker runs against an **isolated agent Chrome** — never the
