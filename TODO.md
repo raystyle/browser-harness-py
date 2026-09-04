@@ -48,7 +48,7 @@ WSL2 无头接管（对应 `GOAL.md`，队列目标「Linux/macOS 接管」的 L
 
 | 目标 | 状态 | 说明 |
 | --- | --- | --- |
-| v0.6.10 发版 | 排后（缓决） | 用户定向 2026-09-04「不封板」：五笔先推 main 沉淀（超时可配 / 三态事件判定 / 恢复气泡+M110 / 搜索被墙如实上报 / 任务级隔离+Browser.close），待聚合发版；装机机吃到需届时 tag + Release + `--update` |
+| v0.6.10 发版 | 已完成 | 缓决当日解除（用户定向聚合发版）：预检四件套全绿（全树 292 / symlink 零 / 树净 / 版本就绪）→ tag + Release「任务级浏览器隔离与 Browser.close 优雅关闭」→ 本机 `--update` 0.6.9→0.6.10（接力安装、双 skills 落点、尾部落地版本）→ doctor 全绿（栈拉起后 4 ok 0 FAIL）→ 装机版隔离任务 E2E：登录 profile 克隆 + Google 3 条无 /sorry（登录态随行实证）；Issue #3 回帖关单 | 2026-09-04 |
 | agent-workspace 更名 browser-workspace | 已完成 | 用户定向 + 二次缩范围（profile 一族不动）；C1 核心（env 回退链 + 整目录自动迁移 + 模块垫片）/C2 repo 119 文件迁移/C3 文档三副本/C4 发版 v0.6.8；真机迁移自验：123 文件与 x_tweets.db 字节级随迁、旧目录消、profile 未动、x-search 读到全量 1064 推、doctor 绿、stdin 冒烟过；单测 conftest BH_HOME 隔离顺带根治存量隐患，234 绿 | 2026-09-03 |
 | dev 环境 Windows 侧真栈姿势 | 已完成 | launcher 按 uname 分家 BH_HOME（Windows→`.browser-harness-dev-win`，端口 9225；WSL 留原目录 9224）；Windows 侧 `./browser-harness` 真栈 stdin 一次过（daemon 冷启动 + 无头 Chrome + 真导航），装机栈 9223 不受扰；沉淀 R006（端口分配全景 9223/9224/9225）；单测侧隔离由 v0.6.8 conftest 先行根治 | 2026-09-03 |
 | Linux/macOS 接管 | 已完成 | WSL 半（S006/S007）+ Windows 复测（R004）+ macOS 半（R005 验收全过、S008 钥匙串发现 + chrome-mode 双模）三侧闭环，2026-09-01 收口 |
