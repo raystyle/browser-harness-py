@@ -2,7 +2,12 @@
 
 版本里程碑：本项目版本记录（v0.2.2 起独立维护；v0.1.x 为 browser-use 上游基线历史）。
 
-## v0.6.10 — 2026-09-04
+## v0.6.11 — 2026-09-04
+
+- **`wait_for_render` 渲染态判官（用户定向原则第三连）**：网络态 ≠ 渲染态——网络静默既不必要（长轮询/SSE/beacon 永不 idle）也不充分（SPA 数据到后才渲染）。新原语以页面内 **MutationObserver 静默 + rAF 合成器心跳**判渲染就绪：静默 `stable_ms`（默认 400ms）且仍在产帧；心跳是「已静默」与「渲染器冻死」的分界（DOM 单独静默两态同形）。活体对照实证：页面 500ms 渲染完成 + 一条永不返回的 fetch，`wait_for_network_idle` 6.1s 误等至超时，`wait_for_render` **0.7s 正判**。`wait_for_network_idle` docstring 降位（仅单请求数据等待专用）；等待判官优先级（element > render > load > network）入 SKILL 与 README。
+- **X 搜索供给窗与分片收割（极限测试结论）**：X 搜索单查询是**固定供给窗 ~10-20 条**（热词亦然），不是无限流——干停即真底（`scrollY ≈ docH − innerH` 实证），非采集缺陷；全量姿势 = `since:`/`until:` 时间分片多窗收割（实测两窗 15+12 → 27 去重破单窗上限）。Google 翻页同场极限验证：5 页 48 条全唯一、零重复零墙。姿势入 SKILL X 节。
+- **S009 nu_plugin_browse 同域研究落档**：done 协议（页面侧 `__browse_done(payload)` 写 meta 标签 + 宿主隔离世界轮询，零 `Runtime.enable` 全隐蔽——比通用静默更强的任务真值判官）、`idle` 六值枚举（等待结束原因是一等公民）、frozen 三态、`Browser.close` 分层关闭、会话命名/目录/文件锁——与本项目多处独立演化收敛同构，印证域约束必然解。可落地清单四条（done 协议原语 / 等待原因枚举 / CDP 域按需启用 / createTarget 直开姿势）挂档待排期。
+- 单测 279（+4），全树 296 passed。
 
 - **任务级浏览器隔离（用户定向架构）**：`--once`/`--batch` 默认运行在**自己的浏览器栈**上——专属 daemon 名（`task-<hex>`）+ 9230+ 调试端口（**内核锁预留**，防并发 TOCTOU 静默共浏览器）+ **基础登录 profile 克隆**（缓存目录跳过、Windows 锁文件降级占位，登录态随行）+ 自钉 `BU_CDP_URL=127.0.0.1:<port>`（local 发现只认用户 Chrome 与 9222/9223，不钉会摸到用户浏览器）。结束时整套拆除：浏览器走 CDP 优雅关闭、daemon 停、task-profile 删除（守卫根目录）。`--shared` 或钉栈（.env 设 `BU_NAME`/`BU_CDP_URL`，监控/远程模型）退回共享栈；持久默认不变——「多任务倒腾一个浏览器的多个 tab」姿势就此废止，tab 记账（`ensure_app_tab`）仅服务共享持久栈。多任务从此**真并行**（双任务双浏览器实证）。
 - **`Browser.close` 优雅关闭（用户定向研究）**：关浏览器改走 CDP 正规方式——daemon 新增 `meta:close_browser`，看门狗连带关与 `_stop_agent_chrome` 全部优雅优先、pid 杀仅兜底；**成功判据 = 调试端口消亡**（命令回复常因浏览器先拆而不达，回复丢失≠失败）；teardown 反序（浏览器先借活 daemon 优雅关，再停 daemon）。Chrome 自写干净退出状态，恢复气泡从根上消失。
