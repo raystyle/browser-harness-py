@@ -9,6 +9,7 @@ repo's default browser-workspace exists. A workspace copy named browser_helpers.
 import gzip
 import json
 import re
+import sys
 import urllib.parse
 import urllib.request
 
@@ -83,6 +84,12 @@ def google_search(query, limit=10, page=1):
         wait_for_element('a[href^="http"]', timeout=10)
     except Exception:
         pass
+    signals = detect_page_blocks()
+    if signals:
+        # An anti-bot wall is a state, not an empty result set — say so on
+        # stderr instead of silently returning [] (unknown ≠ "no results").
+        print(f"[google_search] blocked, no results extracted: {signals}", file=sys.stderr)
+        return []
     switch_tab(tid, activate=False)  # re-attach before extracting
     return _extract_links(limit, "google.")
 
@@ -102,6 +109,10 @@ def bing_search(query, limit=10, page=1):
         wait_for_element("li.b_algo h2 a", timeout=10)
     except Exception:
         pass
+    signals = detect_page_blocks()
+    if signals:
+        print(f"[bing_search] blocked, no results extracted: {signals}", file=sys.stderr)
+        return []
     switch_tab(tid, activate=False)  # re-attach before extracting
     # Bing wraps result links in a JS-only redirect (bing.com/ck/a), so extract
     # the native b_algo cards (title + link + snippet) instead of generic links.

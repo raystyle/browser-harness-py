@@ -134,3 +134,46 @@ def test_run_app_raises_with_stderr_tail_on_failure(monkeypatch):
     )
     with pytest.raises(RuntimeError, match="exited 2.*boom"):
         helpers.run_app("missing-app")
+
+
+# --- search block reporting (Issue #3 semantics: blocked ≠ no results) ---
+
+
+def _patch_search_env(monkeypatch, blocks, links):
+    from browser_harness import browser_helpers
+
+    monkeypatch.setattr(browser_helpers, "ensure_app_tab", lambda key, url: "t-goog")
+    monkeypatch.setattr(helpers, "goto_url", lambda u: {})
+    monkeypatch.setattr(helpers, "wait_for_load", lambda timeout=20: True)
+    monkeypatch.setattr(helpers, "wait_for_element", lambda sel, timeout=10: True)
+    monkeypatch.setattr(helpers, "switch_tab", lambda t, activate=False: None)
+    monkeypatch.setattr(browser_helpers, "detect_page_blocks", lambda: blocks)
+    monkeypatch.setattr(browser_helpers, "_extract_links", lambda limit, exclude: links)
+    return browser_helpers
+
+
+def test_google_search_reports_block_instead_of_silent_empty(capsys, monkeypatch):
+    bh = _patch_search_env(
+        monkeypatch,
+        blocks=[{"type": "block", "reason": "sorry page"}],
+        links=[{"title": "never-returned", "url": "https://x"}],
+    )
+    assert bh.google_search("q") == []
+    assert "blocked" in capsys.readouterr().err
+
+
+def test_google_search_clean_path_returns_links(capsys, monkeypatch):
+    bh = _patch_search_env(monkeypatch, blocks=[], links=[{"title": "t", "url": "https://x"}])
+    assert bh.google_search("q")[0]["title"] == "t"
+    assert capsys.readouterr().err == ""
+
+
+def test_bing_search_reports_block_instead_of_silent_empty(capsys, monkeypatch):
+    bh = _patch_search_env(
+        monkeypatch,
+        blocks=[{"type": "cloudflare", "reason": "challenge URL"}],
+        links=[],
+    )
+    monkeypatch.setattr(helpers, "js", lambda expr: [])
+    assert bh.bing_search("q") == []
+    assert "blocked" in capsys.readouterr().err

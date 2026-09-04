@@ -41,6 +41,7 @@ WSL2 无头接管（对应 `GOAL.md`，队列目标「Linux/macOS 接管」的 L
 | CDP 响应超时可配置 | 已完成 | Issue #3：`BH_IPC_TIMEOUT` 覆盖普通往返默认 5s；导航单独预算 `NAVIGATE_IPC_RESPONSE_TIMEOUT_SECONDS` 30s（`BH_NAVIGATE_TIMEOUT` 可调）由 `goto_url` 携带（截图先例 `BH_SCREENSHOT_TIMEOUT` 同步可配）；根治冷启动+慢站叠加时 `Page.navigate` 5s 误报超时；+3 单测全树 268 绿 | 2026-09-04 |
 | 导航三态事件判定 | 已完成 | 用户定向架构原则「事件驱动判状态、超时只做死锁兜底」落到 goto_url：响应丢失时由缓冲事件流判定（主帧 frameNavigated→成功、chrome-error→失败、静默到点→未知并如实措辞），daemon 事件缓冲本就具备（Page 域默认启用）；SKILL Design Constraints 入原则条目；+5 单测 256 绿，dev 真栈三态活体实证（响应先回/事件判成功/挂死站未知） | 2026-09-04 |
 | agent Chrome 恢复气泡根治 | 已完成 | 用户报告「每次提醒 Chrome 未正确关闭」：Windows `os.kill` 全是 TerminateProcess 硬杀，exit_type 恒留 Crashed。修法 = `_normalize_chrome_exit_type`（停后 + 拉起前把 Preferences 的 exit_type 归 Normal，kiosk 标准姿势）+ `--hide-crash-restore-bubble` 双保险；顺修 M110（SIGKILL 升级分支在 Windows 自身 AttributeError，单测逼出冷分支发现）；dev 真栈实证 Crashed→一轮 --once→Normal | 2026-09-04 |
+| 搜索链路验收 | 已完成 | 用户定向：Google（登录 profile ✓，dev 新 profile 被 /sorry 反爬墙——环境事实）/ Bing ✓ / web-fetch 双路径 ✓ / X 库检索 ✓ / X 实时搜索 ✓（滚动采集姿势）；装机版 0.6.9 同场复现 Issue #3 5s 误报超时（工作树版已修，活体对照）；随验收清偿两笔原则债：google/bing_search 被墙 stderr 如实上报不再静默 []、X 搜索滚动渲染姿势入 SKILL；+3 单测 281 绿 | 2026-09-04 |
 
 ## 队列目标
 

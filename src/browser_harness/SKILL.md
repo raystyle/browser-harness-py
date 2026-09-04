@@ -193,6 +193,12 @@ Two pieces: the `x-supervisor` workspace app (self-healing loop) plus the
 `x-worker` app it spawns into a rmux pane. Agent-operated, no autostart;
 `browser-harness --update` (or `skills sync`) installs them.
 
+Ad-hoc X search (`x.com/search?q=...&f=live`): the timeline renders **only
+after a scroll** — virtual scrolling holds even the first `article` back
+until a `window.scrollBy` event arrives. Navigate, wait ~6s, then loop
+scroll → wait → harvest `article` nodes, dedup by text prefix. Stored-tweet
+lookup needs no browser: `browser-harness x-search <keyword>`.
+
 Run as rmux background sessions (reuse one shell; poll on demand — no blocking
 command). The worker runs against an **isolated agent Chrome** — never the
 user's own Chrome — via `BU_CDP_URL`.
