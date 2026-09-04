@@ -559,28 +559,32 @@ def wait_for_load(timeout=15.0):
 
 _RENDER_PROBE_JS = """(()=> {
     if (window.__bh_render) return true;
-    const s = {lastMutation: performance.now(), frames: 0};
+    const s = {lastMutation: performance.now(), frames: 0, ticks: 0};
     window.__bh_render = s;
     new MutationObserver(() => { s.lastMutation = performance.now(); })
         .observe(document.documentElement,
                  {subtree: true, childList: true, attributes: true, characterData: true});
-    const tick = () => { s.frames++; requestAnimationFrame(tick); };
-    requestAnimationFrame(tick);
+    const beat = () => { s.frames++; requestAnimationFrame(beat); };
+    requestAnimationFrame(beat);
+    setInterval(() => { s.ticks++; }, 100);
     return true;
 })()"""
 
 
 def wait_for_render(timeout=15.0, stable_ms=400):
     """Wait until the page has RENDERED stably: DOM quiet for stable_ms while
-    the compositor keeps producing frames.
+    the page's JS loop is still alive.
 
     Rendering is the state that matters; network quiescence is an
     implementation detail. wait_for_network_idle is neither necessary
     (analytics beacons and long-polling never go idle) nor sufficient (an SPA
-    renders AFTER its data arrives — rendering lags the network). The rAF
-    heartbeat is what tells a settled page from a frozen renderer: DOM quiet
-    alone is ambiguous, quiet + frames ticking is rendered. It relies on the
-    agent Chrome's no-throttle flags keeping rAF alive in background tabs.
+    renders AFTER its data arrives — rendering lags the network). The liveness
+    heartbeat is a setInterval counter, NOT rAF: Chrome only fires rAF when a
+    frame is needed, so a fully static page produces zero frames and an rAF
+    gate misreads "settled" as "frozen" (found live on example.com). A frozen
+    renderer stops timers too — quiet + ticking timers is settled, quiet +
+    silent timers is frozen. No-throttle flags keep the timers alive in
+    background tabs.
 
     Judge is an explicit in-page state probe; the deadline is the usual
     deadlock guard (False = unknown, not failure). For a known target,
@@ -592,10 +596,10 @@ def wait_for_render(timeout=15.0, stable_ms=400):
         try:
             r = js(
                 "JSON.stringify({q: (performance.now() - window.__bh_render.lastMutation) / 1000,"
-                " f: window.__bh_render.frames})"
+                " t: window.__bh_render.ticks})"
             )
             d = json.loads(r) if r else {}
-            if d.get("f", 0) > 0 and d.get("q", 1e9) >= stable:
+            if d.get("t", 0) > 0 and d.get("q", 1e9) >= stable:
                 return True
         except _IPCResponseTimeout:
             pass  # a cold-start poll brushing the IPC budget is 未知, not failure

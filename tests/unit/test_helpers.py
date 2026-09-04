@@ -757,13 +757,13 @@ def _render_poll_states(seq):
 
 
 def test_wait_for_render_true_on_dom_quiet_with_frames(monkeypatch):
-    states = _render_poll_states(['{"q": 0.8, "f": 12}'])
+    states = _render_poll_states(['{"q": 0.8, "t": 8}'])
     monkeypatch.setattr(helpers, "js", states)
     assert helpers.wait_for_render(timeout=5.0, stable_ms=400) is True
 
 
 def test_wait_for_render_false_while_dom_keeps_mutating(monkeypatch):
-    states = _render_poll_states(['{"q": 0.1, "f": 30}'] * 50)
+    states = _render_poll_states(['{"q": 0.1, "t": 7}'] * 50)
     monkeypatch.setattr(helpers, "js", states)
     with patch("browser_harness.helpers.time") as mock_time:
         start = 1000.0
@@ -775,7 +775,7 @@ def test_wait_for_render_false_while_dom_keeps_mutating(monkeypatch):
 def test_wait_for_render_false_on_frozen_renderer(monkeypatch):
     # DOM quiet but zero rAF frames = the renderer is frozen, not settled —
     # this is exactly the state DOM-quiet-only judges misread as ready.
-    states = _render_poll_states(['{"q": 2.0, "f": 0}'] * 10)
+    states = _render_poll_states(['{"q": 2.0, "t": 0}'] * 10)
     monkeypatch.setattr(helpers, "js", states)
     with patch("browser_harness.helpers.time") as mock_time:
         start = 1000.0
@@ -785,7 +785,7 @@ def test_wait_for_render_false_on_frozen_renderer(monkeypatch):
 
 
 def test_wait_for_render_tolerates_ipc_timeout_mid_poll(monkeypatch):
-    it = iter([helpers._IPCResponseTimeout("slow"), '{"q": 0.9, "f": 5}'])
+    it = iter([helpers._IPCResponseTimeout("slow"), '{"q": 0.9, "t": 3}'])
 
     def fake_js(expr, **kwargs):
         if "__bh_render" in expr and "JSON.stringify" not in expr:
